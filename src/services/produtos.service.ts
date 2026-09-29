@@ -1,7 +1,28 @@
 import { gerarProximoProdutoId, produtos } from "../data/produtos.js";
 
+type FiltrosProdutos = {
+    nome?: string | undefined;
+    estoqueBaixo?: boolean | undefined;
+};
+
 export function obterTodosProdutos() {
     return produtos;
+}
+
+export function obterProdutosFiltrados(filtros: FiltrosProdutos) {
+    let produtosFiltrados = produtos;
+
+    if (filtros.nome !== undefined) {
+        produtosFiltrados = produtosFiltrados.filter((produto) => {
+            return produto.nome.toLowerCase().includes(filtros.nome!.toLowerCase());
+        });
+    }
+
+    if (filtros.estoqueBaixo === true) {
+        produtosFiltrados = produtosFiltrados.filter((produto) => produto.estoque <= 5);
+    }
+
+    return produtosFiltrados;
 }
 
 export function obterProdutoPorId(id: number) {

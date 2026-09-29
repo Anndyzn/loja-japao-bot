@@ -1,13 +1,27 @@
 import type { Request, Response } from "express";
 import type { StatusPedido } from "../data/pedidos.js";
 import { obterClientePorId } from "../services/clientes.service.js";
-import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosPorClienteId, obterTodosPedidos } from "../services/pedidos.service.js";
+import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
 
 export function listarPedidos(req: Request, res: Response) {
-    const todosPedidos = obterTodosPedidos();
+    const { status } = req.query;
 
-    return res.json(todosPedidos);
+    if (status !== undefined) {
+        const erroValidacao = validarAtualizacaoStatusPedido(status);
+
+        if (erroValidacao) {
+            return res.status(400).json({
+                mensagem: erroValidacao
+            });
+        }
+    }
+
+    const pedidosFiltrados = obterPedidosFiltrados({
+        status: status as StatusPedido | undefined
+    });
+
+    return res.json(pedidosFiltrados);
 }
 
 export function buscarPedidoPorId(req: Request, res: Response) {

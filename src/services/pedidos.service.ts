@@ -9,6 +9,10 @@ export type ItemPedidoEntrada = {
     quantidade: number;
 };
 
+type FiltrosPedidos = {
+    status?: StatusPedido | undefined;
+};
+
 type ResultadoCriacaoPedido = {
     pedido?: Pedido;
     mensagemErro?: string;
@@ -21,6 +25,16 @@ type ResultadoAtualizacaoStatusPedido = {
 
 export function obterTodosPedidos() {
     return pedidos;
+}
+
+export function obterPedidosFiltrados(filtros: FiltrosPedidos) {
+    let pedidosFiltrados = pedidos;
+
+    if (filtros.status !== undefined) {
+        pedidosFiltrados = pedidosFiltrados.filter((pedido) => pedido.status === filtros.status);
+    }
+
+    return pedidosFiltrados;
 }
 
 export function obterPedidoPorId(id: number) {

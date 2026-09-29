@@ -1,11 +1,28 @@
 import type { Request, Response } from "express";
-import { atualizarClientePorId, criarCliente, obterClientePorId, obterTodosClientes, removerClientePorId } from "../services/clientes.service.js";
+import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes.service.js";
 import { idEhInvalido, validarAtualizacaoCliente, validarCriacaoCliente } from "../utils/validacoes.js";
 
 export function listarClientes(req: Request, res: Response) {
-    const todosClientes = obterTodosClientes();
+    const { nome, telefone } = req.query;
 
-    return res.json(todosClientes);
+    if (nome !== undefined && typeof nome !== "string") {
+        return res.status(400).json({
+            mensagem: "Filtro nome deve ser texto"
+        });
+    }
+
+    if (telefone !== undefined && typeof telefone !== "string") {
+        return res.status(400).json({
+            mensagem: "Filtro telefone deve ser texto"
+        });
+    }
+
+    const clientesFiltrados = obterClientesFiltrados({
+        nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
+        telefone: typeof telefone === "string" && telefone.trim() !== "" ? telefone.trim() : undefined
+    });
+
+    return res.json(clientesFiltrados);
 }
 
 export function buscarClientePorId(req: Request, res: Response) {

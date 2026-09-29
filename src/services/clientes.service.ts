@@ -1,7 +1,30 @@
 import { clientes, gerarProximoClienteId } from "../data/clientes.js";
 
+type FiltrosClientes = {
+    nome?: string | undefined;
+    telefone?: string | undefined;
+};
+
 export function obterTodosClientes() {
     return clientes;
+}
+
+export function obterClientesFiltrados(filtros: FiltrosClientes) {
+    let clientesFiltrados = clientes;
+
+    if (filtros.nome !== undefined) {
+        clientesFiltrados = clientesFiltrados.filter((cliente) => {
+            return cliente.nome.toLowerCase().includes(filtros.nome!.toLowerCase());
+        });
+    }
+
+    if (filtros.telefone !== undefined) {
+        clientesFiltrados = clientesFiltrados.filter((cliente) => {
+            return cliente.telefone.includes(filtros.telefone!);
+        });
+    }
+
+    return clientesFiltrados;
 }
 
 export function obterClientePorId(id: number) {

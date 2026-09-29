@@ -2,6 +2,10 @@ import { gerarProximaSolicitacaoId, solicitacoes } from "../data/solicitacoes.js
 import type { SolicitacaoProduto, StatusSolicitacao } from "../data/solicitacoes.js";
 import { obterClientePorId } from "./clientes.service.js";
 
+type FiltrosSolicitacoes = {
+    status?: StatusSolicitacao | undefined;
+};
+
 type ResultadoCriacaoSolicitacao = {
     solicitacao?: SolicitacaoProduto;
     mensagemErro?: string;
@@ -9,6 +13,18 @@ type ResultadoCriacaoSolicitacao = {
 
 export function obterTodasSolicitacoes() {
     return solicitacoes;
+}
+
+export function obterSolicitacoesFiltradas(filtros: FiltrosSolicitacoes) {
+    let solicitacoesFiltradas = solicitacoes;
+
+    if (filtros.status !== undefined) {
+        solicitacoesFiltradas = solicitacoesFiltradas.filter((solicitacao) => {
+            return solicitacao.status === filtros.status;
+        });
+    }
+
+    return solicitacoesFiltradas;
 }
 
 export function obterSolicitacaoPorId(id: number) {

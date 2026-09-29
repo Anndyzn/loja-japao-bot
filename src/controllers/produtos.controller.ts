@@ -1,11 +1,28 @@
 import type { Request, Response } from "express";
-import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterTodosProdutos, removerProdutoPorId } from "../services/produtos.service.js";
+import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterProdutosFiltrados, removerProdutoPorId } from "../services/produtos.service.js";
 import { idEhInvalido, validarAtualizacaoProduto, validarCriacaoProduto } from "../utils/validacoes.js";
 
 export function listarProdutos(req: Request, res: Response) {
-    const todosProdutos = obterTodosProdutos();
+    const { nome, estoqueBaixo } = req.query;
 
-    return res.json(todosProdutos);
+    if (nome !== undefined && typeof nome !== "string") {
+        return res.status(400).json({
+            mensagem: "Filtro nome deve ser texto"
+        });
+    }
+
+    if (estoqueBaixo !== undefined && estoqueBaixo !== "true" && estoqueBaixo !== "false") {
+        return res.status(400).json({
+            mensagem: "Filtro estoqueBaixo deve ser true ou false"
+        });
+    }
+
+    const produtosFiltrados = obterProdutosFiltrados({
+        nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
+        estoqueBaixo: estoqueBaixo === "true"
+    });
+
+    return res.json(produtosFiltrados);
 }
 
 export function buscarProdutoPorId(req: Request, res: Response) {

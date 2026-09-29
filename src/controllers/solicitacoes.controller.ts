@@ -1,13 +1,27 @@
 import type { Request, Response } from "express";
 import type { StatusSolicitacao } from "../data/solicitacoes.js";
 import { obterClientePorId } from "../services/clientes.service.js";
-import { atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesPorClienteId, obterTodasSolicitacoes } from "../services/solicitacoes.service.js";
+import { atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
 import { idEhInvalido, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
 
 export function listarSolicitacoes(req: Request, res: Response) {
-    const todasSolicitacoes = obterTodasSolicitacoes();
+    const { status } = req.query;
 
-    return res.json(todasSolicitacoes);
+    if (status !== undefined) {
+        const erroValidacao = validarAtualizacaoStatusSolicitacao(status);
+
+        if (erroValidacao) {
+            return res.status(400).json({
+                mensagem: erroValidacao
+            });
+        }
+    }
+
+    const solicitacoesFiltradas = obterSolicitacoesFiltradas({
+        status: status as StatusSolicitacao | undefined
+    });
+
+    return res.json(solicitacoesFiltradas);
 }
 
 export function buscarSolicitacaoPorId(req: Request, res: Response) {
