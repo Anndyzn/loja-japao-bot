@@ -31,3 +31,12 @@ export const produtos: Produto[] = [
         estoque: 8
     }
 ];
+
+let proximoProdutoId = produtos.length + 1;
+
+export function gerarProximoProdutoId() {
+    const id = proximoProdutoId;
+    proximoProdutoId++;
+
+    return id;
+}
