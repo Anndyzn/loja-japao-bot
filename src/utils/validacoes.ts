@@ -149,3 +149,17 @@ export function validarAtualizacaoStatusSolicitacao(status: unknown) {
 
     return undefined;
 }
+
+export function validarCriacaoPagamento(pedidoId: unknown, metodo: unknown) {
+    const metodosValidos = ["pix", "cartao", "boleto"];
+
+    if (typeof pedidoId !== "number" || idEhInvalido(pedidoId)) {
+        return "Pedido ID deve ser um número inteiro positivo";
+    }
+
+    if (typeof metodo !== "string" || !metodosValidos.includes(metodo)) {
+        return "Método de pagamento deve ser pix, cartao ou boleto";
+    }
+
+    return undefined;
+}

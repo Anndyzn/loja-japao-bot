@@ -1,4 +1,5 @@
 import { obterTodosClientes } from "./clientes.service.js";
+import { obterTodosPagamentos } from "./pagamentos.service.js";
 import { obterTodosPedidos } from "./pedidos.service.js";
 import { obterTodosProdutos } from "./produtos.service.js";
 import { obterTodasSolicitacoes } from "./solicitacoes.service.js";
@@ -6,6 +7,7 @@ import { obterTodasSolicitacoes } from "./solicitacoes.service.js";
 export function obterResumoDashboard() {
     const produtos = obterTodosProdutos();
     const clientes = obterTodosClientes();
+    const pagamentos = obterTodosPagamentos();
     const pedidos = obterTodosPedidos();
     const solicitacoes = obterTodasSolicitacoes();
 
@@ -35,6 +37,10 @@ export function obterResumoDashboard() {
             pagos: pedidosPagos.length,
             enviados: pedidosEnviados.length,
             faturamentoConfirmado: Number(faturamentoConfirmado.toFixed(2))
+        },
+        pagamentos: {
+            total: pagamentos.length,
+            aprovados: pagamentos.length
         },
         solicitacoes: {
             total: solicitacoes.length,
