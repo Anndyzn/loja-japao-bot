@@ -114,3 +114,38 @@ export function validarAtualizacaoStatusPedido(status: unknown) {
 
     return undefined;
 }
+
+export function validarCriacaoSolicitacao(
+    clienteId: unknown,
+    nomeProduto: unknown,
+    descricao: unknown,
+    linkReferencia: unknown
+) {
+    if (typeof clienteId !== "number" || idEhInvalido(clienteId)) {
+        return "Cliente ID deve ser um número inteiro positivo";
+    }
+
+    if (typeof nomeProduto !== "string" || nomeProduto.trim() === "") {
+        return "Nome do produto deve ser um texto não vazio";
+    }
+
+    if (typeof descricao !== "string" || descricao.trim() === "") {
+        return "Descrição deve ser um texto não vazio";
+    }
+
+    if (linkReferencia !== undefined && (typeof linkReferencia !== "string" || linkReferencia.trim() === "")) {
+        return "Link de referência deve ser um texto não vazio";
+    }
+
+    return undefined;
+}
+
+export function validarAtualizacaoStatusSolicitacao(status: unknown) {
+    const statusValidos = ["recebida", "em_analise", "cotada", "aprovada", "recusada", "cancelada"];
+
+    if (typeof status !== "string" || !statusValidos.includes(status)) {
+        return "Status deve ser recebida, em_analise, cotada, aprovada, recusada ou cancelada";
+    }
+
+    return undefined;
+}

@@ -2,6 +2,7 @@ import express from "express";
 import { clientesRoutes } from "./routes/clientes.routes.js";
 import { pedidosRoutes } from "./routes/pedidos.routes.js";
 import { produtosRoutes } from "./routes/produtos.routes.js";
+import { solicitacoesRoutes } from "./routes/solicitacoes.routes.js";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get("/", (req, res) => {
 app.use("/produtos", produtosRoutes);
 app.use("/clientes", clientesRoutes);
 app.use("/pedidos", pedidosRoutes);
+app.use("/solicitacoes", solicitacoesRoutes);
 
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
