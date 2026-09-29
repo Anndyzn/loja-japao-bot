@@ -73,3 +73,44 @@ export function validarAtualizacaoCliente(nome: unknown, telefone: unknown, ende
 
     return undefined;
 }
+
+export function validarCriacaoPedido(clienteId: unknown, itens: unknown) {
+    if (typeof clienteId !== "number" || idEhInvalido(clienteId)) {
+        return "Cliente ID deve ser um número inteiro positivo";
+    }
+
+    if (!Array.isArray(itens) || itens.length === 0) {
+        return "Pedido deve ter ao menos um item";
+    }
+
+    for (const item of itens) {
+        if (typeof item !== "object" || item === null) {
+            return "Cada item do pedido deve ser um objeto";
+        }
+
+        const { produtoId, quantidade } = item as {
+            produtoId?: unknown;
+            quantidade?: unknown;
+        };
+
+        if (typeof produtoId !== "number" || idEhInvalido(produtoId)) {
+            return "Produto ID deve ser um número inteiro positivo";
+        }
+
+        if (typeof quantidade !== "number" || !Number.isInteger(quantidade) || quantidade <= 0) {
+            return "Quantidade deve ser um número inteiro maior que zero";
+        }
+    }
+
+    return undefined;
+}
+
+export function validarAtualizacaoStatusPedido(status: unknown) {
+    const statusValidos = ["pendente", "pago", "enviado", "cancelado"];
+
+    if (typeof status !== "string" || !statusValidos.includes(status)) {
+        return "Status deve ser pendente, pago, enviado ou cancelado";
+    }
+
+    return undefined;
+}
