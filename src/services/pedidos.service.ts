@@ -22,6 +22,10 @@ export function obterPedidoPorId(id: number) {
     return pedidos.find((pedido) => pedido.id === id);
 }
 
+export function obterPedidosPorClienteId(clienteId: number) {
+    return pedidos.filter((pedido) => pedido.clienteId === clienteId);
+}
+
 export function criarPedido(clienteId: number, itensEntrada: ItemPedidoEntrada[]): ResultadoCriacaoPedido {
     const cliente = obterClientePorId(clienteId);
 

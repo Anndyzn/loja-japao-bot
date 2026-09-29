@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import type { StatusPedido } from "../data/pedidos.js";
-import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterTodosPedidos } from "../services/pedidos.service.js";
+import { obterClientePorId } from "../services/clientes.service.js";
+import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosPorClienteId, obterTodosPedidos } from "../services/pedidos.service.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
 
 export function listarPedidos(req: Request, res: Response) {
@@ -27,6 +28,28 @@ export function buscarPedidoPorId(req: Request, res: Response) {
     }
 
     return res.json(pedido);
+}
+
+export function listarPedidosPorCliente(req: Request, res: Response) {
+    const clienteId = Number(req.params.clienteId);
+
+    if (idEhInvalido(clienteId)) {
+        return res.status(400).json({
+            mensagem: "Cliente ID deve ser um número inteiro positivo"
+        });
+    }
+
+    const cliente = obterClientePorId(clienteId);
+
+    if (!cliente) {
+        return res.status(404).json({
+            mensagem: "Cliente não encontrado"
+        });
+    }
+
+    const pedidosDoCliente = obterPedidosPorClienteId(clienteId);
+
+    return res.json(pedidosDoCliente);
 }
 
 export function cadastrarPedido(req: Request, res: Response) {
