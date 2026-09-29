@@ -14,6 +14,11 @@ type ResultadoCriacaoPedido = {
     mensagemErro?: string;
 };
 
+type ResultadoAtualizacaoStatusPedido = {
+    pedido?: Pedido;
+    mensagemErro?: string;
+};
+
 export function obterTodosPedidos() {
     return pedidos;
 }
@@ -92,14 +97,44 @@ export function criarPedido(clienteId: number, itensEntrada: ItemPedidoEntrada[]
     };
 }
 
-export function atualizarStatusPedidoPorId(id: number, status: StatusPedido) {
+function devolverItensAoEstoque(pedido: Pedido) {
+    for (const item of pedido.itens) {
+        const produto = obterProdutoPorId(item.produtoId);
+
+        if (produto) {
+            produto.estoque += item.quantidade;
+        }
+    }
+}
+
+export function atualizarStatusPedidoPorId(id: number, status: StatusPedido): ResultadoAtualizacaoStatusPedido {
     const pedido = obterPedidoPorId(id);
 
     if (!pedido) {
-        return undefined;
+        return {
+            mensagemErro: "Pedido não encontrado"
+        };
+    }
+
+    if (pedido.status === "cancelado") {
+        return {
+            mensagemErro: "Pedido cancelado não pode mudar de status"
+        };
+    }
+
+    if (pedido.status === status) {
+        return {
+            pedido
+        };
+    }
+
+    if (status === "cancelado") {
+        devolverItensAoEstoque(pedido);
     }
 
     pedido.status = status;
 
-    return pedido;
+    return {
+        pedido
+    };
 }

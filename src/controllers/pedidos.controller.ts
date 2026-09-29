@@ -93,13 +93,19 @@ export function atualizarStatusPedido(req: Request, res: Response) {
         });
     }
 
-    const pedido = atualizarStatusPedidoPorId(id, status as StatusPedido);
+    const resultado = atualizarStatusPedidoPorId(id, status as StatusPedido);
 
-    if (!pedido) {
+    if (resultado.mensagemErro === "Pedido não encontrado") {
         return res.status(404).json({
-            mensagem: "Pedido não encontrado"
+            mensagem: resultado.mensagemErro
         });
     }
 
-    return res.json(pedido);
+    if (resultado.mensagemErro) {
+        return res.status(400).json({
+            mensagem: resultado.mensagemErro
+        });
+    }
+
+    return res.json(resultado.pedido);
 }
