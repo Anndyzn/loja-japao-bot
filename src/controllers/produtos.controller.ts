@@ -1,14 +1,23 @@
 import type { Request, Response } from "express";
-import { gerarProximoProdutoId, produtos } from "../data/produtos.js";
+import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterTodosProdutos, removerProdutoPorId } from "../services/produtos.service.js";
+import { idEhInvalido, validarAtualizacaoProduto, validarCriacaoProduto } from "../utils/validacoes.js";
 
 export function listarProdutos(req: Request, res: Response) {
-    return res.json(produtos);
+    const todosProdutos = obterTodosProdutos();
+
+    return res.json(todosProdutos);
 }
 
 export function buscarProdutoPorId(req: Request, res: Response) {
     const id = Number(req.params.id);
 
-    const produto = produtos.find((produto) => produto.id === id);
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um número inteiro positivo"
+        });
+    }
+
+    const produto = obterProdutoPorId(id);
 
     if (!produto) {
         return res.status(404).json({
@@ -22,20 +31,15 @@ export function buscarProdutoPorId(req: Request, res: Response) {
 export function cadastrarProduto(req: Request, res: Response) {
     const { nome, preco, estoque } = req.body;
 
-    if (!nome || preco === undefined || estoque === undefined) {
+    const erroValidacao = validarCriacaoProduto(nome, preco, estoque);
+
+    if (erroValidacao) {
         return res.status(400).json({
-            mensagem: "Nome, preço e estoque são obrigatorios"
+            mensagem: erroValidacao
         });
     }
 
-    const novoProduto = {
-        id: gerarProximoProdutoId(),
-        nome,
-        preco,
-        estoque
-    };
-
-    produtos.push(novoProduto);
+    const novoProduto = criarProduto(nome.trim(), preco, estoque);
 
     return res.status(201).json(novoProduto);
 }
@@ -43,26 +47,30 @@ export function cadastrarProduto(req: Request, res: Response) {
 export function atualizarProduto(req: Request, res: Response) {
     const id = Number(req.params.id);
 
-    const produto = produtos.find((produto) => produto.id === id);
-
-    if (!produto) {
-        return res.status(404).json({
-            mensagem: "Produto não encontrado"
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um número inteiro positivo"
         });
     }
 
     const { nome, preco, estoque } = req.body;
 
-    if (nome !== undefined) {
-        produto.nome = nome;
+    const erroValidacao = validarAtualizacaoProduto(nome, preco, estoque);
+
+    if (erroValidacao) {
+        return res.status(400).json({
+            mensagem: erroValidacao
+        });
     }
 
-    if (preco !== undefined) {
-        produto.preco = preco;
-    }
+    const nomeAtualizado = typeof nome === "string" ? nome.trim() : nome;
 
-    if (estoque !== undefined) {
-        produto.estoque = estoque;
+    const produto = atualizarProdutoPorId(id, nomeAtualizado, preco, estoque);
+
+    if (!produto) {
+        return res.status(404).json({
+            mensagem: "Produto não encontrado"
+        });
     }
 
     return res.json(produto);
@@ -71,15 +79,19 @@ export function atualizarProduto(req: Request, res: Response) {
 export function removerProduto(req: Request, res: Response) {
     const id = Number(req.params.id);
 
-    const indiceProduto = produtos.findIndex((produto) => produto.id === id);
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um número inteiro positivo"
+        });
+    }
 
-    if (indiceProduto === -1) {
+    const produtoFoiRemovido = removerProdutoPorId(id);
+
+    if (!produtoFoiRemovido) {
         return res.status(404).json({
             mensagem: "Produto não encontrado"
         });
     }
-
-    produtos.splice(indiceProduto, 1);
 
     return res.json({
         mensagem: "Produto removido com sucesso"
