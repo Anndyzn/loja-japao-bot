@@ -37,3 +37,39 @@ export function validarAtualizacaoProduto(nome: unknown, preco: unknown, estoque
 
     return undefined;
 }
+
+export function validarCriacaoCliente(nome: unknown, telefone: unknown, endereco: unknown) {
+    if (typeof nome !== "string" || nome.trim() === "") {
+        return "Nome deve ser um texto não vazio";
+    }
+
+    if (typeof telefone !== "string" || telefone.trim() === "") {
+        return "Telefone deve ser um texto não vazio";
+    }
+
+    if (typeof endereco !== "string" || endereco.trim() === "") {
+        return "Endereço deve ser um texto não vazio";
+    }
+
+    return undefined;
+}
+
+export function validarAtualizacaoCliente(nome: unknown, telefone: unknown, endereco: unknown) {
+    if (nome === undefined && telefone === undefined && endereco === undefined) {
+        return "Informe ao menos um campo para atualizar";
+    }
+
+    if (nome !== undefined && (typeof nome !== "string" || nome.trim() === "")) {
+        return "Nome deve ser um texto não vazio";
+    }
+
+    if (telefone !== undefined && (typeof telefone !== "string" || telefone.trim() === "")) {
+        return "Telefone deve ser um texto não vazio";
+    }
+
+    if (endereco !== undefined && (typeof endereco !== "string" || endereco.trim() === "")) {
+        return "Endereço deve ser um texto não vazio";
+    }
+
+    return undefined;
+}

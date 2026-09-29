@@ -1,4 +1,5 @@
 import express from "express";
+import { clientesRoutes } from "./routes/clientes.routes.js";
 import { produtosRoutes } from "./routes/produtos.routes.js";
 
 const app = express();
@@ -12,6 +13,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/produtos", produtosRoutes);
+app.use("/clientes", clientesRoutes);
 
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
