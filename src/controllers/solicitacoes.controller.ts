@@ -2,10 +2,11 @@ import type { Request, Response } from "express";
 import type { StatusSolicitacao } from "../data/solicitacoes.js";
 import { obterClientePorId } from "../services/clientes.service.js";
 import { atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
+import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
 
 export function listarSolicitacoes(req: Request, res: Response) {
-    const { status } = req.query;
+    const { status, pagina, limite } = req.query;
 
     if (status !== undefined) {
         const erroValidacao = validarAtualizacaoStatusSolicitacao(status);
@@ -21,7 +22,15 @@ export function listarSolicitacoes(req: Request, res: Response) {
         status: status as StatusSolicitacao | undefined
     });
 
-    return res.json(solicitacoesFiltradas);
+    const paginacao = obterParametrosPaginacao(pagina, limite);
+
+    if (paginacao.mensagemErro) {
+        return res.status(400).json({
+            mensagem: paginacao.mensagemErro
+        });
+    }
+
+    return res.json(paginarLista(solicitacoesFiltradas, paginacao.pagina!, paginacao.limite!));
 }
 
 export function buscarSolicitacaoPorId(req: Request, res: Response) {
@@ -63,7 +72,17 @@ export function listarSolicitacoesPorCliente(req: Request, res: Response) {
 
     const solicitacoesDoCliente = obterSolicitacoesPorClienteId(clienteId);
 
-    return res.json(solicitacoesDoCliente);
+    const { pagina, limite } = req.query;
+
+    const paginacao = obterParametrosPaginacao(pagina, limite);
+
+    if (paginacao.mensagemErro) {
+        return res.status(400).json({
+            mensagem: paginacao.mensagemErro
+        });
+    }
+
+    return res.json(paginarLista(solicitacoesDoCliente, paginacao.pagina!, paginacao.limite!));
 }
 
 export function cadastrarSolicitacao(req: Request, res: Response) {

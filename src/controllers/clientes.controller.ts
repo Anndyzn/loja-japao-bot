@@ -1,9 +1,10 @@
 import type { Request, Response } from "express";
 import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes.service.js";
+import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoCliente, validarCriacaoCliente } from "../utils/validacoes.js";
 
 export function listarClientes(req: Request, res: Response) {
-    const { nome, telefone } = req.query;
+    const { nome, telefone, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
         return res.status(400).json({
@@ -22,7 +23,15 @@ export function listarClientes(req: Request, res: Response) {
         telefone: typeof telefone === "string" && telefone.trim() !== "" ? telefone.trim() : undefined
     });
 
-    return res.json(clientesFiltrados);
+    const paginacao = obterParametrosPaginacao(pagina, limite);
+
+    if (paginacao.mensagemErro) {
+        return res.status(400).json({
+            mensagem: paginacao.mensagemErro
+        });
+    }
+
+    return res.json(paginarLista(clientesFiltrados, paginacao.pagina!, paginacao.limite!));
 }
 
 export function buscarClientePorId(req: Request, res: Response) {

@@ -1,9 +1,10 @@
 import type { Request, Response } from "express";
 import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterProdutosFiltrados, removerProdutoPorId } from "../services/produtos.service.js";
+import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoProduto, validarCriacaoProduto } from "../utils/validacoes.js";
 
 export function listarProdutos(req: Request, res: Response) {
-    const { nome, estoqueBaixo } = req.query;
+    const { nome, estoqueBaixo, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
         return res.status(400).json({
@@ -22,7 +23,15 @@ export function listarProdutos(req: Request, res: Response) {
         estoqueBaixo: estoqueBaixo === "true"
     });
 
-    return res.json(produtosFiltrados);
+    const paginacao = obterParametrosPaginacao(pagina, limite);
+
+    if (paginacao.mensagemErro) {
+        return res.status(400).json({
+            mensagem: paginacao.mensagemErro
+        });
+    }
+
+    return res.json(paginarLista(produtosFiltrados, paginacao.pagina!, paginacao.limite!));
 }
 
 export function buscarProdutoPorId(req: Request, res: Response) {

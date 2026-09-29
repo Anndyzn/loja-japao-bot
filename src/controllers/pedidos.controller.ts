@@ -2,10 +2,11 @@ import type { Request, Response } from "express";
 import type { StatusPedido } from "../data/pedidos.js";
 import { obterClientePorId } from "../services/clientes.service.js";
 import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
+import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
 
 export function listarPedidos(req: Request, res: Response) {
-    const { status } = req.query;
+    const { status, pagina, limite } = req.query;
 
     if (status !== undefined) {
         const erroValidacao = validarAtualizacaoStatusPedido(status);
@@ -21,7 +22,15 @@ export function listarPedidos(req: Request, res: Response) {
         status: status as StatusPedido | undefined
     });
 
-    return res.json(pedidosFiltrados);
+    const paginacao = obterParametrosPaginacao(pagina, limite);
+
+    if (paginacao.mensagemErro) {
+        return res.status(400).json({
+            mensagem: paginacao.mensagemErro
+        });
+    }
+
+    return res.json(paginarLista(pedidosFiltrados, paginacao.pagina!, paginacao.limite!));
 }
 
 export function buscarPedidoPorId(req: Request, res: Response) {
@@ -63,7 +72,17 @@ export function listarPedidosPorCliente(req: Request, res: Response) {
 
     const pedidosDoCliente = obterPedidosPorClienteId(clienteId);
 
-    return res.json(pedidosDoCliente);
+    const { pagina, limite } = req.query;
+
+    const paginacao = obterParametrosPaginacao(pagina, limite);
+
+    if (paginacao.mensagemErro) {
+        return res.status(400).json({
+            mensagem: paginacao.mensagemErro
+        });
+    }
+
+    return res.json(paginarLista(pedidosDoCliente, paginacao.pagina!, paginacao.limite!));
 }
 
 export function cadastrarPedido(req: Request, res: Response) {
