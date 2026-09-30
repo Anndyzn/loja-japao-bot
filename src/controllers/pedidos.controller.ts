@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { StatusPedido } from "../data/pedidos.js";
+import { obterAcompanhamentoPedido } from "../services/acompanhamento.service.js";
 import { obterClientePorId } from "../services/clientes.service.js";
 import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
@@ -51,6 +52,26 @@ export function buscarPedidoPorId(req: Request, res: Response) {
     }
 
     return res.json(pedido);
+}
+
+export function acompanharPedido(req: Request, res: Response) {
+    const id = Number(req.params.id);
+
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um número inteiro positivo"
+        });
+    }
+
+    const acompanhamento = obterAcompanhamentoPedido(id);
+
+    if (!acompanhamento) {
+        return res.status(404).json({
+            mensagem: "Pedido não encontrado"
+        });
+    }
+
+    return res.json(acompanhamento);
 }
 
 export function listarPedidosPorCliente(req: Request, res: Response) {
