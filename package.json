@@ -9,6 +9,7 @@
     "db:down": "docker compose down",
     "db:generate": "npx --yes prisma@7.10.0 generate",
     "db:migrate": "npx --yes prisma@7.10.0 migrate dev",
+    "db:seed": "node scripts/seed-produtos.mjs",
     "db:studio": "npx --yes prisma@7.10.0 studio"
   },
   "keywords": [],
@@ -22,7 +23,9 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "pg": "^8.23.0"
   }
 }

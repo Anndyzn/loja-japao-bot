@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
-import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterProdutosFiltrados, removerProdutoPorId } from "../services/produtos.service.js";
+import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterProdutosFiltrados, removerProdutoPorId } from "../services/produtos-db.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoProduto, validarCriacaoProduto } from "../utils/validacoes.js";
 
-export function listarProdutos(req: Request, res: Response) {
+export async function listarProdutos(req: Request, res: Response) {
     const { nome, estoqueBaixo, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
@@ -18,7 +18,7 @@ export function listarProdutos(req: Request, res: Response) {
         });
     }
 
-    const produtosFiltrados = obterProdutosFiltrados({
+    const produtosFiltrados = await obterProdutosFiltrados({
         nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
         estoqueBaixo: estoqueBaixo === "true"
     });
@@ -34,7 +34,7 @@ export function listarProdutos(req: Request, res: Response) {
     return res.json(paginarLista(produtosFiltrados, paginacao.pagina!, paginacao.limite!));
 }
 
-export function buscarProdutoPorId(req: Request, res: Response) {
+export async function buscarProdutoPorId(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
@@ -43,7 +43,7 @@ export function buscarProdutoPorId(req: Request, res: Response) {
         });
     }
 
-    const produto = obterProdutoPorId(id);
+    const produto = await obterProdutoPorId(id);
 
     if (!produto) {
         return res.status(404).json({
@@ -54,7 +54,7 @@ export function buscarProdutoPorId(req: Request, res: Response) {
     return res.json(produto);
 }
 
-export function cadastrarProduto(req: Request, res: Response) {
+export async function cadastrarProduto(req: Request, res: Response) {
     const { nome, preco, estoque } = req.body;
 
     const erroValidacao = validarCriacaoProduto(nome, preco, estoque);
@@ -65,12 +65,12 @@ export function cadastrarProduto(req: Request, res: Response) {
         });
     }
 
-    const novoProduto = criarProduto(nome.trim(), preco, estoque);
+    const novoProduto = await criarProduto(nome.trim(), preco, estoque);
 
     return res.status(201).json(novoProduto);
 }
 
-export function atualizarProduto(req: Request, res: Response) {
+export async function atualizarProduto(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
@@ -91,7 +91,7 @@ export function atualizarProduto(req: Request, res: Response) {
 
     const nomeAtualizado = typeof nome === "string" ? nome.trim() : nome;
 
-    const produto = atualizarProdutoPorId(id, nomeAtualizado, preco, estoque);
+    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque);
 
     if (!produto) {
         return res.status(404).json({
@@ -102,7 +102,7 @@ export function atualizarProduto(req: Request, res: Response) {
     return res.json(produto);
 }
 
-export function removerProduto(req: Request, res: Response) {
+export async function removerProduto(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
@@ -111,7 +111,7 @@ export function removerProduto(req: Request, res: Response) {
         });
     }
 
-    const produtoFoiRemovido = removerProdutoPorId(id);
+    const produtoFoiRemovido = await removerProdutoPorId(id);
 
     if (!produtoFoiRemovido) {
         return res.status(404).json({
