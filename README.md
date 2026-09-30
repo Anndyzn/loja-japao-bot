@@ -80,6 +80,12 @@ A tela admin roda em:
 http://localhost:3000/admin
 ```
 
+A loja publica roda em:
+
+```txt
+http://localhost:3000/loja
+```
+
 Se o PowerShell bloquear `npm`, use `npm.cmd`:
 
 ```bash

@@ -12,6 +12,7 @@ const app = express();
 
 app.use(express.json());
 app.use("/admin", express.static("public/admin"));
+app.use("/loja", express.static("public/loja"));
 
 const PORT = 3000;
 

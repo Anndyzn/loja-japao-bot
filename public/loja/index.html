@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Loja Japao</title>
+    <link rel="stylesheet" href="/loja/styles.css">
+</head>
+<body>
+    <main class="store-page">
+        <section class="hero">
+            <img src="/loja/assets/hero-produtos-japao.png" alt="" class="hero-image">
+            <div class="hero-content">
+                <p class="eyebrow">Importados do Japao</p>
+                <h1>Doces, presentes e achadinhos japoneses</h1>
+                <p>Escolha seus produtos, monte o carrinho e finalize o pedido em poucos passos.</p>
+                <a href="#catalogo" class="hero-button">Ver produtos</a>
+            </div>
+        </section>
+
+        <section class="shop-layout" id="catalogo">
+            <section class="catalog-section">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Catalogo</p>
+                        <h2>Produtos disponiveis</h2>
+                    </div>
+                    <button id="reload-products" type="button">Atualizar</button>
+                </div>
+
+                <div id="products-grid" class="products-grid"></div>
+            </section>
+
+            <aside class="cart-panel">
+                <div class="cart-header">
+                    <div>
+                        <p class="eyebrow">Pedido</p>
+                        <h2>Carrinho</h2>
+                    </div>
+                    <button id="clear-cart" class="ghost-button" type="button">Limpar</button>
+                </div>
+
+                <div id="cart-items" class="cart-items"></div>
+
+                <div class="cart-total">
+                    <span>Total</span>
+                    <strong id="cart-total">R$ 0,00</strong>
+                </div>
+
+                <form id="checkout-form" class="checkout-form">
+                    <label>
+                        Nome
+                        <input name="nome" type="text" autocomplete="name" required>
+                    </label>
+
+                    <label>
+                        Telefone
+                        <input name="telefone" type="tel" autocomplete="tel" required>
+                    </label>
+
+                    <label>
+                        Endereco
+                        <input name="endereco" type="text" autocomplete="street-address" required>
+                    </label>
+
+                    <label>
+                        Pagamento
+                        <select name="metodo" required>
+                            <option value="pix">Pix</option>
+                            <option value="cartao">Cartao</option>
+                            <option value="boleto">Boleto</option>
+                        </select>
+                    </label>
+
+                    <button type="submit">Finalizar pedido</button>
+                </form>
+
+                <p id="store-feedback" class="feedback" role="status"></p>
+            </aside>
+        </section>
+    </main>
+
+    <script src="/loja/app.js" type="module"></script>
+</body>
+</html>
