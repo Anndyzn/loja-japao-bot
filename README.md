@@ -74,6 +74,12 @@ A API roda em:
 http://localhost:3000
 ```
 
+A tela admin roda em:
+
+```txt
+http://localhost:3000/admin
+```
+
 Se o PowerShell bloquear `npm`, use `npm.cmd`:
 
 ```bash
@@ -473,7 +479,13 @@ Exemplo de fluxo futuro:
 
 ## Admin
 
-A tela de login futura sera para admin, nao para o cliente comum.
+A tela de login e para admin, nao para o cliente comum.
+
+Primeira versao da tela admin:
+
+```txt
+http://localhost:3000/admin
+```
 
 O admin podera:
 

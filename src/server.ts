@@ -11,6 +11,7 @@ import { solicitacoesRoutes } from "./routes/solicitacoes.routes.js";
 const app = express();
 
 app.use(express.json());
+app.use("/admin", express.static("public/admin"));
 
 const PORT = 3000;
 
