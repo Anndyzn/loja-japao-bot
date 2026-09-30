@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StatusPedido {
+  pendente
+  pago
+  enviado
+  cancelado
+}
+
+enum MetodoPagamento {
+  pix
+  cartao
+  boleto
+}
+
+enum StatusPagamento {
+  aprovado
+}
+
+enum StatusSolicitacao {
+  recebida
+  em_analise
+  cotada
+  aprovada
+  recusada
+  cancelada
+}
+
+model Produto {
+  id        Int          @id @default(autoincrement())
+  nome      String
+  preco     Decimal      @db.Decimal(10, 2)
+  estoque   Int
+  itens     ItemPedido[]
+  criadoEm  DateTime     @default(now())
+  atualizadoEm DateTime  @updatedAt
+}
+
+model Cliente {
+  id           Int                  @id @default(autoincrement())
+  nome         String
+  telefone     String
+  endereco     String
+  pedidos      Pedido[]
+  solicitacoes SolicitacaoProduto[]
+  criadoEm     DateTime             @default(now())
+  atualizadoEm DateTime             @updatedAt
+}
+
+model Pedido {
+  id           Int          @id @default(autoincrement())
+  clienteId    Int
+  cliente      Cliente      @relation(fields: [clienteId], references: [id])
+  itens        ItemPedido[]
+  pagamentos   Pagamento[]
+  total        Decimal      @db.Decimal(10, 2)
+  status       StatusPedido @default(pendente)
+  criadoEm     DateTime     @default(now())
+  atualizadoEm DateTime     @updatedAt
+}
+
+model ItemPedido {
+  id            Int     @id @default(autoincrement())
+  pedidoId      Int
+  pedido        Pedido  @relation(fields: [pedidoId], references: [id])
+  produtoId     Int
+  produto       Produto @relation(fields: [produtoId], references: [id])
+  nomeProduto   String
+  quantidade    Int
+  precoUnitario Decimal @db.Decimal(10, 2)
+  subtotal      Decimal @db.Decimal(10, 2)
+}
+
+model Pagamento {
+  id        Int             @id @default(autoincrement())
+  pedidoId  Int
+  pedido    Pedido          @relation(fields: [pedidoId], references: [id])
+  valor     Decimal         @db.Decimal(10, 2)
+  metodo    MetodoPagamento
+  status    StatusPagamento @default(aprovado)
+  criadoEm  DateTime        @default(now())
+}
+
+model SolicitacaoProduto {
+  id             Int               @id @default(autoincrement())
+  clienteId      Int
+  cliente        Cliente           @relation(fields: [clienteId], references: [id])
+  nomeProduto    String
+  descricao      String
+  linkReferencia String?
+  status         StatusSolicitacao @default(recebida)
+  criadoEm       DateTime          @default(now())
+  atualizadoEm   DateTime          @updatedAt
+}
