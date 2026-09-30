@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Acompanhamento | Loja Japao</title>
+    <link rel="stylesheet" href="/loja/styles.css">
+</head>
+<body>
+    <main class="tracking-page">
+        <header class="store-topbar checkout-topbar">
+            <a class="brand-link" href="/loja">
+                <span>Loja Japao</span>
+            </a>
+
+            <div class="topbar-actions">
+                <a class="cart-link muted-link" href="/loja">Continuar comprando</a>
+                <a class="cart-link" href="/loja/carrinho">Carrinho</a>
+            </div>
+        </header>
+
+        <section class="tracking-shell">
+            <div class="tracking-heading">
+                <p class="eyebrow">Acompanhamento</p>
+                <h1>Consulte seu pedido</h1>
+            </div>
+
+            <form id="tracking-form" class="tracking-form">
+                <label>
+                    Numero do pedido
+                    <input id="pedido-id" name="pedidoId" type="number" min="1" step="1" required>
+                </label>
+
+                <button type="submit">Buscar pedido</button>
+            </form>
+
+            <section id="tracking-result" class="tracking-result hidden"></section>
+            <p id="tracking-feedback" class="feedback" role="status"></p>
+        </section>
+    </main>
+
+    <script src="/loja/acompanhamento.js" type="module"></script>
+</body>
+</html>

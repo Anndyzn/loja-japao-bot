@@ -43,7 +43,7 @@ export async function obterAcompanhamentoPedido(pedidoId: number) {
 
     const pagamentoAprovado = pedido.pagamentos.find((pagamento) => pagamento.status === "aprovado");
 
-    return {
+    const acompanhamento = {
         pedidoId: pedido.id,
         status: pedido.status,
         mensagem: obterMensagemAcompanhamento(pedido.status),
@@ -76,4 +76,13 @@ export async function obterAcompanhamentoPedido(pedidoId: number) {
         total: Number(pedido.total),
         criadoEm: pedido.criadoEm.toISOString()
     };
+
+    if (pedido.observacao !== null) {
+        return {
+            ...acompanhamento,
+            observacao: pedido.observacao
+        };
+    }
+
+    return acompanhamento;
 }

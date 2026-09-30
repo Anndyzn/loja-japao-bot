@@ -197,7 +197,7 @@ p {
 
 .product-form {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 140px 120px auto;
+    grid-template-columns: minmax(220px, 1fr) 140px 120px 170px auto;
     align-items: end;
     gap: 12px;
     background: var(--panel);
@@ -206,11 +206,47 @@ p {
     padding: 16px;
 }
 
+.upload-control {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.upload-control .small-button {
+    width: 100%;
+    justify-content: center;
+}
+
+.file-input-hidden {
+    display: none;
+}
+
 .table-shell {
     overflow-x: auto;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 8px;
+}
+
+.product-thumb {
+    width: 58px;
+    height: 58px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #f4f0e9;
+    color: var(--muted);
+    object-fit: cover;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.placeholder-thumb {
+    padding: 6px;
 }
 
 table {
@@ -286,6 +322,48 @@ tr:last-child td {
     color: var(--accent-dark);
 }
 
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    background: rgba(31, 28, 24, 0.38);
+    padding: 20px;
+}
+
+.modal-panel {
+    width: min(460px, 100%);
+    display: grid;
+    gap: 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 24px 70px rgba(29, 27, 23, 0.22);
+    padding: 22px;
+}
+
+.modal-panel-wide {
+    width: min(760px, 100%);
+}
+
+.modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.field-wide {
+    grid-column: 1 / -1;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 @media (max-width: 860px) {
     .app-view {
         grid-template-columns: 1fr;
@@ -307,7 +385,12 @@ tr:last-child td {
     }
 
     .stats-grid,
-    .product-form {
+    .product-form,
+    .modal-grid {
         grid-template-columns: 1fr;
+    }
+
+    .field-wide {
+        grid-column: auto;
     }
 }

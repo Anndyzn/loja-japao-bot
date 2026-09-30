@@ -1,13 +1,21 @@
 const productsGrid = document.querySelector("#products-grid");
 const reloadProducts = document.querySelector("#reload-products");
-const cartItems = document.querySelector("#cart-items");
-const cartTotal = document.querySelector("#cart-total");
-const clearCartButton = document.querySelector("#clear-cart");
-const checkoutForm = document.querySelector("#checkout-form");
+const cartCount = document.querySelector("#cart-count");
+const cartTotalPreview = document.querySelector("#cart-total-preview");
 const feedback = document.querySelector("#store-feedback");
+const floatingCartButton = document.querySelector("#floating-cart-button");
+const floatingCartCount = document.querySelector("#floating-cart-count");
+const cartBackdrop = document.querySelector("#cart-backdrop");
+const cartDrawer = document.querySelector("#cart-drawer");
+const closeCartDrawer = document.querySelector("#close-cart-drawer");
+const drawerCartItems = document.querySelector("#drawer-cart-items");
+const drawerCartTotal = document.querySelector("#drawer-cart-total");
+const drawerClearCart = document.querySelector("#drawer-clear-cart");
+
+const CHAVE_CARRINHO = "lojaJapaoCarrinho";
 
 let produtos = [];
-const carrinho = new Map();
+let carrinho = carregarCarrinho();
 
 function formatarMoeda(valor) {
     return Number(valor).toLocaleString("pt-BR", {
@@ -19,6 +27,49 @@ function formatarMoeda(valor) {
 function setFeedback(mensagem, tipo = "") {
     feedback.textContent = mensagem;
     feedback.className = `feedback ${tipo}`.trim();
+}
+
+function carregarCarrinho() {
+    try {
+        const itens = JSON.parse(localStorage.getItem(CHAVE_CARRINHO) ?? "[]");
+
+        if (!Array.isArray(itens)) {
+            return new Map();
+        }
+
+        return new Map(
+            itens
+                .filter((item) => item?.produto?.id && Number.isInteger(item.quantidade) && item.quantidade > 0)
+                .map((item) => [item.produto.id, item])
+        );
+    } catch {
+        return new Map();
+    }
+}
+
+function salvarCarrinho() {
+    localStorage.setItem(CHAVE_CARRINHO, JSON.stringify(Array.from(carrinho.values())));
+    atualizarResumoCarrinho();
+    renderizarCarrinhoRapido();
+}
+
+function calcularTotal() {
+    return Array.from(carrinho.values()).reduce((total, item) => {
+        return total + Number(item.produto.preco) * item.quantidade;
+    }, 0);
+}
+
+function calcularQuantidadeItens() {
+    return Array.from(carrinho.values()).reduce((total, item) => total + item.quantidade, 0);
+}
+
+function atualizarResumoCarrinho() {
+    const quantidade = calcularQuantidadeItens();
+
+    cartCount.textContent = String(quantidade);
+    floatingCartCount.textContent = String(quantidade);
+    cartTotalPreview.textContent = `${formatarMoeda(calcularTotal())} no carrinho`;
+    floatingCartButton.classList.toggle("has-items", quantidade > 0);
 }
 
 async function apiFetch(caminho, opcoes = {}) {
@@ -45,46 +96,34 @@ function obterQuantidadeNoCarrinho(produtoId) {
     return carrinho.get(produtoId)?.quantidade ?? 0;
 }
 
-function calcularTotal() {
-    return Array.from(carrinho.values()).reduce((total, item) => {
-        return total + item.produto.preco * item.quantidade;
-    }, 0);
-}
+function sincronizarCarrinhoComProdutos() {
+    let mudou = false;
 
-function renderizarCarrinho() {
-    const itens = Array.from(carrinho.values());
+    for (const [produtoId, item] of carrinho) {
+        const produtoAtualizado = produtos.find((produto) => produto.id === produtoId);
 
-    if (itens.length === 0) {
-        cartItems.innerHTML = `<p class="feedback">Seu carrinho esta vazio.</p>`;
-    } else {
-        cartItems.replaceChildren(...itens.map(({ produto, quantidade }) => {
-            const item = document.createElement("article");
-            item.className = "cart-item";
+        if (!produtoAtualizado || produtoAtualizado.estoque <= 0) {
+            carrinho.delete(produtoId);
+            mudou = true;
+            continue;
+        }
 
-            const info = document.createElement("div");
-        const titulo = document.createElement("p");
-        titulo.className = "cart-item-title";
-        titulo.textContent = produto.nome;
+        const quantidade = Math.min(item.quantidade, produtoAtualizado.estoque);
 
-        const detalhe = document.createElement("p");
-        detalhe.className = "cart-item-detail";
-        detalhe.textContent = `${quantidade} x ${formatarMoeda(produto.preco)}`;
-
-        info.append(titulo, detalhe);
-
-            const remover = document.createElement("button");
-            remover.type = "button";
-            remover.className = "ghost-button";
-            remover.textContent = "-";
-            remover.addEventListener("click", () => removerDoCarrinho(produto.id));
-
-            item.append(info, remover);
-            return item;
-        }));
+        if (quantidade !== item.quantidade || item.produto.preco !== produtoAtualizado.preco) {
+            carrinho.set(produtoId, {
+                produto: produtoAtualizado,
+                quantidade
+            });
+            mudou = true;
+        }
     }
 
-    cartTotal.textContent = formatarMoeda(calcularTotal());
-    renderizarProdutos();
+    if (mudou) {
+        salvarCarrinho();
+    } else {
+        atualizarResumoCarrinho();
+    }
 }
 
 function adicionarAoCarrinho(produto, quantidade) {
@@ -101,27 +140,107 @@ function adicionarAoCarrinho(produto, quantidade) {
         quantidade: novaQuantidade
     });
 
+    salvarCarrinho();
     setFeedback(`${produto.nome} adicionado ao carrinho.`, "success");
-    renderizarCarrinho();
+    renderizarProdutos();
+    abrirCarrinhoRapido();
 }
 
-function removerDoCarrinho(produtoId) {
+function alterarQuantidade(produtoId, novaQuantidade) {
     const item = carrinho.get(produtoId);
 
     if (!item) {
         return;
     }
 
-    if (item.quantidade <= 1) {
+    if (novaQuantidade <= 0) {
         carrinho.delete(produtoId);
     } else {
         carrinho.set(produtoId, {
             ...item,
-            quantidade: item.quantidade - 1
+            quantidade: Math.min(novaQuantidade, item.produto.estoque)
         });
     }
 
-    renderizarCarrinho();
+    salvarCarrinho();
+    renderizarProdutos();
+}
+
+function criarItemCarrinhoRapido(item) {
+    const { produto, quantidade } = item;
+    const card = document.createElement("article");
+    card.className = "drawer-cart-item";
+
+    const imagemBox = document.createElement("div");
+    imagemBox.className = "drawer-item-image";
+
+    if (produto.imagemUrl) {
+        const imagem = document.createElement("img");
+        imagem.src = produto.imagemUrl;
+        imagem.alt = produto.nome;
+        imagemBox.append(imagem);
+    } else {
+        imagemBox.textContent = produto.nome.slice(0, 2).toUpperCase();
+    }
+
+    const info = document.createElement("div");
+    info.className = "drawer-item-info";
+
+    const nome = document.createElement("p");
+    nome.className = "cart-item-title";
+    nome.textContent = produto.nome;
+
+    const detalhe = document.createElement("p");
+    detalhe.className = "cart-item-detail";
+    detalhe.textContent = `${quantidade} x ${formatarMoeda(produto.preco)}`;
+
+    info.append(nome, detalhe);
+
+    const controles = document.createElement("div");
+    controles.className = "mini-quantity";
+
+    const diminuir = document.createElement("button");
+    diminuir.type = "button";
+    diminuir.className = "ghost-button square-button";
+    diminuir.textContent = "-";
+    diminuir.addEventListener("click", () => alterarQuantidade(produto.id, quantidade - 1));
+
+    const total = document.createElement("strong");
+    total.textContent = formatarMoeda(Number(produto.preco) * quantidade);
+
+    const aumentar = document.createElement("button");
+    aumentar.type = "button";
+    aumentar.className = "ghost-button square-button";
+    aumentar.textContent = "+";
+    aumentar.disabled = quantidade >= produto.estoque;
+    aumentar.addEventListener("click", () => alterarQuantidade(produto.id, quantidade + 1));
+
+    controles.append(diminuir, total, aumentar);
+    card.append(imagemBox, info, controles);
+
+    return card;
+}
+
+function renderizarCarrinhoRapido() {
+    const itens = Array.from(carrinho.values());
+
+    if (itens.length === 0) {
+        drawerCartItems.innerHTML = `<div class="empty-state">Seu carrinho esta vazio.</div>`;
+    } else {
+        drawerCartItems.replaceChildren(...itens.map(criarItemCarrinhoRapido));
+    }
+
+    drawerCartTotal.textContent = formatarMoeda(calcularTotal());
+}
+
+function abrirCarrinhoRapido() {
+    cartDrawer.classList.add("open");
+    cartBackdrop.classList.remove("hidden");
+}
+
+function fecharCarrinhoRapido() {
+    cartDrawer.classList.remove("open");
+    cartBackdrop.classList.add("hidden");
 }
 
 function criarCardProduto(produto) {
@@ -135,6 +254,19 @@ function criarCardProduto(produto) {
     const info = document.createElement("div");
     info.className = "product-meta";
 
+    const media = document.createElement("div");
+    media.className = "product-media";
+
+    if (produto.imagemUrl) {
+        const imagem = document.createElement("img");
+        imagem.src = produto.imagemUrl;
+        imagem.alt = produto.nome;
+        media.append(imagem);
+    } else {
+        media.classList.add("product-media-placeholder");
+        media.textContent = produto.nome.slice(0, 2).toUpperCase();
+    }
+
     const nome = document.createElement("h3");
     nome.className = "product-name";
     nome.textContent = produto.nome;
@@ -147,7 +279,11 @@ function criarCardProduto(produto) {
     estoque.className = "product-stock";
     estoque.textContent = disabled ? "Indisponivel" : `${estoqueDisponivel} disponiveis`;
 
-    info.append(nome, preco, estoque);
+    const badge = document.createElement("p");
+    badge.className = "cart-badge";
+    badge.textContent = quantidadeNoCarrinho > 0 ? `${quantidadeNoCarrinho} no carrinho` : "Pronto para escolher";
+
+    info.append(nome, preco, estoque, badge);
 
     const actions = document.createElement("div");
     actions.className = "product-actions";
@@ -176,7 +312,7 @@ function criarCardProduto(produto) {
     });
 
     actions.append(input, button);
-    card.append(info, actions);
+    card.append(media, info, actions);
 
     return card;
 }
@@ -191,75 +327,35 @@ function renderizarProdutos() {
 }
 
 async function carregarProdutos() {
-    setFeedback("");
-    const resposta = await apiFetch("/produtos?limite=50");
-    produtos = resposta.dados ?? resposta;
-    renderizarProdutos();
-    renderizarCarrinho();
-}
-
-async function finalizarPedido(evento) {
-    evento.preventDefault();
-
-    if (carrinho.size === 0) {
-        setFeedback("Adicione ao menos um produto ao carrinho.", "error");
-        return;
-    }
-
-    const formData = new FormData(checkoutForm);
-    const nome = String(formData.get("nome")).trim();
-    const telefone = String(formData.get("telefone")).trim();
-    const endereco = String(formData.get("endereco")).trim();
-    const metodo = String(formData.get("metodo"));
-
     try {
-        setFeedback("Enviando pedido...");
-
-        const cliente = await apiFetch("/clientes", {
-            method: "POST",
-            body: JSON.stringify({
-                nome,
-                telefone,
-                endereco
-            })
-        });
-
-        const pedido = await apiFetch("/pedidos", {
-            method: "POST",
-            body: JSON.stringify({
-                clienteId: cliente.id,
-                itens: Array.from(carrinho.values()).map(({ produto, quantidade }) => {
-                    return {
-                        produtoId: produto.id,
-                        quantidade
-                    };
-                })
-            })
-        });
-
-        await apiFetch("/pagamentos", {
-            method: "POST",
-            body: JSON.stringify({
-                pedidoId: pedido.id,
-                metodo
-            })
-        });
-
-        carrinho.clear();
-        checkoutForm.reset();
-        await carregarProdutos();
-        setFeedback(`Pedido ${pedido.id} criado. Acompanhe em /pedidos/${pedido.id}/acompanhamento`, "success");
+        setFeedback("");
+        const resposta = await apiFetch("/produtos?limite=50");
+        produtos = resposta.dados ?? resposta;
+        sincronizarCarrinhoComProdutos();
+        renderizarProdutos();
     } catch (erro) {
         setFeedback(erro.message, "error");
     }
 }
 
 reloadProducts.addEventListener("click", carregarProdutos);
-clearCartButton.addEventListener("click", () => {
+window.addEventListener("storage", () => {
+    carrinho = carregarCarrinho();
+    atualizarResumoCarrinho();
+    renderizarCarrinhoRapido();
+    renderizarProdutos();
+});
+
+floatingCartButton.addEventListener("click", abrirCarrinhoRapido);
+closeCartDrawer.addEventListener("click", fecharCarrinhoRapido);
+cartBackdrop.addEventListener("click", fecharCarrinhoRapido);
+drawerClearCart.addEventListener("click", () => {
     carrinho.clear();
-    renderizarCarrinho();
+    salvarCarrinho();
+    renderizarProdutos();
     setFeedback("Carrinho limpo.");
 });
-checkoutForm.addEventListener("submit", finalizarPedido);
 
+atualizarResumoCarrinho();
+renderizarCarrinhoRapido();
 await carregarProdutos();

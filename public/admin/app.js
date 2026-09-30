@@ -11,11 +11,35 @@ const viewTitle = document.querySelector("#view-title");
 const navButtons = document.querySelectorAll(".nav-button");
 const statsGrid = document.querySelector("#stats-grid");
 const produtoForm = document.querySelector("#produto-form");
+const produtoImagemBotao = document.querySelector("#produto-imagem-botao");
+const produtoImagemArquivo = document.querySelector("#produto-imagem-arquivo");
 const produtosTbody = document.querySelector("#produtos-tbody");
 const clientesTbody = document.querySelector("#clientes-tbody");
 const pedidosTbody = document.querySelector("#pedidos-tbody");
 const pagamentosTbody = document.querySelector("#pagamentos-tbody");
 const solicitacoesTbody = document.querySelector("#solicitacoes-tbody");
+const produtoModal = document.querySelector("#produto-modal");
+const produtoEditForm = document.querySelector("#produto-edit-form");
+const produtoEditId = document.querySelector("#produto-edit-id");
+const produtoEditNome = document.querySelector("#produto-edit-nome");
+const produtoEditPreco = document.querySelector("#produto-edit-preco");
+const produtoEditEstoque = document.querySelector("#produto-edit-estoque");
+const produtoEditCancelar = document.querySelector("#produto-edit-cancelar");
+const clienteModal = document.querySelector("#cliente-modal");
+const clienteEditForm = document.querySelector("#cliente-edit-form");
+const clienteEditId = document.querySelector("#cliente-edit-id");
+const clienteEditNome = document.querySelector("#cliente-edit-nome");
+const clienteEditTelefone = document.querySelector("#cliente-edit-telefone");
+const clienteEditEmail = document.querySelector("#cliente-edit-email");
+const clienteEditCep = document.querySelector("#cliente-edit-cep");
+const clienteEditNumero = document.querySelector("#cliente-edit-numero");
+const clienteEditEndereco = document.querySelector("#cliente-edit-endereco");
+const clienteEditComplemento = document.querySelector("#cliente-edit-complemento");
+const clienteEditBairro = document.querySelector("#cliente-edit-bairro");
+const clienteEditCidade = document.querySelector("#cliente-edit-cidade");
+const clienteEditEstado = document.querySelector("#cliente-edit-estado");
+const clienteEditReferencia = document.querySelector("#cliente-edit-referencia");
+const clienteEditCancelar = document.querySelector("#cliente-edit-cancelar");
 
 const viewTitles = {
     dashboard: "Dashboard",
@@ -52,6 +76,36 @@ function formatarData(valor) {
     return new Date(valor).toLocaleString("pt-BR");
 }
 
+function formatarEnderecoCliente(cliente) {
+    const partes = [
+        cliente.endereco,
+        cliente.numero ? `numero ${cliente.numero}` : undefined,
+        cliente.complemento,
+        cliente.bairro,
+        cliente.cidade,
+        cliente.estado,
+        cliente.cep ? `CEP ${cliente.cep}` : undefined
+    ].filter(Boolean);
+
+    return partes.join(", ");
+}
+
+function arquivoParaBase64(arquivo) {
+    return new Promise((resolve, reject) => {
+        const leitor = new FileReader();
+
+        leitor.addEventListener("load", () => resolve(String(leitor.result)));
+        leitor.addEventListener("error", () => reject(new Error("Nao foi possivel ler a imagem")));
+        leitor.readAsDataURL(arquivo);
+    });
+}
+
+function obterValorOpcionalDoInput(input) {
+    const texto = input.value.trim();
+
+    return texto === "" ? undefined : texto;
+}
+
 function setFeedback(elemento, mensagem, tipo = "") {
     elemento.textContent = mensagem;
     elemento.className = `feedback ${tipo}`.trim();
@@ -79,6 +133,26 @@ function criarBotao(texto, className = "small-button") {
     botao.textContent = texto;
 
     return botao;
+}
+
+function criarCelulaFotoProduto(produto) {
+    const td = document.createElement("td");
+
+    if (!produto.imagemUrl) {
+        const placeholder = document.createElement("span");
+        placeholder.className = "product-thumb placeholder-thumb";
+        placeholder.textContent = "Sem foto";
+        td.append(placeholder);
+        return td;
+    }
+
+    const imagem = document.createElement("img");
+    imagem.className = "product-thumb";
+    imagem.src = produto.imagemUrl;
+    imagem.alt = produto.nome;
+
+    td.append(imagem);
+    return td;
 }
 
 function criarSelectStatus(opcoes, valorAtual) {
@@ -229,17 +303,20 @@ function criarLinhaProduto(produto) {
     actions.className = "actions";
 
     const editar = criarBotao("Editar");
+    const foto = criarBotao("Foto");
     const excluir = criarBotao("Excluir", "small-button danger-button");
 
     editar.addEventListener("click", () => editarProduto(produto));
+    foto.addEventListener("click", () => selecionarFotoProduto(produto));
     excluir.addEventListener("click", () => excluirProduto(produto));
-    actions.append(editar, excluir);
+    actions.append(editar, foto, excluir);
 
     const tdActions = document.createElement("td");
     tdActions.append(actions);
 
     tr.append(
         criarCelula(produto.id),
+        criarCelulaFotoProduto(produto),
         criarCelula(produto.nome),
         criarCelula(formatarMoeda(produto.preco)),
         criarCelula(produto.estoque),
@@ -249,46 +326,78 @@ function criarLinhaProduto(produto) {
     return tr;
 }
 
+async function enviarFotoProduto(produtoId, arquivo) {
+    if (!arquivo || arquivo.size === 0) {
+        return;
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(arquivo.type)) {
+        throw new Error("Imagem deve ser JPG, PNG ou WEBP");
+    }
+
+    if (arquivo.size > 3 * 1024 * 1024) {
+        throw new Error("Imagem deve ter no maximo 3MB");
+    }
+
+    const imagem = await arquivoParaBase64(arquivo);
+
+    await apiFetch(`/produtos/${produtoId}/imagem`, {
+        method: "POST",
+        body: JSON.stringify({
+            imagem
+        })
+    });
+}
+
+function selecionarFotoProduto(produto) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+
+    input.addEventListener("change", async () => {
+        const arquivo = input.files?.[0];
+
+        if (!arquivo) {
+            return;
+        }
+
+        try {
+            await enviarFotoProduto(produto.id, arquivo);
+            setFeedback(appFeedback, "Foto do produto atualizada", "success");
+            await carregarProdutos();
+        } catch (erro) {
+            setFeedback(appFeedback, erro.message, "error");
+        }
+    });
+
+    input.click();
+}
+
+function abrirModalProduto(produto) {
+    produtoEditId.value = String(produto.id);
+    produtoEditNome.value = produto.nome;
+    produtoEditPreco.value = String(produto.preco);
+    produtoEditEstoque.value = String(produto.estoque);
+    produtoModal.classList.remove("hidden");
+    produtoEditNome.focus();
+}
+
+function fecharModalProduto() {
+    produtoEditForm.reset();
+    produtoModal.classList.add("hidden");
+}
+
 async function carregarProdutos() {
     const resposta = await apiFetch("/produtos?limite=50");
     const produtos = obterListaPaginada(resposta);
 
     produtosTbody.replaceChildren(
-        ...(produtos.length > 0 ? produtos.map(criarLinhaProduto) : [criarLinhaVazia(5, "Nenhum produto encontrado")])
+        ...(produtos.length > 0 ? produtos.map(criarLinhaProduto) : [criarLinhaVazia(6, "Nenhum produto encontrado")])
     );
 }
 
 async function editarProduto(produto) {
-    const precoTexto = window.prompt("Novo preco", String(produto.preco));
-
-    if (precoTexto === null) {
-        return;
-    }
-
-    const estoqueTexto = window.prompt("Novo estoque", String(produto.estoque));
-
-    if (estoqueTexto === null) {
-        return;
-    }
-
-    const preco = Number(precoTexto);
-    const estoque = Number(estoqueTexto);
-
-    if (!Number.isFinite(preco) || preco <= 0 || !Number.isInteger(estoque) || estoque < 0) {
-        setFeedback(appFeedback, "Preco ou estoque invalido", "error");
-        return;
-    }
-
-    await apiFetch(`/produtos/${produto.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-            preco,
-            estoque
-        })
-    });
-
-    setFeedback(appFeedback, "Produto atualizado", "success");
-    await carregarProdutos();
+    abrirModalProduto(produto);
 }
 
 async function excluirProduto(produto) {
@@ -325,7 +434,7 @@ function criarLinhaCliente(cliente) {
         criarCelula(cliente.id),
         criarCelula(cliente.nome),
         criarCelula(cliente.telefone),
-        criarCelula(cliente.endereco),
+        criarCelula(formatarEnderecoCliente(cliente)),
         tdActions
     );
 
@@ -341,29 +450,30 @@ async function carregarClientes() {
     );
 }
 
+function abrirModalCliente(cliente) {
+    clienteEditId.value = String(cliente.id);
+    clienteEditNome.value = cliente.nome ?? "";
+    clienteEditTelefone.value = cliente.telefone ?? "";
+    clienteEditEmail.value = cliente.email ?? "";
+    clienteEditCep.value = cliente.cep ?? "";
+    clienteEditNumero.value = cliente.numero ?? "";
+    clienteEditEndereco.value = cliente.endereco ?? "";
+    clienteEditComplemento.value = cliente.complemento ?? "";
+    clienteEditBairro.value = cliente.bairro ?? "";
+    clienteEditCidade.value = cliente.cidade ?? "";
+    clienteEditEstado.value = cliente.estado ?? "";
+    clienteEditReferencia.value = cliente.referencia ?? "";
+    clienteModal.classList.remove("hidden");
+    clienteEditNome.focus();
+}
+
+function fecharModalCliente() {
+    clienteEditForm.reset();
+    clienteModal.classList.add("hidden");
+}
+
 async function editarCliente(cliente) {
-    const telefone = window.prompt("Novo telefone", cliente.telefone);
-
-    if (telefone === null) {
-        return;
-    }
-
-    const endereco = window.prompt("Novo endereco", cliente.endereco);
-
-    if (endereco === null) {
-        return;
-    }
-
-    await apiFetch(`/clientes/${cliente.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-            telefone,
-            endereco
-        })
-    });
-
-    setFeedback(appFeedback, "Cliente atualizado", "success");
-    await carregarClientes();
+    abrirModalCliente(cliente);
 }
 
 async function excluirCliente(cliente) {
@@ -400,6 +510,7 @@ function criarLinhaPedido(pedido) {
         criarCelula(pedido.clienteId),
         criarCelula(formatarMoeda(pedido.total)),
         criarCelula(pedido.status),
+        criarCelula(pedido.observacao ?? "-"),
         criarCelula(formatarData(pedido.criadoEm)),
         tdActions
     );
@@ -412,7 +523,7 @@ async function carregarPedidos() {
     const pedidos = obterListaPaginada(resposta);
 
     pedidosTbody.replaceChildren(
-        ...(pedidos.length > 0 ? pedidos.map(criarLinhaPedido) : [criarLinhaVazia(6, "Nenhum pedido encontrado")])
+        ...(pedidos.length > 0 ? pedidos.map(criarLinhaPedido) : [criarLinhaVazia(7, "Nenhum pedido encontrado")])
     );
 }
 
@@ -524,7 +635,7 @@ produtoForm.addEventListener("submit", async (evento) => {
     const formData = new FormData(produtoForm);
 
     try {
-        await apiFetch("/produtos", {
+        const produto = await apiFetch("/produtos", {
             method: "POST",
             body: JSON.stringify({
                 nome: String(formData.get("nome")),
@@ -533,9 +644,120 @@ produtoForm.addEventListener("submit", async (evento) => {
             })
         });
 
+        const arquivo = formData.get("imagemArquivo");
+
+        if (arquivo instanceof File && arquivo.size > 0) {
+            await enviarFotoProduto(produto.id, arquivo);
+        }
+
         produtoForm.reset();
+        produtoImagemBotao.textContent = "Escolher arquivo";
         setFeedback(appFeedback, "Produto cadastrado", "success");
         await carregarProdutos();
+    } catch (erro) {
+        setFeedback(appFeedback, erro.message, "error");
+    }
+});
+
+produtoImagemBotao.addEventListener("click", () => {
+    produtoImagemArquivo.click();
+});
+
+produtoImagemArquivo.addEventListener("change", () => {
+    produtoImagemBotao.textContent = produtoImagemArquivo.files?.length ? "Foto selecionada" : "Escolher arquivo";
+});
+
+produtoEditCancelar.addEventListener("click", fecharModalProduto);
+
+produtoModal.addEventListener("click", (evento) => {
+    if (evento.target === produtoModal) {
+        fecharModalProduto();
+    }
+});
+
+produtoEditForm.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    const id = Number(produtoEditId.value);
+    const nome = produtoEditNome.value.trim();
+    const preco = Number(produtoEditPreco.value);
+    const estoque = Number(produtoEditEstoque.value);
+
+    if (!nome) {
+        setFeedback(appFeedback, "Nome deve ser preenchido", "error");
+        return;
+    }
+
+    if (!Number.isFinite(preco) || preco <= 0 || !Number.isInteger(estoque) || estoque < 0) {
+        setFeedback(appFeedback, "Preco ou estoque invalido", "error");
+        return;
+    }
+
+    try {
+        await apiFetch(`/produtos/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+                nome,
+                preco,
+                estoque
+            })
+        });
+
+        fecharModalProduto();
+        setFeedback(appFeedback, "Produto atualizado", "success");
+        await carregarProdutos();
+    } catch (erro) {
+        setFeedback(appFeedback, erro.message, "error");
+    }
+});
+
+clienteEditCancelar.addEventListener("click", fecharModalCliente);
+
+clienteModal.addEventListener("click", (evento) => {
+    if (evento.target === clienteModal) {
+        fecharModalCliente();
+    }
+});
+
+clienteEditForm.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    const id = Number(clienteEditId.value);
+    const nome = clienteEditNome.value.trim();
+    const telefone = clienteEditTelefone.value.trim();
+    const cep = clienteEditCep.value.trim();
+    const numero = clienteEditNumero.value.trim();
+    const endereco = clienteEditEndereco.value.trim();
+    const bairro = clienteEditBairro.value.trim();
+    const cidade = clienteEditCidade.value.trim();
+    const estado = clienteEditEstado.value.trim().toUpperCase();
+
+    if (!nome || !telefone || !cep || !numero || !endereco || !bairro || !cidade || !estado) {
+        setFeedback(appFeedback, "Preencha os campos obrigatorios do cliente", "error");
+        return;
+    }
+
+    try {
+        await apiFetch(`/clientes/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+                nome,
+                telefone,
+                email: obterValorOpcionalDoInput(clienteEditEmail),
+                cep,
+                numero,
+                endereco,
+                complemento: obterValorOpcionalDoInput(clienteEditComplemento),
+                bairro,
+                cidade,
+                estado,
+                referencia: obterValorOpcionalDoInput(clienteEditReferencia)
+            })
+        });
+
+        fecharModalCliente();
+        setFeedback(appFeedback, "Cliente atualizado", "success");
+        await carregarClientes();
     } catch (erro) {
         setFeedback(appFeedback, erro.message, "error");
     }

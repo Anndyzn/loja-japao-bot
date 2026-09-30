@@ -79,6 +79,12 @@
                             <input id="produto-estoque" name="estoque" type="number" min="0" step="1" required>
                         </label>
 
+                        <div class="upload-control">
+                            <span>Foto</span>
+                            <button id="produto-imagem-botao" class="small-button" type="button">Escolher arquivo</button>
+                            <input id="produto-imagem-arquivo" class="file-input-hidden" name="imagemArquivo" type="file" accept="image/png,image/jpeg,image/webp">
+                        </div>
+
                         <button type="submit">Cadastrar</button>
                     </form>
 
@@ -87,6 +93,7 @@
                             <thead>
                                 <tr>
                                     <th>ID</th>
+                                    <th>Foto</th>
                                     <th>Produto</th>
                                     <th>Preco</th>
                                     <th>Estoque</th>
@@ -124,6 +131,7 @@
                                     <th>Cliente</th>
                                     <th>Total</th>
                                     <th>Status</th>
+                                    <th>Observacao</th>
                                     <th>Criado em</th>
                                     <th>Acoes</th>
                                 </tr>
@@ -171,6 +179,110 @@
 
                 <p id="app-feedback" class="feedback" role="status"></p>
             </section>
+        </section>
+
+        <section id="produto-modal" class="modal-backdrop hidden">
+            <form id="produto-edit-form" class="modal-panel">
+                <div>
+                    <p class="eyebrow">Produto</p>
+                    <h2>Editar produto</h2>
+                </div>
+
+                <input id="produto-edit-id" name="id" type="hidden">
+
+                <label>
+                    Nome
+                    <input id="produto-edit-nome" name="nome" type="text" required>
+                </label>
+
+                <label>
+                    Preco
+                    <input id="produto-edit-preco" name="preco" type="number" min="0.01" step="0.01" required>
+                </label>
+
+                <label>
+                    Estoque
+                    <input id="produto-edit-estoque" name="estoque" type="number" min="0" step="1" required>
+                </label>
+
+                <div class="modal-actions">
+                    <button id="produto-edit-cancelar" class="small-button" type="button">Cancelar</button>
+                    <button type="submit">Salvar</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="cliente-modal" class="modal-backdrop hidden">
+            <form id="cliente-edit-form" class="modal-panel modal-panel-wide">
+                <div>
+                    <p class="eyebrow">Cliente</p>
+                    <h2>Editar cliente</h2>
+                </div>
+
+                <input id="cliente-edit-id" name="id" type="hidden">
+
+                <div class="modal-grid">
+                    <label>
+                        Nome
+                        <input id="cliente-edit-nome" name="nome" type="text" required>
+                    </label>
+
+                    <label>
+                        Telefone
+                        <input id="cliente-edit-telefone" name="telefone" type="tel" required>
+                    </label>
+
+                    <label class="field-wide">
+                        Email
+                        <input id="cliente-edit-email" name="email" type="email">
+                    </label>
+
+                    <label>
+                        CEP
+                        <input id="cliente-edit-cep" name="cep" type="text" required>
+                    </label>
+
+                    <label>
+                        Numero
+                        <input id="cliente-edit-numero" name="numero" type="text" required>
+                    </label>
+
+                    <label class="field-wide">
+                        Rua / endereco
+                        <input id="cliente-edit-endereco" name="endereco" type="text" required>
+                    </label>
+
+                    <label>
+                        Complemento
+                        <input id="cliente-edit-complemento" name="complemento" type="text">
+                    </label>
+
+                    <label>
+                        Bairro
+                        <input id="cliente-edit-bairro" name="bairro" type="text" required>
+                    </label>
+
+                    <label>
+                        Cidade
+                        <input id="cliente-edit-cidade" name="cidade" type="text" required>
+                    </label>
+
+                    <label>
+                        Estado
+                        <input id="cliente-edit-estado" name="estado" type="text" maxlength="2" required>
+                    </label>
+
+                    <label class="field-wide">
+                        Referencia
+                        <input id="cliente-edit-referencia" name="referencia" type="text">
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button id="cliente-edit-cancelar" class="small-button" type="button">Cancelar</button>
+                    <button type="submit">Salvar</button>
+                </div>
+            </form>
         </section>
     </main>
 

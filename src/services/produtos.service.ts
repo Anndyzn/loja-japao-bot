@@ -1,4 +1,3 @@
-import type { Produto } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 
 type FiltrosProdutos = {
@@ -11,23 +10,38 @@ type ProdutoResposta = {
     nome: string;
     preco: number;
     estoque: number;
+    imagemUrl?: string;
 };
 
-function formatarProduto(produto: Produto): ProdutoResposta {
-    return {
+type ProdutoBanco = {
+    id: number;
+    nome: string;
+    preco: unknown;
+    estoque: number;
+    imagemUrl: string | null;
+};
+
+function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
+    const resposta: ProdutoResposta = {
         id: produto.id,
         nome: produto.nome,
         preco: Number(produto.preco),
         estoque: produto.estoque
     };
+
+    if (produto.imagemUrl !== null) {
+        resposta.imagemUrl = produto.imagemUrl;
+    }
+
+    return resposta;
 }
 
 export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
-    const produtos = await prisma.produto.findMany({
-        orderBy: {
-            id: "asc"
-        }
-    });
+    const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
+        SELECT "id", "nome", "preco", "estoque", "imagemUrl"
+        FROM "Produto"
+        ORDER BY "id" ASC
+    `;
 
     let produtosFiltrados = produtos.map(formatarProduto);
 
@@ -45,11 +59,14 @@ export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
 }
 
 export async function obterProdutoPorId(id: number) {
-    const produto = await prisma.produto.findUnique({
-        where: {
-            id
-        }
-    });
+    const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
+        SELECT "id", "nome", "preco", "estoque", "imagemUrl"
+        FROM "Produto"
+        WHERE "id" = ${id}
+        LIMIT 1
+    `;
+
+    const produto = produtos[0];
 
     if (!produto) {
         return undefined;
@@ -58,7 +75,7 @@ export async function obterProdutoPorId(id: number) {
     return formatarProduto(produto);
 }
 
-export async function criarProduto(nome: string, preco: number, estoque: number) {
+export async function criarProduto(nome: string, preco: number, estoque: number, imagemUrl: string | undefined) {
     const novoProduto = await prisma.produto.create({
         data: {
             nome,
@@ -67,14 +84,23 @@ export async function criarProduto(nome: string, preco: number, estoque: number)
         }
     });
 
-    return formatarProduto(novoProduto);
+    if (imagemUrl !== undefined) {
+        await prisma.$executeRaw`
+            UPDATE "Produto"
+            SET "imagemUrl" = ${imagemUrl}
+            WHERE "id" = ${novoProduto.id}
+        `;
+    }
+
+    return (await obterProdutoPorId(novoProduto.id))!;
 }
 
 export async function atualizarProdutoPorId(
     id: number,
     nome: string | undefined,
     preco: number | undefined,
-    estoque: number | undefined
+    estoque: number | undefined,
+    imagemUrl: string | undefined
 ) {
     const produtoExiste = await prisma.produto.findUnique({
         where: {
@@ -104,14 +130,24 @@ export async function atualizarProdutoPorId(
         dadosAtualizacao.estoque = estoque;
     }
 
-    const produtoAtualizado = await prisma.produto.update({
-        where: {
-            id
-        },
-        data: dadosAtualizacao
-    });
+    if (Object.keys(dadosAtualizacao).length > 0) {
+        await prisma.produto.update({
+            where: {
+                id
+            },
+            data: dadosAtualizacao
+        });
+    }
 
-    return formatarProduto(produtoAtualizado);
+    if (imagemUrl !== undefined) {
+        await prisma.$executeRaw`
+            UPDATE "Produto"
+            SET "imagemUrl" = ${imagemUrl}
+            WHERE "id" = ${id}
+        `;
+    }
+
+    return await obterProdutoPorId(id);
 }
 
 export async function removerProdutoPorId(id: number) {

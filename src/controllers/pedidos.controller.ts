@@ -107,9 +107,9 @@ export async function listarPedidosPorCliente(req: Request, res: Response) {
 }
 
 export async function cadastrarPedido(req: Request, res: Response) {
-    const { clienteId, itens } = req.body;
+    const { clienteId, itens, observacao } = req.body;
 
-    const erroValidacao = validarCriacaoPedido(clienteId, itens);
+    const erroValidacao = validarCriacaoPedido(clienteId, itens, observacao);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -117,7 +117,9 @@ export async function cadastrarPedido(req: Request, res: Response) {
         });
     }
 
-    const resultado = await criarPedido(clienteId, itens);
+    const observacaoTratada = typeof observacao === "string" ? observacao.trim() : undefined;
+
+    const resultado = await criarPedido(clienteId, itens, observacaoTratada);
 
     if (resultado.mensagemErro) {
         return res.status(400).json({

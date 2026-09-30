@@ -6,20 +6,86 @@ type FiltrosClientes = {
     telefone?: string | undefined;
 };
 
+export type DadosCliente = {
+    nome?: string;
+    telefone?: string;
+    email?: string;
+    cep?: string;
+    endereco?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+    referencia?: string;
+};
+
+export type DadosCriacaoCliente = DadosCliente & {
+    nome: string;
+    telefone: string;
+    endereco: string;
+    cep: string;
+    numero: string;
+    bairro: string;
+    cidade: string;
+    estado: string;
+};
+
 type ClienteResposta = {
     id: number;
     nome: string;
     telefone: string;
+    email?: string;
+    cep?: string;
     endereco: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+    referencia?: string;
 };
 
+function adicionarCampoOpcional<T extends Record<string, unknown>>(
+    objeto: T,
+    campo: keyof T,
+    valor: string | null | undefined
+) {
+    if (valor !== null && valor !== undefined) {
+        objeto[campo] = valor as T[keyof T];
+    }
+}
+
 function formatarCliente(cliente: Cliente): ClienteResposta {
-    return {
+    const resposta: ClienteResposta = {
         id: cliente.id,
         nome: cliente.nome,
         telefone: cliente.telefone,
         endereco: cliente.endereco
     };
+
+    adicionarCampoOpcional(resposta, "email", cliente.email);
+    adicionarCampoOpcional(resposta, "cep", cliente.cep);
+    adicionarCampoOpcional(resposta, "numero", cliente.numero);
+    adicionarCampoOpcional(resposta, "complemento", cliente.complemento);
+    adicionarCampoOpcional(resposta, "bairro", cliente.bairro);
+    adicionarCampoOpcional(resposta, "cidade", cliente.cidade);
+    adicionarCampoOpcional(resposta, "estado", cliente.estado);
+    adicionarCampoOpcional(resposta, "referencia", cliente.referencia);
+
+    return resposta;
+}
+
+function montarDadosCliente(dados: DadosCliente) {
+    const dadosCliente: DadosCliente = {};
+
+    for (const [campo, valor] of Object.entries(dados)) {
+        if (valor !== undefined) {
+            dadosCliente[campo as keyof DadosCliente] = valor;
+        }
+    }
+
+    return dadosCliente;
 }
 
 export async function obterClientesFiltrados(filtros: FiltrosClientes) {
@@ -60,24 +126,15 @@ export async function obterClientePorId(id: number) {
     return formatarCliente(cliente);
 }
 
-export async function criarCliente(nome: string, telefone: string, endereco: string) {
+export async function criarCliente(dados: DadosCriacaoCliente) {
     const novoCliente = await prisma.cliente.create({
-        data: {
-            nome,
-            telefone,
-            endereco
-        }
+        data: dados
     });
 
     return formatarCliente(novoCliente);
 }
 
-export async function atualizarClientePorId(
-    id: number,
-    nome: string | undefined,
-    telefone: string | undefined,
-    endereco: string | undefined
-) {
+export async function atualizarClientePorId(id: number, dados: DadosCliente) {
     const clienteExiste = await prisma.cliente.findUnique({
         where: {
             id
@@ -88,29 +145,11 @@ export async function atualizarClientePorId(
         return undefined;
     }
 
-    const dadosAtualizacao: {
-        nome?: string;
-        telefone?: string;
-        endereco?: string;
-    } = {};
-
-    if (nome !== undefined) {
-        dadosAtualizacao.nome = nome;
-    }
-
-    if (telefone !== undefined) {
-        dadosAtualizacao.telefone = telefone;
-    }
-
-    if (endereco !== undefined) {
-        dadosAtualizacao.endereco = endereco;
-    }
-
     const clienteAtualizado = await prisma.cliente.update({
         where: {
             id
         },
-        data: dadosAtualizacao
+        data: montarDadosCliente(dados)
     });
 
     return formatarCliente(clienteAtualizado);

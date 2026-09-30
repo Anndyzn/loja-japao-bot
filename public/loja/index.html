@@ -8,76 +8,77 @@
 </head>
 <body>
     <main class="store-page">
+        <header class="store-topbar">
+            <a class="brand-link" href="/loja">
+                <span>Loja Japao</span>
+            </a>
+
+            <div class="topbar-actions">
+                <a class="cart-link muted-link" href="/loja/acompanhamento">Acompanhar pedido</a>
+                <a class="cart-link" href="/loja/carrinho">
+                    <span>Carrinho</span>
+                    <strong id="cart-count">0</strong>
+                </a>
+            </div>
+        </header>
+
         <section class="hero">
             <img src="/loja/assets/hero-produtos-japao.png" alt="" class="hero-image">
             <div class="hero-content">
                 <p class="eyebrow">Importados do Japao</p>
                 <h1>Doces, presentes e achadinhos japoneses</h1>
-                <p>Escolha seus produtos, monte o carrinho e finalize o pedido em poucos passos.</p>
-                <a href="#catalogo" class="hero-button">Ver produtos</a>
+                <p>Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada.</p>
+                <div class="hero-actions">
+                    <a href="#catalogo" class="hero-button">Ver produtos</a>
+                    <a href="/loja/carrinho" class="hero-button secondary-button">Ir para o carrinho</a>
+                </div>
             </div>
         </section>
 
-        <section class="shop-layout" id="catalogo">
-            <section class="catalog-section">
-                <div class="section-heading">
-                    <div>
-                        <p class="eyebrow">Catalogo</p>
-                        <h2>Produtos disponiveis</h2>
-                    </div>
+        <section class="catalog-section" id="catalogo">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Catalogo</p>
+                    <h2>Produtos disponiveis</h2>
+                </div>
+
+                <div class="catalog-actions">
+                    <p id="cart-total-preview" class="cart-preview">R$ 0,00 no carrinho</p>
                     <button id="reload-products" type="button">Atualizar</button>
                 </div>
+            </div>
 
-                <div id="products-grid" class="products-grid"></div>
-            </section>
-
-            <aside class="cart-panel">
-                <div class="cart-header">
-                    <div>
-                        <p class="eyebrow">Pedido</p>
-                        <h2>Carrinho</h2>
-                    </div>
-                    <button id="clear-cart" class="ghost-button" type="button">Limpar</button>
-                </div>
-
-                <div id="cart-items" class="cart-items"></div>
-
-                <div class="cart-total">
-                    <span>Total</span>
-                    <strong id="cart-total">R$ 0,00</strong>
-                </div>
-
-                <form id="checkout-form" class="checkout-form">
-                    <label>
-                        Nome
-                        <input name="nome" type="text" autocomplete="name" required>
-                    </label>
-
-                    <label>
-                        Telefone
-                        <input name="telefone" type="tel" autocomplete="tel" required>
-                    </label>
-
-                    <label>
-                        Endereco
-                        <input name="endereco" type="text" autocomplete="street-address" required>
-                    </label>
-
-                    <label>
-                        Pagamento
-                        <select name="metodo" required>
-                            <option value="pix">Pix</option>
-                            <option value="cartao">Cartao</option>
-                            <option value="boleto">Boleto</option>
-                        </select>
-                    </label>
-
-                    <button type="submit">Finalizar pedido</button>
-                </form>
-
-                <p id="store-feedback" class="feedback" role="status"></p>
-            </aside>
+            <div id="products-grid" class="products-grid"></div>
+            <p id="store-feedback" class="feedback" role="status"></p>
         </section>
+
+        <button id="floating-cart-button" class="floating-cart-button" type="button">
+            <span>Carrinho</span>
+            <strong id="floating-cart-count">0</strong>
+        </button>
+
+        <div id="cart-backdrop" class="cart-backdrop hidden"></div>
+        <aside id="cart-drawer" class="cart-drawer" aria-label="Carrinho rapido">
+            <div class="drawer-header">
+                <div>
+                    <p class="eyebrow">Pedido</p>
+                    <h2>Carrinho</h2>
+                </div>
+                <button id="close-cart-drawer" class="ghost-button square-button" type="button">x</button>
+            </div>
+
+            <div id="drawer-cart-items" class="drawer-cart-items"></div>
+
+            <div class="drawer-total">
+                <span>Total</span>
+                <strong id="drawer-cart-total">R$ 0,00</strong>
+            </div>
+
+            <div class="drawer-actions">
+                <button id="drawer-clear-cart" class="ghost-button" type="button">Limpar</button>
+                <a class="hero-button" href="/loja/carrinho">Finalizar</a>
+            </div>
+        </aside>
     </main>
 
     <script src="/loja/app.js" type="module"></script>

@@ -86,6 +86,18 @@ A loja publica roda em:
 http://localhost:3000/loja
 ```
 
+O carrinho e checkout rodam em:
+
+```txt
+http://localhost:3000/loja/carrinho
+```
+
+A tela publica de acompanhamento roda em:
+
+```txt
+http://localhost:3000/loja/acompanhamento
+```
+
 Se o PowerShell bloquear `npm`, use `npm.cmd`:
 
 ```bash
@@ -137,7 +149,9 @@ Authorization: Bearer SEU_TOKEN_AQUI
 ```
 
 Na primeira versao, o login e apenas para admin. O cliente comum ainda pode
-criar cliente, pedido, pagamento e solicitacao sem login.
+criar cliente, pedido, pagamento e solicitacao sem login. Por isso o checkout
+publico pede mais dados de entrega, como CEP, numero, complemento, bairro,
+cidade, estado e ponto de referencia.
 
 ### Produtos
 
@@ -165,6 +179,10 @@ Criar produto:
 
 Requer token admin.
 
+Pelo painel admin, a foto do produto e enviada por upload do computador. A API
+salva a imagem em `public/uploads/produtos` e o produto passa a usar uma URL
+local, como `/uploads/produtos/produto-1.png`.
+
 ```http
 POST /produtos
 Content-Type: application/json
@@ -189,9 +207,31 @@ Content-Type: application/json
 
 ```json
 {
+  "nome": "Ramune Melon",
   "preco": 27.9,
   "estoque": 12
 }
+```
+
+Enviar foto de um produto existente:
+
+Requer token admin.
+
+```http
+POST /produtos/1/imagem
+Content-Type: application/json
+```
+
+```json
+{
+  "imagem": "data:image/png;base64,..."
+}
+```
+
+Formatos aceitos:
+
+```txt
+JPG, PNG, WEBP ate 3MB
 ```
 
 Remover produto:
@@ -239,7 +279,15 @@ Content-Type: application/json
 {
   "nome": "Maria Silva",
   "telefone": "(11) 98888-7777",
-  "endereco": "Rua Tokyo, 100"
+  "email": "maria@exemplo.com",
+  "cep": "01001-000",
+  "endereco": "Rua Tokyo",
+  "numero": "100",
+  "complemento": "Apto 12",
+  "bairro": "Liberdade",
+  "cidade": "Sao Paulo",
+  "estado": "SP",
+  "referencia": "Proximo ao mercado"
 }
 ```
 
@@ -254,7 +302,15 @@ Content-Type: application/json
 
 ```json
 {
-  "endereco": "Rua Osaka, 200"
+  "telefone": "(11) 97777-6666",
+  "cep": "01002-000",
+  "endereco": "Rua Osaka",
+  "numero": "200",
+  "complemento": "Casa 2",
+  "bairro": "Centro",
+  "cidade": "Sao Paulo",
+  "estado": "SP",
+  "referencia": "Portao azul"
 }
 ```
 
@@ -314,6 +370,7 @@ Content-Type: application/json
 ```json
 {
   "clienteId": 1,
+  "observacao": "Entregar no periodo da tarde",
   "itens": [
     {
       "produtoId": 1,
@@ -342,6 +399,12 @@ Acompanhar pedido:
 
 ```http
 GET /pedidos/1/acompanhamento
+```
+
+Tambem existe a tela publica:
+
+```txt
+http://localhost:3000/loja/acompanhamento?pedido=1
 ```
 
 ### Pagamentos

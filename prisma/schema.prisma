@@ -38,6 +38,7 @@ model Produto {
   nome      String
   preco     Decimal      @db.Decimal(10, 2)
   estoque   Int
+  imagemUrl String?
   itens     ItemPedido[]
   criadoEm  DateTime     @default(now())
   atualizadoEm DateTime  @updatedAt
@@ -47,7 +48,15 @@ model Cliente {
   id           Int                  @id @default(autoincrement())
   nome         String
   telefone     String
+  email        String?
+  cep          String?
   endereco     String
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  estado       String?
+  referencia   String?
   pedidos      Pedido[]
   solicitacoes SolicitacaoProduto[]
   criadoEm     DateTime             @default(now())
@@ -62,6 +71,7 @@ model Pedido {
   pagamentos   Pagamento[]
   total        Decimal      @db.Decimal(10, 2)
   status       StatusPedido @default(pendente)
+  observacao   String?
   criadoEm     DateTime     @default(now())
   atualizadoEm DateTime     @updatedAt
 }

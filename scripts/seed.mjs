@@ -25,25 +25,29 @@ const produtosIniciais = [
         id: 1,
         nome: "KitKat Matcha",
         preco: 29.90,
-        estoque: 10
+        estoque: 10,
+        imagemUrl: null
     },
     {
         id: 2,
         nome: "Pocky Morango",
         preco: 24.90,
-        estoque: 15
+        estoque: 15,
+        imagemUrl: null
     },
     {
         id: 3,
         nome: "Pelucia Pokemon",
         preco: 149.90,
-        estoque: 3
+        estoque: 3,
+        imagemUrl: null
     },
     {
         id: 4,
         nome: "Chaveiro One Piece",
         preco: 39.90,
-        estoque: 8
+        estoque: 8,
+        imagemUrl: null
     }
 ];
 
@@ -52,13 +56,29 @@ const clientesIniciais = [
         id: 1,
         nome: "Ana Souza",
         telefone: "(11) 99999-0001",
-        endereco: "Rua Sakura, 123"
+        email: "ana@exemplo.com",
+        cep: "01513-000",
+        endereco: "Rua Sakura",
+        numero: "123",
+        complemento: "Apto 45",
+        bairro: "Liberdade",
+        cidade: "Sao Paulo",
+        estado: "SP",
+        referencia: "Proximo ao metro Liberdade"
     },
     {
         id: 2,
         nome: "Carlos Lima",
         telefone: "(21) 99999-0002",
-        endereco: "Avenida Fuji, 456"
+        email: "carlos@exemplo.com",
+        cep: "20040-020",
+        endereco: "Avenida Fuji",
+        numero: "456",
+        complemento: "Sala 12",
+        bairro: "Centro",
+        cidade: "Rio de Janeiro",
+        estado: "RJ",
+        referencia: "Entrada pela galeria"
     }
 ];
 
@@ -78,11 +98,11 @@ try {
     for (const produto of produtosIniciais) {
         await client.query(
             `
-                INSERT INTO "Produto" ("id", "nome", "preco", "estoque", "criadoEm", "atualizadoEm")
-                VALUES ($1, $2, $3, $4, NOW(), NOW())
+                INSERT INTO "Produto" ("id", "nome", "preco", "estoque", "imagemUrl", "criadoEm", "atualizadoEm")
+                VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
                 ON CONFLICT ("id") DO NOTHING
             `,
-            [produto.id, produto.nome, produto.preco, produto.estoque]
+            [produto.id, produto.nome, produto.preco, produto.estoque, produto.imagemUrl]
         );
     }
 
@@ -96,11 +116,39 @@ try {
     for (const cliente of clientesIniciais) {
         await client.query(
             `
-                INSERT INTO "Cliente" ("id", "nome", "telefone", "endereco", "criadoEm", "atualizadoEm")
-                VALUES ($1, $2, $3, $4, NOW(), NOW())
+                INSERT INTO "Cliente" (
+                    "id",
+                    "nome",
+                    "telefone",
+                    "email",
+                    "cep",
+                    "endereco",
+                    "numero",
+                    "complemento",
+                    "bairro",
+                    "cidade",
+                    "estado",
+                    "referencia",
+                    "criadoEm",
+                    "atualizadoEm"
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
                 ON CONFLICT ("id") DO NOTHING
             `,
-            [cliente.id, cliente.nome, cliente.telefone, cliente.endereco]
+            [
+                cliente.id,
+                cliente.nome,
+                cliente.telefone,
+                cliente.email,
+                cliente.cep,
+                cliente.endereco,
+                cliente.numero,
+                cliente.complemento,
+                cliente.bairro,
+                cliente.cidade,
+                cliente.estado,
+                cliente.referencia
+            ]
         );
     }
 

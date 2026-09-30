@@ -26,6 +26,7 @@ export type PedidoResposta = {
     itens: ItemPedidoResposta[];
     total: number;
     status: StatusPedido;
+    observacao?: string;
     criadoEm: string;
 };
 
@@ -34,6 +35,7 @@ type PedidoComItens = {
     clienteId: number;
     total: unknown;
     status: StatusPedido;
+    observacao: string | null;
     criadoEm: Date;
     itens: Array<{
         produtoId: number;
@@ -55,7 +57,7 @@ type ResultadoAtualizacaoStatusPedido = {
 };
 
 function formatarPedido(pedido: PedidoComItens): PedidoResposta {
-    return {
+    const resposta: PedidoResposta = {
         id: pedido.id,
         clienteId: pedido.clienteId,
         itens: pedido.itens.map((item) => {
@@ -71,6 +73,12 @@ function formatarPedido(pedido: PedidoComItens): PedidoResposta {
         status: pedido.status,
         criadoEm: pedido.criadoEm.toISOString()
     };
+
+    if (pedido.observacao !== null) {
+        resposta.observacao = pedido.observacao;
+    }
+
+    return resposta;
 }
 
 function agruparItensPorProduto(itensEntrada: ItemPedidoEntrada[]) {
@@ -92,9 +100,24 @@ function agruparItensPorProduto(itensEntrada: ItemPedidoEntrada[]) {
 const includeItensPedido = {
     itens: {
         orderBy: {
-            id: "asc" as const
+            id: "asc"
         }
     }
+} as const;
+
+type DadosCriacaoPedido = {
+    clienteId: number;
+    total: number;
+    observacao?: string;
+    itens: {
+        create: Array<{
+            produtoId: number;
+            nomeProduto: string;
+            quantidade: number;
+            precoUnitario: number;
+            subtotal: number;
+        }>;
+    };
 };
 
 export async function obterTodosPedidos() {
@@ -162,7 +185,11 @@ export async function obterPedidosPorClienteId(clienteId: number) {
     return pedidos.map(formatarPedido);
 }
 
-export async function criarPedido(clienteId: number, itensEntrada: ItemPedidoEntrada[]): Promise<ResultadoCriacaoPedido> {
+export async function criarPedido(
+    clienteId: number,
+    itensEntrada: ItemPedidoEntrada[],
+    observacao: string | undefined
+): Promise<ResultadoCriacaoPedido> {
     const cliente = await prisma.cliente.findUnique({
         where: {
             id: clienteId
@@ -235,22 +262,28 @@ export async function criarPedido(clienteId: number, itensEntrada: ItemPedidoEnt
             });
         }
 
+        const dadosPedido: DadosCriacaoPedido = {
+            clienteId,
+            total,
+            itens: {
+                create: itens.map((item) => {
+                    return {
+                        produtoId: item.produtoId,
+                        nomeProduto: item.nomeProduto,
+                        quantidade: item.quantidade,
+                        precoUnitario: item.precoUnitario,
+                        subtotal: item.subtotal
+                    };
+                })
+            }
+        };
+
+        if (observacao !== undefined) {
+            dadosPedido.observacao = observacao;
+        }
+
         const novoPedido = await tx.pedido.create({
-            data: {
-                clienteId,
-                total,
-                itens: {
-                    create: itens.map((item) => {
-                        return {
-                            produtoId: item.produtoId,
-                            nomeProduto: item.nomeProduto,
-                            quantidade: item.quantidade,
-                            precoUnitario: item.precoUnitario,
-                            subtotal: item.subtotal
-                        };
-                    })
-                }
-            },
+            data: dadosPedido,
             include: includeItensPedido
         });
 

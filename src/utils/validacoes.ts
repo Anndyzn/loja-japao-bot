@@ -2,81 +2,197 @@ export function idEhInvalido(id: number) {
     return !Number.isInteger(id) || id <= 0;
 }
 
-export function validarCriacaoProduto(nome: unknown, preco: unknown, estoque: unknown) {
-    if (typeof nome !== "string" || nome.trim() === "") {
-        return "Nome deve ser um texto não vazio";
+function campoTextoObrigatorioEhInvalido(valor: unknown) {
+    return typeof valor !== "string" || valor.trim() === "";
+}
+
+function campoTextoOpcionalEhInvalido(valor: unknown) {
+    return valor !== undefined && (typeof valor !== "string" || valor.trim() === "");
+}
+
+export function validarCriacaoProduto(nome: unknown, preco: unknown, estoque: unknown, imagemUrl: unknown) {
+    if (campoTextoObrigatorioEhInvalido(nome)) {
+        return "Nome deve ser um texto nao vazio";
     }
 
     if (typeof preco !== "number" || preco <= 0) {
-        return "Preço deve ser um número maior que zero";
+        return "Preco deve ser um numero maior que zero";
     }
 
     if (typeof estoque !== "number" || !Number.isInteger(estoque) || estoque < 0) {
-        return "Estoque deve ser um número inteiro maior ou igual a zero";
+        return "Estoque deve ser um numero inteiro maior ou igual a zero";
+    }
+
+    if (campoTextoOpcionalEhInvalido(imagemUrl)) {
+        return "URL da imagem deve ser um texto nao vazio";
     }
 
     return undefined;
 }
 
-export function validarAtualizacaoProduto(nome: unknown, preco: unknown, estoque: unknown) {
-    if (nome === undefined && preco === undefined && estoque === undefined) {
+export function validarAtualizacaoProduto(nome: unknown, preco: unknown, estoque: unknown, imagemUrl: unknown) {
+    if (nome === undefined && preco === undefined && estoque === undefined && imagemUrl === undefined) {
         return "Informe ao menos um campo para atualizar";
     }
 
-    if (nome !== undefined && (typeof nome !== "string" || nome.trim() === "")) {
-        return "Nome deve ser um texto não vazio";
+    if (campoTextoOpcionalEhInvalido(nome)) {
+        return "Nome deve ser um texto nao vazio";
     }
 
     if (preco !== undefined && (typeof preco !== "number" || preco <= 0)) {
-        return "Preço deve ser um número maior que zero";
+        return "Preco deve ser um numero maior que zero";
     }
 
     if (estoque !== undefined && (typeof estoque !== "number" || !Number.isInteger(estoque) || estoque < 0)) {
-        return "Estoque deve ser um número inteiro maior ou igual a zero";
+        return "Estoque deve ser um numero inteiro maior ou igual a zero";
+    }
+
+    if (campoTextoOpcionalEhInvalido(imagemUrl)) {
+        return "URL da imagem deve ser um texto nao vazio";
     }
 
     return undefined;
 }
 
-export function validarCriacaoCliente(nome: unknown, telefone: unknown, endereco: unknown) {
-    if (typeof nome !== "string" || nome.trim() === "") {
-        return "Nome deve ser um texto não vazio";
+export function validarCriacaoCliente(
+    nome: unknown,
+    telefone: unknown,
+    endereco: unknown,
+    cep: unknown,
+    numero: unknown,
+    bairro: unknown,
+    cidade: unknown,
+    estado: unknown,
+    email: unknown,
+    complemento: unknown,
+    referencia: unknown
+) {
+    if (campoTextoObrigatorioEhInvalido(nome)) {
+        return "Nome deve ser um texto nao vazio";
     }
 
-    if (typeof telefone !== "string" || telefone.trim() === "") {
-        return "Telefone deve ser um texto não vazio";
+    if (campoTextoObrigatorioEhInvalido(telefone)) {
+        return "Telefone deve ser um texto nao vazio";
     }
 
-    if (typeof endereco !== "string" || endereco.trim() === "") {
-        return "Endereço deve ser um texto não vazio";
+    if (campoTextoObrigatorioEhInvalido(endereco)) {
+        return "Endereco deve ser um texto nao vazio";
+    }
+
+    if (campoTextoObrigatorioEhInvalido(cep)) {
+        return "CEP deve ser um texto nao vazio";
+    }
+
+    if (campoTextoObrigatorioEhInvalido(numero)) {
+        return "Numero deve ser um texto nao vazio";
+    }
+
+    if (campoTextoObrigatorioEhInvalido(bairro)) {
+        return "Bairro deve ser um texto nao vazio";
+    }
+
+    if (campoTextoObrigatorioEhInvalido(cidade)) {
+        return "Cidade deve ser um texto nao vazio";
+    }
+
+    if (campoTextoObrigatorioEhInvalido(estado)) {
+        return "Estado deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(email)) {
+        return "Email deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(complemento)) {
+        return "Complemento deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(referencia)) {
+        return "Referencia deve ser um texto nao vazio";
     }
 
     return undefined;
 }
 
-export function validarAtualizacaoCliente(nome: unknown, telefone: unknown, endereco: unknown) {
-    if (nome === undefined && telefone === undefined && endereco === undefined) {
+export function validarAtualizacaoCliente(
+    nome: unknown,
+    telefone: unknown,
+    endereco: unknown,
+    cep: unknown,
+    numero: unknown,
+    bairro: unknown,
+    cidade: unknown,
+    estado: unknown,
+    email: unknown,
+    complemento: unknown,
+    referencia: unknown
+) {
+    if (
+        nome === undefined &&
+        telefone === undefined &&
+        endereco === undefined &&
+        cep === undefined &&
+        numero === undefined &&
+        bairro === undefined &&
+        cidade === undefined &&
+        estado === undefined &&
+        email === undefined &&
+        complemento === undefined &&
+        referencia === undefined
+    ) {
         return "Informe ao menos um campo para atualizar";
     }
 
-    if (nome !== undefined && (typeof nome !== "string" || nome.trim() === "")) {
-        return "Nome deve ser um texto não vazio";
+    if (campoTextoOpcionalEhInvalido(nome)) {
+        return "Nome deve ser um texto nao vazio";
     }
 
-    if (telefone !== undefined && (typeof telefone !== "string" || telefone.trim() === "")) {
-        return "Telefone deve ser um texto não vazio";
+    if (campoTextoOpcionalEhInvalido(telefone)) {
+        return "Telefone deve ser um texto nao vazio";
     }
 
-    if (endereco !== undefined && (typeof endereco !== "string" || endereco.trim() === "")) {
-        return "Endereço deve ser um texto não vazio";
+    if (campoTextoOpcionalEhInvalido(endereco)) {
+        return "Endereco deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(cep)) {
+        return "CEP deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(numero)) {
+        return "Numero deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(bairro)) {
+        return "Bairro deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(cidade)) {
+        return "Cidade deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(estado)) {
+        return "Estado deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(email)) {
+        return "Email deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(complemento)) {
+        return "Complemento deve ser um texto nao vazio";
+    }
+
+    if (campoTextoOpcionalEhInvalido(referencia)) {
+        return "Referencia deve ser um texto nao vazio";
     }
 
     return undefined;
 }
 
-export function validarCriacaoPedido(clienteId: unknown, itens: unknown) {
+export function validarCriacaoPedido(clienteId: unknown, itens: unknown, observacao: unknown) {
     if (typeof clienteId !== "number" || idEhInvalido(clienteId)) {
-        return "Cliente ID deve ser um número inteiro positivo";
+        return "Cliente ID deve ser um numero inteiro positivo";
     }
 
     if (!Array.isArray(itens) || itens.length === 0) {
@@ -94,12 +210,16 @@ export function validarCriacaoPedido(clienteId: unknown, itens: unknown) {
         };
 
         if (typeof produtoId !== "number" || idEhInvalido(produtoId)) {
-            return "Produto ID deve ser um número inteiro positivo";
+            return "Produto ID deve ser um numero inteiro positivo";
         }
 
         if (typeof quantidade !== "number" || !Number.isInteger(quantidade) || quantidade <= 0) {
-            return "Quantidade deve ser um número inteiro maior que zero";
+            return "Quantidade deve ser um numero inteiro maior que zero";
         }
+    }
+
+    if (campoTextoOpcionalEhInvalido(observacao)) {
+        return "Observacao deve ser um texto nao vazio";
     }
 
     return undefined;
@@ -122,19 +242,19 @@ export function validarCriacaoSolicitacao(
     linkReferencia: unknown
 ) {
     if (typeof clienteId !== "number" || idEhInvalido(clienteId)) {
-        return "Cliente ID deve ser um número inteiro positivo";
+        return "Cliente ID deve ser um numero inteiro positivo";
     }
 
-    if (typeof nomeProduto !== "string" || nomeProduto.trim() === "") {
-        return "Nome do produto deve ser um texto não vazio";
+    if (campoTextoObrigatorioEhInvalido(nomeProduto)) {
+        return "Nome do produto deve ser um texto nao vazio";
     }
 
-    if (typeof descricao !== "string" || descricao.trim() === "") {
-        return "Descrição deve ser um texto não vazio";
+    if (campoTextoObrigatorioEhInvalido(descricao)) {
+        return "Descricao deve ser um texto nao vazio";
     }
 
-    if (linkReferencia !== undefined && (typeof linkReferencia !== "string" || linkReferencia.trim() === "")) {
-        return "Link de referência deve ser um texto não vazio";
+    if (campoTextoOpcionalEhInvalido(linkReferencia)) {
+        return "Link de referencia deve ser um texto nao vazio";
     }
 
     return undefined;
@@ -154,11 +274,11 @@ export function validarCriacaoPagamento(pedidoId: unknown, metodo: unknown) {
     const metodosValidos = ["pix", "cartao", "boleto"];
 
     if (typeof pedidoId !== "number" || idEhInvalido(pedidoId)) {
-        return "Pedido ID deve ser um número inteiro positivo";
+        return "Pedido ID deve ser um numero inteiro positivo";
     }
 
     if (typeof metodo !== "string" || !metodosValidos.includes(metodo)) {
-        return "Método de pagamento deve ser pix, cartao ou boleto";
+        return "Metodo de pagamento deve ser pix, cartao ou boleto";
     }
 
     return undefined;

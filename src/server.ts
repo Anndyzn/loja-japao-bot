@@ -10,9 +10,22 @@ import { solicitacoesRoutes } from "./routes/solicitacoes.routes.js";
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({
+    limit: "8mb"
+}));
 app.use("/admin", express.static("public/admin"));
 app.use("/loja", express.static("public/loja"));
+app.use("/uploads", express.static("public/uploads"));
+app.get("/loja/carrinho", (req, res) => {
+    res.sendFile("carrinho.html", {
+        root: "public/loja"
+    });
+});
+app.get("/loja/acompanhamento", (req, res) => {
+    res.sendFile("acompanhamento.html", {
+        root: "public/loja"
+    });
+});
 
 const PORT = 3000;
 

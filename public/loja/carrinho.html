@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Carrinho | Loja Japao</title>
+    <link rel="stylesheet" href="/loja/styles.css">
+</head>
+<body>
+    <main class="checkout-page">
+        <header class="store-topbar checkout-topbar">
+            <a class="brand-link" href="/loja">
+                <span>Loja Japao</span>
+            </a>
+
+            <a class="cart-link muted-link" href="/loja">
+                <span>Continuar comprando</span>
+            </a>
+        </header>
+
+        <section class="checkout-shell">
+            <div class="checkout-heading">
+                <div>
+                    <p class="eyebrow">Pedido</p>
+                    <h1>Carrinho</h1>
+                </div>
+                <strong id="checkout-total">R$ 0,00</strong>
+            </div>
+
+            <div class="checkout-tabs" role="tablist" aria-label="Etapas do pedido">
+                <button class="step-tab active" type="button" data-step-target="resumo">
+                    <span class="step-number">1</span>
+                    <span>Resumo</span>
+                </button>
+                <button class="step-tab" type="button" data-step-target="entrega">
+                    <span class="step-number">2</span>
+                    <span>Entrega</span>
+                </button>
+                <button class="step-tab" type="button" data-step-target="pagamento">
+                    <span class="step-number">3</span>
+                    <span>Pagamento</span>
+                </button>
+                <button class="step-tab" type="button" data-step-target="acompanhamento" disabled>
+                    <span class="step-number">4</span>
+                    <span>Acompanhamento</span>
+                </button>
+            </div>
+
+            <form id="checkout-form" class="checkout-flow">
+                <section class="checkout-step active" data-step="resumo">
+                    <div class="step-heading">
+                        <h2>Resumo</h2>
+                        <button id="clear-cart" class="ghost-button" type="button">Limpar</button>
+                    </div>
+
+                    <div id="cart-items" class="cart-items"></div>
+
+                    <div class="cart-total">
+                        <span>Total</span>
+                        <strong id="cart-total">R$ 0,00</strong>
+                    </div>
+
+                    <div class="step-actions">
+                        <a class="ghost-link" href="/loja">Adicionar produtos</a>
+                        <button type="button" data-next-step="entrega">Continuar para entrega</button>
+                    </div>
+                </section>
+
+                <section class="checkout-step" data-step="entrega">
+                    <div class="step-heading">
+                        <h2>Entrega</h2>
+                    </div>
+
+                    <div class="form-grid">
+                        <label>
+                            Nome
+                            <input name="nome" type="text" autocomplete="name" required>
+                        </label>
+
+                        <label>
+                            Telefone
+                            <input name="telefone" type="tel" autocomplete="tel" required>
+                        </label>
+
+                        <label>
+                            Email
+                            <input name="email" type="email" autocomplete="email">
+                        </label>
+
+                        <div class="address-grid">
+                            <label>
+                                CEP
+                                <input name="cep" type="text" autocomplete="postal-code" required>
+                            </label>
+
+                            <label>
+                                Numero
+                                <input name="numero" type="text" autocomplete="address-line2" required>
+                            </label>
+                        </div>
+
+                        <label>
+                            Rua / endereco
+                            <input name="endereco" type="text" autocomplete="street-address" required>
+                        </label>
+
+                        <label>
+                            Complemento
+                            <input name="complemento" type="text" autocomplete="address-line3">
+                        </label>
+
+                        <div class="address-grid">
+                            <label>
+                                Bairro
+                                <input name="bairro" type="text" required>
+                            </label>
+
+                            <label>
+                                Estado
+                                <input name="estado" type="text" maxlength="2" required>
+                            </label>
+                        </div>
+
+                        <label>
+                            Cidade
+                            <input name="cidade" type="text" autocomplete="address-level2" required>
+                        </label>
+
+                        <label>
+                            Ponto de referencia
+                            <input name="referencia" type="text">
+                        </label>
+                    </div>
+
+                    <div class="step-actions">
+                        <button class="ghost-button" type="button" data-previous-step="resumo">Voltar</button>
+                        <button type="button" data-next-step="pagamento">Continuar para pagamento</button>
+                    </div>
+                </section>
+
+                <section class="checkout-step" data-step="pagamento">
+                    <div class="step-heading">
+                        <h2>Pagamento</h2>
+                    </div>
+
+                    <div class="payment-grid">
+                        <label>
+                            Forma de pagamento
+                            <select name="metodo" required>
+                                <option value="pix">Pix</option>
+                                <option value="cartao">Cartao</option>
+                                <option value="boleto">Boleto</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Observacao do pedido
+                            <textarea name="observacao" rows="4"></textarea>
+                        </label>
+                    </div>
+
+                    <div class="payment-summary">
+                        <span>Total do pedido</span>
+                        <strong id="payment-total">R$ 0,00</strong>
+                    </div>
+
+                    <div class="step-actions">
+                        <button class="ghost-button" type="button" data-previous-step="entrega">Voltar</button>
+                        <button type="submit">Finalizar pedido</button>
+                    </div>
+                </section>
+
+                <section class="checkout-step" data-step="acompanhamento">
+                    <div class="order-result">
+                        <p class="eyebrow">Pedido criado</p>
+                        <h2 id="order-number">Pedido</h2>
+                        <p id="order-status" class="result-text"></p>
+                        <a id="tracking-link" class="hero-button" href="/loja">Ver acompanhamento</a>
+                    </div>
+
+                    <div class="step-actions">
+                        <a class="ghost-link" href="/loja">Novo pedido</a>
+                    </div>
+                </section>
+            </form>
+
+            <p id="store-feedback" class="feedback" role="status"></p>
+        </section>
+    </main>
+
+    <script src="/loja/carrinho.js" type="module"></script>
+</body>
+</html>
