@@ -39,6 +39,21 @@ const produtosIniciais = [
     }
 ];
 
+const clientesIniciais = [
+    {
+        id: 1,
+        nome: "Ana Souza",
+        telefone: "(11) 99999-0001",
+        endereco: "Rua Sakura, 123"
+    },
+    {
+        id: 2,
+        nome: "Carlos Lima",
+        telefone: "(21) 99999-0002",
+        endereco: "Avenida Fuji, 456"
+    }
+];
+
 const client = new Client({
     connectionString
 });
@@ -64,7 +79,25 @@ try {
         )
     `);
 
-    console.log("Produtos iniciais cadastrados no banco.");
+    for (const cliente of clientesIniciais) {
+        await client.query(
+            `
+                INSERT INTO "Cliente" ("id", "nome", "telefone", "endereco", "criadoEm", "atualizadoEm")
+                VALUES ($1, $2, $3, $4, NOW(), NOW())
+                ON CONFLICT ("id") DO NOTHING
+            `,
+            [cliente.id, cliente.nome, cliente.telefone, cliente.endereco]
+        );
+    }
+
+    await client.query(`
+        SELECT setval(
+            pg_get_serial_sequence('"Cliente"', 'id'),
+            (SELECT COALESCE(MAX("id"), 1) FROM "Cliente")
+        )
+    `);
+
+    console.log("Dados iniciais cadastrados no banco.");
 } finally {
     await client.end();
 }

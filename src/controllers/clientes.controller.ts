@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
-import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes.service.js";
+import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes-db.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoCliente, validarCriacaoCliente } from "../utils/validacoes.js";
 
-export function listarClientes(req: Request, res: Response) {
+export async function listarClientes(req: Request, res: Response) {
     const { nome, telefone, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
@@ -18,7 +18,7 @@ export function listarClientes(req: Request, res: Response) {
         });
     }
 
-    const clientesFiltrados = obterClientesFiltrados({
+    const clientesFiltrados = await obterClientesFiltrados({
         nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
         telefone: typeof telefone === "string" && telefone.trim() !== "" ? telefone.trim() : undefined
     });
@@ -34,7 +34,7 @@ export function listarClientes(req: Request, res: Response) {
     return res.json(paginarLista(clientesFiltrados, paginacao.pagina!, paginacao.limite!));
 }
 
-export function buscarClientePorId(req: Request, res: Response) {
+export async function buscarClientePorId(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
@@ -43,7 +43,7 @@ export function buscarClientePorId(req: Request, res: Response) {
         });
     }
 
-    const cliente = obterClientePorId(id);
+    const cliente = await obterClientePorId(id);
 
     if (!cliente) {
         return res.status(404).json({
@@ -54,7 +54,7 @@ export function buscarClientePorId(req: Request, res: Response) {
     return res.json(cliente);
 }
 
-export function cadastrarCliente(req: Request, res: Response) {
+export async function cadastrarCliente(req: Request, res: Response) {
     const { nome, telefone, endereco } = req.body;
 
     const erroValidacao = validarCriacaoCliente(nome, telefone, endereco);
@@ -65,12 +65,12 @@ export function cadastrarCliente(req: Request, res: Response) {
         });
     }
 
-    const novoCliente = criarCliente(nome.trim(), telefone.trim(), endereco.trim());
+    const novoCliente = await criarCliente(nome.trim(), telefone.trim(), endereco.trim());
 
     return res.status(201).json(novoCliente);
 }
 
-export function atualizarCliente(req: Request, res: Response) {
+export async function atualizarCliente(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
@@ -93,7 +93,7 @@ export function atualizarCliente(req: Request, res: Response) {
     const telefoneAtualizado = typeof telefone === "string" ? telefone.trim() : telefone;
     const enderecoAtualizado = typeof endereco === "string" ? endereco.trim() : endereco;
 
-    const cliente = atualizarClientePorId(id, nomeAtualizado, telefoneAtualizado, enderecoAtualizado);
+    const cliente = await atualizarClientePorId(id, nomeAtualizado, telefoneAtualizado, enderecoAtualizado);
 
     if (!cliente) {
         return res.status(404).json({
@@ -104,7 +104,7 @@ export function atualizarCliente(req: Request, res: Response) {
     return res.json(cliente);
 }
 
-export function removerCliente(req: Request, res: Response) {
+export async function removerCliente(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
@@ -113,7 +113,7 @@ export function removerCliente(req: Request, res: Response) {
         });
     }
 
-    const clienteFoiRemovido = removerClientePorId(id);
+    const clienteFoiRemovido = await removerClientePorId(id);
 
     if (!clienteFoiRemovido) {
         return res.status(404).json({

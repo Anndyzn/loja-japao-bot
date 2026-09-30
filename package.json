@@ -9,7 +9,7 @@
     "db:down": "docker compose down",
     "db:generate": "npx --yes prisma@7.10.0 generate",
     "db:migrate": "npx --yes prisma@7.10.0 migrate dev",
-    "db:seed": "node scripts/seed-produtos.mjs",
+    "db:seed": "node scripts/seed.mjs",
     "db:studio": "npx --yes prisma@7.10.0 studio"
   },
   "keywords": [],
