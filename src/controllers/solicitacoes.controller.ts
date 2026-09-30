@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { obterClientePorId } from "../services/clientes-db.service.js";
+import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusSolicitacao } from "../services/solicitacoes.service.js";
 import { atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";

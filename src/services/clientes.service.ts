@@ -1,16 +1,35 @@
-import { clientes, gerarProximoClienteId } from "../data/clientes.js";
+import type { Cliente } from "../../generated/prisma/client.js";
+import { prisma } from "../lib/prisma.js";
 
 type FiltrosClientes = {
     nome?: string | undefined;
     telefone?: string | undefined;
 };
 
-export function obterTodosClientes() {
-    return clientes;
+type ClienteResposta = {
+    id: number;
+    nome: string;
+    telefone: string;
+    endereco: string;
+};
+
+function formatarCliente(cliente: Cliente): ClienteResposta {
+    return {
+        id: cliente.id,
+        nome: cliente.nome,
+        telefone: cliente.telefone,
+        endereco: cliente.endereco
+    };
 }
 
-export function obterClientesFiltrados(filtros: FiltrosClientes) {
-    let clientesFiltrados = clientes;
+export async function obterClientesFiltrados(filtros: FiltrosClientes) {
+    const clientes = await prisma.cliente.findMany({
+        orderBy: {
+            id: "asc"
+        }
+    });
+
+    let clientesFiltrados = clientes.map(formatarCliente);
 
     if (filtros.nome !== undefined) {
         clientesFiltrados = clientesFiltrados.filter((cliente) => {
@@ -27,58 +46,92 @@ export function obterClientesFiltrados(filtros: FiltrosClientes) {
     return clientesFiltrados;
 }
 
-export function obterClientePorId(id: number) {
-    return clientes.find((cliente) => cliente.id === id);
-}
-
-export function criarCliente(nome: string, telefone: string, endereco: string) {
-    const novoCliente = {
-        id: gerarProximoClienteId(),
-        nome,
-        telefone,
-        endereco
-    };
-
-    clientes.push(novoCliente);
-
-    return novoCliente;
-}
-
-export function atualizarClientePorId(
-    id: number,
-    nome: string | undefined,
-    telefone: string | undefined,
-    endereco: string | undefined
-) {
-    const cliente = obterClientePorId(id);
+export async function obterClientePorId(id: number) {
+    const cliente = await prisma.cliente.findUnique({
+        where: {
+            id
+        }
+    });
 
     if (!cliente) {
         return undefined;
     }
 
+    return formatarCliente(cliente);
+}
+
+export async function criarCliente(nome: string, telefone: string, endereco: string) {
+    const novoCliente = await prisma.cliente.create({
+        data: {
+            nome,
+            telefone,
+            endereco
+        }
+    });
+
+    return formatarCliente(novoCliente);
+}
+
+export async function atualizarClientePorId(
+    id: number,
+    nome: string | undefined,
+    telefone: string | undefined,
+    endereco: string | undefined
+) {
+    const clienteExiste = await prisma.cliente.findUnique({
+        where: {
+            id
+        }
+    });
+
+    if (!clienteExiste) {
+        return undefined;
+    }
+
+    const dadosAtualizacao: {
+        nome?: string;
+        telefone?: string;
+        endereco?: string;
+    } = {};
+
     if (nome !== undefined) {
-        cliente.nome = nome;
+        dadosAtualizacao.nome = nome;
     }
 
     if (telefone !== undefined) {
-        cliente.telefone = telefone;
+        dadosAtualizacao.telefone = telefone;
     }
 
     if (endereco !== undefined) {
-        cliente.endereco = endereco;
+        dadosAtualizacao.endereco = endereco;
     }
 
-    return cliente;
+    const clienteAtualizado = await prisma.cliente.update({
+        where: {
+            id
+        },
+        data: dadosAtualizacao
+    });
+
+    return formatarCliente(clienteAtualizado);
 }
 
-export function removerClientePorId(id: number) {
-    const indiceCliente = clientes.findIndex((cliente) => cliente.id === id);
+export async function removerClientePorId(id: number) {
+    const clienteExiste = await prisma.cliente.findUnique({
+        where: {
+            id
+        }
+    });
 
-    if (indiceCliente === -1) {
+    if (!clienteExiste) {
         return false;
     }
 
-    clientes.splice(indiceCliente, 1);
+    await prisma.cliente.delete({
+        where: {
+            id
+        }
+    });
 
     return true;
 }

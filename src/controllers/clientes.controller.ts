@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes-db.service.js";
+import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoCliente, validarCriacaoCliente } from "../utils/validacoes.js";
 

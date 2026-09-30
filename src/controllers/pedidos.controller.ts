@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { obterAcompanhamentoPedido } from "../services/acompanhamento.service.js";
-import { obterClientePorId } from "../services/clientes-db.service.js";
+import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusPedido } from "../services/pedidos.service.js";
 import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";

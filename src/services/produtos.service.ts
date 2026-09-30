@@ -1,16 +1,35 @@
-import { gerarProximoProdutoId, produtos } from "../data/produtos.js";
+import type { Produto } from "../../generated/prisma/client.js";
+import { prisma } from "../lib/prisma.js";
 
 type FiltrosProdutos = {
     nome?: string | undefined;
     estoqueBaixo?: boolean | undefined;
 };
 
-export function obterTodosProdutos() {
-    return produtos;
+type ProdutoResposta = {
+    id: number;
+    nome: string;
+    preco: number;
+    estoque: number;
+};
+
+function formatarProduto(produto: Produto): ProdutoResposta {
+    return {
+        id: produto.id,
+        nome: produto.nome,
+        preco: Number(produto.preco),
+        estoque: produto.estoque
+    };
 }
 
-export function obterProdutosFiltrados(filtros: FiltrosProdutos) {
-    let produtosFiltrados = produtos;
+export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
+    const produtos = await prisma.produto.findMany({
+        orderBy: {
+            id: "asc"
+        }
+    });
+
+    let produtosFiltrados = produtos.map(formatarProduto);
 
     if (filtros.nome !== undefined) {
         produtosFiltrados = produtosFiltrados.filter((produto) => {
@@ -25,58 +44,92 @@ export function obterProdutosFiltrados(filtros: FiltrosProdutos) {
     return produtosFiltrados;
 }
 
-export function obterProdutoPorId(id: number) {
-    return produtos.find((produto) => produto.id === id);
-}
-
-export function criarProduto(nome: string, preco: number, estoque: number) {
-    const novoProduto = {
-        id: gerarProximoProdutoId(),
-        nome,
-        preco,
-        estoque
-    };
-
-    produtos.push(novoProduto);
-
-    return novoProduto;
-}
-
-export function atualizarProdutoPorId(
-    id: number,
-    nome: string | undefined,
-    preco: number | undefined,
-    estoque: number | undefined
-) {
-    const produto = obterProdutoPorId(id);
+export async function obterProdutoPorId(id: number) {
+    const produto = await prisma.produto.findUnique({
+        where: {
+            id
+        }
+    });
 
     if (!produto) {
         return undefined;
     }
 
+    return formatarProduto(produto);
+}
+
+export async function criarProduto(nome: string, preco: number, estoque: number) {
+    const novoProduto = await prisma.produto.create({
+        data: {
+            nome,
+            preco,
+            estoque
+        }
+    });
+
+    return formatarProduto(novoProduto);
+}
+
+export async function atualizarProdutoPorId(
+    id: number,
+    nome: string | undefined,
+    preco: number | undefined,
+    estoque: number | undefined
+) {
+    const produtoExiste = await prisma.produto.findUnique({
+        where: {
+            id
+        }
+    });
+
+    if (!produtoExiste) {
+        return undefined;
+    }
+
+    const dadosAtualizacao: {
+        nome?: string;
+        preco?: number;
+        estoque?: number;
+    } = {};
+
     if (nome !== undefined) {
-        produto.nome = nome;
+        dadosAtualizacao.nome = nome;
     }
 
     if (preco !== undefined) {
-        produto.preco = preco;
+        dadosAtualizacao.preco = preco;
     }
 
     if (estoque !== undefined) {
-        produto.estoque = estoque;
+        dadosAtualizacao.estoque = estoque;
     }
 
-    return produto;
+    const produtoAtualizado = await prisma.produto.update({
+        where: {
+            id
+        },
+        data: dadosAtualizacao
+    });
+
+    return formatarProduto(produtoAtualizado);
 }
 
-export function removerProdutoPorId(id: number) {
-    const indiceProduto = produtos.findIndex((produto) => produto.id === id);
+export async function removerProdutoPorId(id: number) {
+    const produtoExiste = await prisma.produto.findUnique({
+        where: {
+            id
+        }
+    });
 
-    if (indiceProduto === -1) {
+    if (!produtoExiste) {
         return false;
     }
 
-    produtos.splice(indiceProduto, 1);
+    await prisma.produto.delete({
+        where: {
+            id
+        }
+    });
 
     return true;
 }
