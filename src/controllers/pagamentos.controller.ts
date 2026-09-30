@@ -1,58 +1,58 @@
 import type { Request, Response } from "express";
-import type { MetodoPagamento } from "../data/pagamentos.js";
+import type { MetodoPagamento } from "../services/pagamentos.service.js";
 import { criarPagamento, obterPagamentoPorId, obterPagamentosPorPedidoId, obterTodosPagamentos } from "../services/pagamentos.service.js";
 import { obterPedidoPorId } from "../services/pedidos.service.js";
 import { idEhInvalido, validarCriacaoPagamento } from "../utils/validacoes.js";
 
-export function listarPagamentos(req: Request, res: Response) {
-    const todosPagamentos = obterTodosPagamentos();
+export async function listarPagamentos(req: Request, res: Response) {
+    const todosPagamentos = await obterTodosPagamentos();
 
     return res.json(todosPagamentos);
 }
 
-export function buscarPagamentoPorId(req: Request, res: Response) {
+export async function buscarPagamentoPorId(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
-            mensagem: "ID deve ser um número inteiro positivo"
+            mensagem: "ID deve ser um numero inteiro positivo"
         });
     }
 
-    const pagamento = obterPagamentoPorId(id);
+    const pagamento = await obterPagamentoPorId(id);
 
     if (!pagamento) {
         return res.status(404).json({
-            mensagem: "Pagamento não encontrado"
+            mensagem: "Pagamento nao encontrado"
         });
     }
 
     return res.json(pagamento);
 }
 
-export function listarPagamentosPorPedido(req: Request, res: Response) {
+export async function listarPagamentosPorPedido(req: Request, res: Response) {
     const pedidoId = Number(req.params.pedidoId);
 
     if (idEhInvalido(pedidoId)) {
         return res.status(400).json({
-            mensagem: "Pedido ID deve ser um número inteiro positivo"
+            mensagem: "Pedido ID deve ser um numero inteiro positivo"
         });
     }
 
-    const pedido = obterPedidoPorId(pedidoId);
+    const pedido = await obterPedidoPorId(pedidoId);
 
     if (!pedido) {
         return res.status(404).json({
-            mensagem: "Pedido não encontrado"
+            mensagem: "Pedido nao encontrado"
         });
     }
 
-    const pagamentosDoPedido = obterPagamentosPorPedidoId(pedidoId);
+    const pagamentosDoPedido = await obterPagamentosPorPedidoId(pedidoId);
 
     return res.json(pagamentosDoPedido);
 }
 
-export function cadastrarPagamento(req: Request, res: Response) {
+export async function cadastrarPagamento(req: Request, res: Response) {
     const { pedidoId, metodo } = req.body;
 
     const erroValidacao = validarCriacaoPagamento(pedidoId, metodo);
@@ -63,9 +63,9 @@ export function cadastrarPagamento(req: Request, res: Response) {
         });
     }
 
-    const resultado = criarPagamento(pedidoId, metodo as MetodoPagamento);
+    const resultado = await criarPagamento(pedidoId, metodo as MetodoPagamento);
 
-    if (resultado.mensagemErro === "Pedido não encontrado") {
+    if (resultado.mensagemErro === "Pedido nao encontrado") {
         return res.status(404).json({
             mensagem: resultado.mensagemErro
         });

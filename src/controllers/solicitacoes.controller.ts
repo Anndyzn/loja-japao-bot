@@ -1,11 +1,11 @@
 import type { Request, Response } from "express";
-import type { StatusSolicitacao } from "../data/solicitacoes.js";
-import { obterClientePorId } from "../services/clientes.service.js";
+import { obterClientePorId } from "../services/clientes-db.service.js";
+import type { StatusSolicitacao } from "../services/solicitacoes.service.js";
 import { atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
 
-export function listarSolicitacoes(req: Request, res: Response) {
+export async function listarSolicitacoes(req: Request, res: Response) {
     const { status, pagina, limite } = req.query;
 
     if (status !== undefined) {
@@ -18,7 +18,7 @@ export function listarSolicitacoes(req: Request, res: Response) {
         }
     }
 
-    const solicitacoesFiltradas = obterSolicitacoesFiltradas({
+    const solicitacoesFiltradas = await obterSolicitacoesFiltradas({
         status: status as StatusSolicitacao | undefined
     });
 
@@ -33,44 +33,44 @@ export function listarSolicitacoes(req: Request, res: Response) {
     return res.json(paginarLista(solicitacoesFiltradas, paginacao.pagina!, paginacao.limite!));
 }
 
-export function buscarSolicitacaoPorId(req: Request, res: Response) {
+export async function buscarSolicitacaoPorId(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
-            mensagem: "ID deve ser um número inteiro positivo"
+            mensagem: "ID deve ser um numero inteiro positivo"
         });
     }
 
-    const solicitacao = obterSolicitacaoPorId(id);
+    const solicitacao = await obterSolicitacaoPorId(id);
 
     if (!solicitacao) {
         return res.status(404).json({
-            mensagem: "Solicitação não encontrada"
+            mensagem: "Solicitacao nao encontrada"
         });
     }
 
     return res.json(solicitacao);
 }
 
-export function listarSolicitacoesPorCliente(req: Request, res: Response) {
+export async function listarSolicitacoesPorCliente(req: Request, res: Response) {
     const clienteId = Number(req.params.clienteId);
 
     if (idEhInvalido(clienteId)) {
         return res.status(400).json({
-            mensagem: "Cliente ID deve ser um número inteiro positivo"
+            mensagem: "Cliente ID deve ser um numero inteiro positivo"
         });
     }
 
-    const cliente = obterClientePorId(clienteId);
+    const cliente = await obterClientePorId(clienteId);
 
     if (!cliente) {
         return res.status(404).json({
-            mensagem: "Cliente não encontrado"
+            mensagem: "Cliente nao encontrado"
         });
     }
 
-    const solicitacoesDoCliente = obterSolicitacoesPorClienteId(clienteId);
+    const solicitacoesDoCliente = await obterSolicitacoesPorClienteId(clienteId);
 
     const { pagina, limite } = req.query;
 
@@ -85,7 +85,7 @@ export function listarSolicitacoesPorCliente(req: Request, res: Response) {
     return res.json(paginarLista(solicitacoesDoCliente, paginacao.pagina!, paginacao.limite!));
 }
 
-export function cadastrarSolicitacao(req: Request, res: Response) {
+export async function cadastrarSolicitacao(req: Request, res: Response) {
     const { clienteId, nomeProduto, descricao, linkReferencia } = req.body;
 
     const erroValidacao = validarCriacaoSolicitacao(clienteId, nomeProduto, descricao, linkReferencia);
@@ -98,7 +98,7 @@ export function cadastrarSolicitacao(req: Request, res: Response) {
 
     const linkTratado = typeof linkReferencia === "string" ? linkReferencia.trim() : undefined;
 
-    const resultado = criarSolicitacaoProduto(
+    const resultado = await criarSolicitacaoProduto(
         clienteId,
         nomeProduto.trim(),
         descricao.trim(),
@@ -114,12 +114,12 @@ export function cadastrarSolicitacao(req: Request, res: Response) {
     return res.status(201).json(resultado.solicitacao);
 }
 
-export function atualizarStatusSolicitacao(req: Request, res: Response) {
+export async function atualizarStatusSolicitacao(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
-            mensagem: "ID deve ser um número inteiro positivo"
+            mensagem: "ID deve ser um numero inteiro positivo"
         });
     }
 
@@ -133,11 +133,11 @@ export function atualizarStatusSolicitacao(req: Request, res: Response) {
         });
     }
 
-    const solicitacao = atualizarStatusSolicitacaoPorId(id, status as StatusSolicitacao);
+    const solicitacao = await atualizarStatusSolicitacaoPorId(id, status as StatusSolicitacao);
 
     if (!solicitacao) {
         return res.status(404).json({
-            mensagem: "Solicitação não encontrada"
+            mensagem: "Solicitacao nao encontrada"
         });
     }
 

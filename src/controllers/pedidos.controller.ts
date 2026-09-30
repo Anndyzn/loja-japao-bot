@@ -1,12 +1,12 @@
 import type { Request, Response } from "express";
-import type { StatusPedido } from "../data/pedidos.js";
 import { obterAcompanhamentoPedido } from "../services/acompanhamento.service.js";
-import { obterClientePorId } from "../services/clientes.service.js";
+import { obterClientePorId } from "../services/clientes-db.service.js";
+import type { StatusPedido } from "../services/pedidos.service.js";
 import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
 
-export function listarPedidos(req: Request, res: Response) {
+export async function listarPedidos(req: Request, res: Response) {
     const { status, pagina, limite } = req.query;
 
     if (status !== undefined) {
@@ -19,7 +19,7 @@ export function listarPedidos(req: Request, res: Response) {
         }
     }
 
-    const pedidosFiltrados = obterPedidosFiltrados({
+    const pedidosFiltrados = await obterPedidosFiltrados({
         status: status as StatusPedido | undefined
     });
 
@@ -34,64 +34,64 @@ export function listarPedidos(req: Request, res: Response) {
     return res.json(paginarLista(pedidosFiltrados, paginacao.pagina!, paginacao.limite!));
 }
 
-export function buscarPedidoPorId(req: Request, res: Response) {
+export async function buscarPedidoPorId(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
-            mensagem: "ID deve ser um número inteiro positivo"
+            mensagem: "ID deve ser um numero inteiro positivo"
         });
     }
 
-    const pedido = obterPedidoPorId(id);
+    const pedido = await obterPedidoPorId(id);
 
     if (!pedido) {
         return res.status(404).json({
-            mensagem: "Pedido não encontrado"
+            mensagem: "Pedido nao encontrado"
         });
     }
 
     return res.json(pedido);
 }
 
-export function acompanharPedido(req: Request, res: Response) {
+export async function acompanharPedido(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
-            mensagem: "ID deve ser um número inteiro positivo"
+            mensagem: "ID deve ser um numero inteiro positivo"
         });
     }
 
-    const acompanhamento = obterAcompanhamentoPedido(id);
+    const acompanhamento = await obterAcompanhamentoPedido(id);
 
     if (!acompanhamento) {
         return res.status(404).json({
-            mensagem: "Pedido não encontrado"
+            mensagem: "Pedido nao encontrado"
         });
     }
 
     return res.json(acompanhamento);
 }
 
-export function listarPedidosPorCliente(req: Request, res: Response) {
+export async function listarPedidosPorCliente(req: Request, res: Response) {
     const clienteId = Number(req.params.clienteId);
 
     if (idEhInvalido(clienteId)) {
         return res.status(400).json({
-            mensagem: "Cliente ID deve ser um número inteiro positivo"
+            mensagem: "Cliente ID deve ser um numero inteiro positivo"
         });
     }
 
-    const cliente = obterClientePorId(clienteId);
+    const cliente = await obterClientePorId(clienteId);
 
     if (!cliente) {
         return res.status(404).json({
-            mensagem: "Cliente não encontrado"
+            mensagem: "Cliente nao encontrado"
         });
     }
 
-    const pedidosDoCliente = obterPedidosPorClienteId(clienteId);
+    const pedidosDoCliente = await obterPedidosPorClienteId(clienteId);
 
     const { pagina, limite } = req.query;
 
@@ -106,7 +106,7 @@ export function listarPedidosPorCliente(req: Request, res: Response) {
     return res.json(paginarLista(pedidosDoCliente, paginacao.pagina!, paginacao.limite!));
 }
 
-export function cadastrarPedido(req: Request, res: Response) {
+export async function cadastrarPedido(req: Request, res: Response) {
     const { clienteId, itens } = req.body;
 
     const erroValidacao = validarCriacaoPedido(clienteId, itens);
@@ -117,7 +117,7 @@ export function cadastrarPedido(req: Request, res: Response) {
         });
     }
 
-    const resultado = criarPedido(clienteId, itens);
+    const resultado = await criarPedido(clienteId, itens);
 
     if (resultado.mensagemErro) {
         return res.status(400).json({
@@ -128,12 +128,12 @@ export function cadastrarPedido(req: Request, res: Response) {
     return res.status(201).json(resultado.pedido);
 }
 
-export function atualizarStatusPedido(req: Request, res: Response) {
+export async function atualizarStatusPedido(req: Request, res: Response) {
     const id = Number(req.params.id);
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
-            mensagem: "ID deve ser um número inteiro positivo"
+            mensagem: "ID deve ser um numero inteiro positivo"
         });
     }
 
@@ -147,9 +147,9 @@ export function atualizarStatusPedido(req: Request, res: Response) {
         });
     }
 
-    const resultado = atualizarStatusPedidoPorId(id, status as StatusPedido);
+    const resultado = await atualizarStatusPedidoPorId(id, status as StatusPedido);
 
-    if (resultado.mensagemErro === "Pedido não encontrado") {
+    if (resultado.mensagemErro === "Pedido nao encontrado") {
         return res.status(404).json({
             mensagem: resultado.mensagemErro
         });

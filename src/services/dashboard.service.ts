@@ -1,50 +1,93 @@
-import { obterTodosClientes } from "./clientes.service.js";
-import { obterTodosPagamentos } from "./pagamentos.service.js";
-import { obterTodosPedidos } from "./pedidos.service.js";
-import { obterTodosProdutos } from "./produtos.service.js";
-import { obterTodasSolicitacoes } from "./solicitacoes.service.js";
+import { prisma } from "../lib/prisma.js";
 
-export function obterResumoDashboard() {
-    const produtos = obterTodosProdutos();
-    const clientes = obterTodosClientes();
-    const pagamentos = obterTodosPagamentos();
-    const pedidos = obterTodosPedidos();
-    const solicitacoes = obterTodasSolicitacoes();
-
-    const produtosComEstoqueBaixo = produtos.filter((produto) => produto.estoque <= 5);
-    const pedidosPendentes = pedidos.filter((pedido) => pedido.status === "pendente");
-    const pedidosPagos = pedidos.filter((pedido) => pedido.status === "pago");
-    const pedidosEnviados = pedidos.filter((pedido) => pedido.status === "enviado");
-    const solicitacoesAbertas = solicitacoes.filter((solicitacao) => {
-        return ["recebida", "em_analise", "cotada"].includes(solicitacao.status);
-    });
-
-    const faturamentoConfirmado = pedidos
-        .filter((pedido) => pedido.status === "pago" || pedido.status === "enviado")
-        .reduce((total, pedido) => total + pedido.total, 0);
+export async function obterResumoDashboard() {
+    const [
+        totalProdutos,
+        produtosComEstoqueBaixo,
+        totalClientes,
+        totalPedidos,
+        pedidosPendentes,
+        pedidosPagos,
+        pedidosEnviados,
+        faturamentoConfirmado,
+        totalPagamentos,
+        pagamentosAprovados,
+        totalSolicitacoes,
+        solicitacoesAbertas
+    ] = await Promise.all([
+        prisma.produto.count(),
+        prisma.produto.count({
+            where: {
+                estoque: {
+                    lte: 5
+                }
+            }
+        }),
+        prisma.cliente.count(),
+        prisma.pedido.count(),
+        prisma.pedido.count({
+            where: {
+                status: "pendente"
+            }
+        }),
+        prisma.pedido.count({
+            where: {
+                status: "pago"
+            }
+        }),
+        prisma.pedido.count({
+            where: {
+                status: "enviado"
+            }
+        }),
+        prisma.pedido.aggregate({
+            _sum: {
+                total: true
+            },
+            where: {
+                status: {
+                    in: ["pago", "enviado"]
+                }
+            }
+        }),
+        prisma.pagamento.count(),
+        prisma.pagamento.count({
+            where: {
+                status: "aprovado"
+            }
+        }),
+        prisma.solicitacaoProduto.count(),
+        prisma.solicitacaoProduto.count({
+            where: {
+                status: {
+                    in: ["recebida", "em_analise", "cotada"]
+                }
+            }
+        })
+    ]);
 
     return {
         produtos: {
-            total: produtos.length,
-            estoqueBaixo: produtosComEstoqueBaixo.length
+            total: totalProdutos,
+            estoqueBaixo: produtosComEstoqueBaixo
         },
         clientes: {
-            total: clientes.length
+            total: totalClientes
         },
         pedidos: {
-            total: pedidos.length,
-            pendentes: pedidosPendentes.length,
-            pagos: pedidosPagos.length,
-            enviados: pedidosEnviados.length,
-            faturamentoConfirmado: Number(faturamentoConfirmado.toFixed(2))
+            total: totalPedidos,
+            pendentes: pedidosPendentes,
+            pagos: pedidosPagos,
+            enviados: pedidosEnviados,
+            faturamentoConfirmado: Number(faturamentoConfirmado._sum.total ?? 0)
         },
         pagamentos: {
-            total: pagamentos.length,
-            aprovados: pagamentos.length
+            total: totalPagamentos,
+            aprovados: pagamentosAprovados
         },
         solicitacoes: {
-            total: solicitacoes.length,
-            abertas: solicitacoesAbertas.length
+            total: totalSolicitacoes,
+            abertas: solicitacoesAbertas
         }
     };
 }

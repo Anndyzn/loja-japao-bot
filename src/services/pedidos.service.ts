@@ -1,8 +1,7 @@
-import { gerarProximoPedidoId, pedidos } from "../data/pedidos.js";
-import type { Pedido, StatusPedido } from "../data/pedidos.js";
-import type { Produto } from "../data/produtos.js";
-import { obterClientePorId } from "./clientes.service.js";
-import { obterProdutoPorId } from "./produtos.service.js";
+import type { StatusPedido } from "../../generated/prisma/client.js";
+import { prisma } from "../lib/prisma.js";
+
+export type { StatusPedido } from "../../generated/prisma/client.js";
 
 export type ItemPedidoEntrada = {
     produtoId: number;
@@ -13,142 +12,311 @@ type FiltrosPedidos = {
     status?: StatusPedido | undefined;
 };
 
+type ItemPedidoResposta = {
+    produtoId: number;
+    nomeProduto: string;
+    quantidade: number;
+    precoUnitario: number;
+    subtotal: number;
+};
+
+export type PedidoResposta = {
+    id: number;
+    clienteId: number;
+    itens: ItemPedidoResposta[];
+    total: number;
+    status: StatusPedido;
+    criadoEm: string;
+};
+
+type PedidoComItens = {
+    id: number;
+    clienteId: number;
+    total: unknown;
+    status: StatusPedido;
+    criadoEm: Date;
+    itens: Array<{
+        produtoId: number;
+        nomeProduto: string;
+        quantidade: number;
+        precoUnitario: unknown;
+        subtotal: unknown;
+    }>;
+};
+
 type ResultadoCriacaoPedido = {
-    pedido?: Pedido;
+    pedido?: PedidoResposta;
     mensagemErro?: string;
 };
 
 type ResultadoAtualizacaoStatusPedido = {
-    pedido?: Pedido;
+    pedido?: PedidoResposta;
     mensagemErro?: string;
 };
 
-export function obterTodosPedidos() {
-    return pedidos;
+function formatarPedido(pedido: PedidoComItens): PedidoResposta {
+    return {
+        id: pedido.id,
+        clienteId: pedido.clienteId,
+        itens: pedido.itens.map((item) => {
+            return {
+                produtoId: item.produtoId,
+                nomeProduto: item.nomeProduto,
+                quantidade: item.quantidade,
+                precoUnitario: Number(item.precoUnitario),
+                subtotal: Number(item.subtotal)
+            };
+        }),
+        total: Number(pedido.total),
+        status: pedido.status,
+        criadoEm: pedido.criadoEm.toISOString()
+    };
 }
 
-export function obterPedidosFiltrados(filtros: FiltrosPedidos) {
-    let pedidosFiltrados = pedidos;
+function agruparItensPorProduto(itensEntrada: ItemPedidoEntrada[]) {
+    const quantidadesPorProduto = new Map<number, number>();
 
-    if (filtros.status !== undefined) {
-        pedidosFiltrados = pedidosFiltrados.filter((pedido) => pedido.status === filtros.status);
+    for (const item of itensEntrada) {
+        const quantidadeAtual = quantidadesPorProduto.get(item.produtoId) ?? 0;
+        quantidadesPorProduto.set(item.produtoId, quantidadeAtual + item.quantidade);
     }
 
-    return pedidosFiltrados;
+    return Array.from(quantidadesPorProduto.entries()).map(([produtoId, quantidade]) => {
+        return {
+            produtoId,
+            quantidade
+        };
+    });
 }
 
-export function obterPedidoPorId(id: number) {
-    return pedidos.find((pedido) => pedido.id === id);
+const includeItensPedido = {
+    itens: {
+        orderBy: {
+            id: "asc" as const
+        }
+    }
+};
+
+export async function obterTodosPedidos() {
+    const pedidos = await prisma.pedido.findMany({
+        include: includeItensPedido,
+        orderBy: {
+            id: "asc"
+        }
+    });
+
+    return pedidos.map(formatarPedido);
 }
 
-export function obterPedidosPorClienteId(clienteId: number) {
-    return pedidos.filter((pedido) => pedido.clienteId === clienteId);
+export async function obterPedidosFiltrados(filtros: FiltrosPedidos) {
+    if (!filtros.status) {
+        const pedidos = await prisma.pedido.findMany({
+            include: includeItensPedido,
+            orderBy: {
+                id: "asc"
+            }
+        });
+
+        return pedidos.map(formatarPedido);
+    }
+
+    const pedidos = await prisma.pedido.findMany({
+        where: {
+            status: filtros.status
+        },
+        include: includeItensPedido,
+        orderBy: {
+            id: "asc"
+        }
+    });
+
+    return pedidos.map(formatarPedido);
 }
 
-export function criarPedido(clienteId: number, itensEntrada: ItemPedidoEntrada[]): ResultadoCriacaoPedido {
-    const cliente = obterClientePorId(clienteId);
+export async function obterPedidoPorId(id: number) {
+    const pedido = await prisma.pedido.findUnique({
+        where: {
+            id
+        },
+        include: includeItensPedido
+    });
+
+    if (!pedido) {
+        return undefined;
+    }
+
+    return formatarPedido(pedido);
+}
+
+export async function obterPedidosPorClienteId(clienteId: number) {
+    const pedidos = await prisma.pedido.findMany({
+        where: {
+            clienteId
+        },
+        include: includeItensPedido,
+        orderBy: {
+            id: "asc"
+        }
+    });
+
+    return pedidos.map(formatarPedido);
+}
+
+export async function criarPedido(clienteId: number, itensEntrada: ItemPedidoEntrada[]): Promise<ResultadoCriacaoPedido> {
+    const cliente = await prisma.cliente.findUnique({
+        where: {
+            id: clienteId
+        }
+    });
 
     if (!cliente) {
         return {
-            mensagemErro: "Cliente não encontrado"
+            mensagemErro: "Cliente nao encontrado"
         };
     }
 
-    const produtosDoPedido: Array<{ produto: Produto; quantidade: number }> = [];
+    const itensAgrupados = agruparItensPorProduto(itensEntrada);
 
-    for (const item of itensEntrada) {
-        const produto = obterProdutoPorId(item.produtoId);
+    return await prisma.$transaction(async (tx) => {
+        const produtosDoPedido = [];
 
-        if (!produto) {
-            return {
-                mensagemErro: `Produto ${item.produtoId} não encontrado`
-            };
+        for (const item of itensAgrupados) {
+            const produto = await tx.produto.findUnique({
+                where: {
+                    id: item.produtoId
+                }
+            });
+
+            if (!produto) {
+                return {
+                    mensagemErro: `Produto ${item.produtoId} nao encontrado`
+                };
+            }
+
+            if (produto.estoque < item.quantidade) {
+                return {
+                    mensagemErro: `Estoque insuficiente para o produto ${produto.nome}`
+                };
+            }
+
+            produtosDoPedido.push({
+                produto,
+                quantidade: item.quantidade
+            });
         }
 
-        if (produto.estoque < item.quantidade) {
-            return {
-                mensagemErro: `Estoque insuficiente para o produto ${produto.nome}`
-            };
-        }
+        const itens = produtosDoPedido.map(({ produto, quantidade }) => {
+            const precoUnitario = Number(produto.preco);
+            const subtotal = Number((precoUnitario * quantidade).toFixed(2));
 
-        produtosDoPedido.push({
-            produto,
-            quantidade: item.quantidade
+            return {
+                produtoId: produto.id,
+                nomeProduto: produto.nome,
+                quantidade,
+                precoUnitario,
+                subtotal
+            };
         });
-    }
 
-    const itens = produtosDoPedido.map(({ produto, quantidade }) => {
-        produto.estoque -= quantidade;
+        const total = Number(
+            itens.reduce((soma, item) => soma + item.subtotal, 0).toFixed(2)
+        );
 
-        const subtotal = Number((produto.preco * quantidade).toFixed(2));
+        for (const item of itens) {
+            await tx.produto.update({
+                where: {
+                    id: item.produtoId
+                },
+                data: {
+                    estoque: {
+                        decrement: item.quantidade
+                    }
+                }
+            });
+        }
+
+        const novoPedido = await tx.pedido.create({
+            data: {
+                clienteId,
+                total,
+                itens: {
+                    create: itens.map((item) => {
+                        return {
+                            produtoId: item.produtoId,
+                            nomeProduto: item.nomeProduto,
+                            quantidade: item.quantidade,
+                            precoUnitario: item.precoUnitario,
+                            subtotal: item.subtotal
+                        };
+                    })
+                }
+            },
+            include: includeItensPedido
+        });
 
         return {
-            produtoId: produto.id,
-            nomeProduto: produto.nome,
-            quantidade,
-            precoUnitario: produto.preco,
-            subtotal
+            pedido: formatarPedido(novoPedido)
         };
     });
-
-    const total = Number(
-        itens.reduce((soma, item) => soma + item.subtotal, 0).toFixed(2)
-    );
-
-    const novoPedido: Pedido = {
-        id: gerarProximoPedidoId(),
-        clienteId,
-        itens,
-        total,
-        status: "pendente",
-        criadoEm: new Date().toISOString()
-    };
-
-    pedidos.push(novoPedido);
-
-    return {
-        pedido: novoPedido
-    };
 }
 
-function devolverItensAoEstoque(pedido: Pedido) {
-    for (const item of pedido.itens) {
-        const produto = obterProdutoPorId(item.produtoId);
+export async function atualizarStatusPedidoPorId(
+    id: number,
+    status: StatusPedido
+): Promise<ResultadoAtualizacaoStatusPedido> {
+    return await prisma.$transaction(async (tx) => {
+        const pedido = await tx.pedido.findUnique({
+            where: {
+                id
+            },
+            include: includeItensPedido
+        });
 
-        if (produto) {
-            produto.estoque += item.quantidade;
+        if (!pedido) {
+            return {
+                mensagemErro: "Pedido nao encontrado"
+            };
         }
-    }
-}
 
-export function atualizarStatusPedidoPorId(id: number, status: StatusPedido): ResultadoAtualizacaoStatusPedido {
-    const pedido = obterPedidoPorId(id);
+        if (pedido.status === "cancelado") {
+            return {
+                mensagemErro: "Pedido cancelado nao pode mudar de status"
+            };
+        }
 
-    if (!pedido) {
+        if (pedido.status === status) {
+            return {
+                pedido: formatarPedido(pedido)
+            };
+        }
+
+        if (status === "cancelado") {
+            for (const item of pedido.itens) {
+                await tx.produto.update({
+                    where: {
+                        id: item.produtoId
+                    },
+                    data: {
+                        estoque: {
+                            increment: item.quantidade
+                        }
+                    }
+                });
+            }
+        }
+
+        const pedidoAtualizado = await tx.pedido.update({
+            where: {
+                id
+            },
+            data: {
+                status
+            },
+            include: includeItensPedido
+        });
+
         return {
-            mensagemErro: "Pedido não encontrado"
+            pedido: formatarPedido(pedidoAtualizado)
         };
-    }
-
-    if (pedido.status === "cancelado") {
-        return {
-            mensagemErro: "Pedido cancelado não pode mudar de status"
-        };
-    }
-
-    if (pedido.status === status) {
-        return {
-            pedido
-        };
-    }
-
-    if (status === "cancelado") {
-        devolverItensAoEstoque(pedido);
-    }
-
-    pedido.status = status;
-
-    return {
-        pedido
-    };
+    });
 }
