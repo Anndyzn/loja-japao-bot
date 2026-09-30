@@ -29,6 +29,15 @@ Crie o arquivo `.env` a partir do exemplo:
 copy .env.example .env
 ```
 
+O `.env.example` ja vem com um admin inicial de desenvolvimento:
+
+```txt
+ADMIN_EMAIL="admin@lojajapao.com"
+ADMIN_PASSWORD="admin123"
+```
+
+Esses dados sao usados pelo `npm run db:seed`.
+
 Suba o banco PostgreSQL:
 
 ```bash
@@ -93,6 +102,31 @@ npm run db:studio    abre o Prisma Studio
 
 ## Rotas
 
+### Autenticacao Admin
+
+Fazer login como admin:
+
+```http
+POST /auth/login
+Content-Type: application/json
+```
+
+```json
+{
+  "email": "admin@lojajapao.com",
+  "senha": "admin123"
+}
+```
+
+A resposta retorna um `token`. Use esse token nas rotas administrativas:
+
+```http
+Authorization: Bearer SEU_TOKEN_AQUI
+```
+
+Na primeira versao, o login e apenas para admin. O cliente comum ainda pode
+criar cliente, pedido, pagamento e solicitacao sem login.
+
 ### Produtos
 
 Listar produtos:
@@ -117,6 +151,8 @@ GET /produtos/1
 
 Criar produto:
 
+Requer token admin.
+
 ```http
 POST /produtos
 Content-Type: application/json
@@ -132,6 +168,8 @@ Content-Type: application/json
 
 Atualizar produto:
 
+Requer token admin.
+
 ```http
 PATCH /produtos/1
 Content-Type: application/json
@@ -146,6 +184,8 @@ Content-Type: application/json
 
 Remover produto:
 
+Requer token admin.
+
 ```http
 DELETE /produtos/1
 ```
@@ -153,6 +193,8 @@ DELETE /produtos/1
 ### Clientes
 
 Listar clientes:
+
+Requer token admin.
 
 ```http
 GET /clientes
@@ -167,6 +209,8 @@ GET /clientes?pagina=1&limite=10
 ```
 
 Buscar cliente por ID:
+
+Requer token admin.
 
 ```http
 GET /clientes/1
@@ -189,6 +233,8 @@ Content-Type: application/json
 
 Atualizar cliente:
 
+Requer token admin.
+
 ```http
 PATCH /clientes/1
 Content-Type: application/json
@@ -202,6 +248,8 @@ Content-Type: application/json
 
 Remover cliente:
 
+Requer token admin.
+
 ```http
 DELETE /clientes/1
 ```
@@ -209,6 +257,8 @@ DELETE /clientes/1
 ### Pedidos
 
 Listar pedidos:
+
+Requer token admin.
 
 ```http
 GET /pedidos
@@ -228,11 +278,15 @@ pendente, pago, enviado, cancelado
 
 Buscar pedido por ID:
 
+Requer token admin.
+
 ```http
 GET /pedidos/1
 ```
 
 Listar pedidos de um cliente:
+
+Requer token admin.
 
 ```http
 GET /pedidos/cliente/1
@@ -259,6 +313,8 @@ Content-Type: application/json
 
 Atualizar status do pedido:
 
+Requer token admin.
+
 ```http
 PATCH /pedidos/1/status
 Content-Type: application/json
@@ -280,17 +336,23 @@ GET /pedidos/1/acompanhamento
 
 Listar pagamentos:
 
+Requer token admin.
+
 ```http
 GET /pagamentos
 ```
 
 Buscar pagamento por ID:
 
+Requer token admin.
+
 ```http
 GET /pagamentos/1
 ```
 
 Listar pagamentos de um pedido:
+
+Requer token admin.
 
 ```http
 GET /pagamentos/pedido/1
@@ -320,6 +382,8 @@ pix, cartao, boleto
 
 Listar solicitacoes:
 
+Requer token admin.
+
 ```http
 GET /solicitacoes
 ```
@@ -338,11 +402,15 @@ recebida, em_analise, cotada, aprovada, recusada, cancelada
 
 Buscar solicitacao por ID:
 
+Requer token admin.
+
 ```http
 GET /solicitacoes/1
 ```
 
 Listar solicitacoes de um cliente:
+
+Requer token admin.
 
 ```http
 GET /solicitacoes/cliente/1
@@ -366,6 +434,8 @@ Content-Type: application/json
 
 Atualizar status da solicitacao:
 
+Requer token admin.
+
 ```http
 PATCH /solicitacoes/1/status
 Content-Type: application/json
@@ -380,6 +450,8 @@ Content-Type: application/json
 ### Dashboard
 
 Resumo do sistema:
+
+Requer token admin.
 
 ```http
 GET /dashboard/resumo

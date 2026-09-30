@@ -1,16 +1,17 @@
 import { Router } from "express";
 import { acompanharPedido, atualizarStatusPedido, buscarPedidoPorId, cadastrarPedido, listarPedidos, listarPedidosPorCliente } from "../controllers/pedidos.controller.js";
+import { exigirAdmin } from "../middlewares/auth.middleware.js";
 
 export const pedidosRoutes = Router();
 
-pedidosRoutes.get("/", listarPedidos);
+pedidosRoutes.get("/", exigirAdmin, listarPedidos);
 
-pedidosRoutes.get("/cliente/:clienteId", listarPedidosPorCliente);
+pedidosRoutes.get("/cliente/:clienteId", exigirAdmin, listarPedidosPorCliente);
 
 pedidosRoutes.get("/:id/acompanhamento", acompanharPedido);
 
-pedidosRoutes.get("/:id", buscarPedidoPorId);
+pedidosRoutes.get("/:id", exigirAdmin, buscarPedidoPorId);
 
 pedidosRoutes.post("/", cadastrarPedido);
 
-pedidosRoutes.patch("/:id/status", atualizarStatusPedido);
+pedidosRoutes.patch("/:id/status", exigirAdmin, atualizarStatusPedido);

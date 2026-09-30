@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { buscarPagamentoPorId, cadastrarPagamento, listarPagamentos, listarPagamentosPorPedido } from "../controllers/pagamentos.controller.js";
+import { exigirAdmin } from "../middlewares/auth.middleware.js";
 
 export const pagamentosRoutes = Router();
 
-pagamentosRoutes.get("/", listarPagamentos);
+pagamentosRoutes.get("/", exigirAdmin, listarPagamentos);
 
-pagamentosRoutes.get("/pedido/:pedidoId", listarPagamentosPorPedido);
+pagamentosRoutes.get("/pedido/:pedidoId", exigirAdmin, listarPagamentosPorPedido);
 
-pagamentosRoutes.get("/:id", buscarPagamentoPorId);
+pagamentosRoutes.get("/:id", exigirAdmin, buscarPagamentoPorId);
 
 pagamentosRoutes.post("/", cadastrarPagamento);

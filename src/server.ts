@@ -1,4 +1,5 @@
 import express from "express";
+import { authRoutes } from "./routes/auth.routes.js";
 import { clientesRoutes } from "./routes/clientes.routes.js";
 import { dashboardRoutes } from "./routes/dashboard.routes.js";
 import { tratarErros, tratarRotaNaoEncontrada } from "./middlewares/erros.middleware.js";
@@ -18,6 +19,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/produtos", produtosRoutes);
+app.use("/auth", authRoutes);
 app.use("/clientes", clientesRoutes);
 app.use("/pedidos", pedidosRoutes);
 app.use("/solicitacoes", solicitacoesRoutes);

@@ -99,3 +99,12 @@ model SolicitacaoProduto {
   criadoEm       DateTime          @default(now())
   atualizadoEm   DateTime          @updatedAt
 }
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  nome         String
+  email        String   @unique
+  senhaHash    String
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+}

@@ -1,3 +1,4 @@
+import { randomBytes, scryptSync } from "node:crypto";
 import pg from "pg";
 
 if (typeof process.loadEnvFile === "function") {
@@ -11,6 +12,13 @@ if (!connectionString) {
 }
 
 const { Client } = pg;
+
+function gerarHashSenha(senha) {
+    const salt = randomBytes(16).toString("hex");
+    const hash = scryptSync(senha, salt, 64).toString("hex");
+
+    return `${salt}:${hash}`;
+}
 
 const produtosIniciais = [
     {
@@ -54,6 +62,12 @@ const clientesIniciais = [
     }
 ];
 
+const adminInicial = {
+    nome: "Administrador",
+    email: process.env.ADMIN_EMAIL ?? "admin@lojajapao.com",
+    senha: process.env.ADMIN_PASSWORD ?? "admin123"
+};
+
 const client = new Client({
     connectionString
 });
@@ -94,6 +108,22 @@ try {
         SELECT setval(
             pg_get_serial_sequence('"Cliente"', 'id'),
             (SELECT COALESCE(MAX("id"), 1) FROM "Cliente")
+        )
+    `);
+
+    await client.query(
+        `
+            INSERT INTO "Admin" ("nome", "email", "senhaHash", "criadoEm", "atualizadoEm")
+            VALUES ($1, $2, $3, NOW(), NOW())
+            ON CONFLICT ("email") DO NOTHING
+        `,
+        [adminInicial.nome, adminInicial.email.toLowerCase(), gerarHashSenha(adminInicial.senha)]
+    );
+
+    await client.query(`
+        SELECT setval(
+            pg_get_serial_sequence('"Admin"', 'id'),
+            (SELECT COALESCE(MAX("id"), 1) FROM "Admin")
         )
     `);
 
