@@ -38,6 +38,22 @@ ADMIN_PASSWORD="admin123"
 
 Esses dados sao usados pelo `npm run db:seed`.
 
+A porta do banco pode variar entre computadores. O `.env` e local e nao vai
+para o Git: ao atualizar o projeto, preserve esse arquivo em cada maquina.
+
+Por padrao, o Docker Compose usa a porta `5432`. Se ela estiver ocupada,
+ajuste **os dois valores** no `.env` local, por exemplo:
+
+```env
+POSTGRES_PORT=5433
+DATABASE_URL="postgresql://loja_japao:loja_japao@localhost:5433/loja_japao_bot?schema=public"
+```
+
+O `POSTGRES_PORT` define a porta no computador; dentro do container, o
+PostgreSQL continua usando `5432`. Sem `POSTGRES_PORT`, o padrao e `5432`,
+mantendo a compatibilidade com o `.env` antigo. Apos mudar a porta, execute
+`npm run db:up` e reinicie a API. Nao e necessario apagar o volume do banco.
+
 Suba o banco PostgreSQL:
 
 ```bash

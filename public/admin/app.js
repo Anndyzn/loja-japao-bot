@@ -41,6 +41,13 @@ const clienteEditEstado = document.querySelector("#cliente-edit-estado");
 const clienteEditReferencia = document.querySelector("#cliente-edit-referencia");
 const clienteEditCancelar = document.querySelector("#cliente-edit-cancelar");
 
+const pedidoModal = document.querySelector('#pedido-modal');
+const pedidoTitulo = document.querySelector('#pedido-titulo');
+const pedidoFeedback = document.querySelector('#pedido-feedback');
+const pedidoConteudo = document.querySelector('#pedido-conteudo');
+const pedidoFechar = document.querySelector('#pedido-fechar');
+let consultaPedidoAtual = 0;
+
 const viewTitles = {
     dashboard: "Dashboard",
     produtos: "Produtos",
@@ -491,6 +498,101 @@ async function excluirCliente(cliente) {
     await carregarClientes();
 }
 
+function criarDetalhePedido(rotulo, valor) {
+    const paragrafo = document.createElement('p');
+    const titulo = document.createElement('strong');
+    titulo.textContent = rotulo + ': ';
+    paragrafo.append(titulo, document.createTextNode(valor || 'Não informado'));
+    return paragrafo;
+}
+
+function criarSecaoPedido(titulo) {
+    const secao = document.createElement('section');
+    secao.className = 'pedido-secao';
+    const heading = document.createElement('h3');
+    heading.textContent = titulo;
+    secao.append(heading);
+    return secao;
+}
+
+function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
+    const resumo = criarSecaoPedido('Resumo');
+    resumo.append(
+        criarDetalhePedido('Status', pedido.status),
+        criarDetalhePedido('Criado em', formatarData(pedido.criadoEm)),
+        criarDetalhePedido('Total', formatarMoeda(pedido.total))
+    );
+    const entrega = criarSecaoPedido('Cliente e entrega');
+    entrega.append(
+        criarDetalhePedido('Cliente', cliente.nome),
+        criarDetalhePedido('Telefone', cliente.telefone),
+        criarDetalhePedido('Email', cliente.email),
+        criarDetalhePedido('Endereço atual do cliente', formatarEnderecoCliente(cliente)),
+        criarDetalhePedido('Referência', cliente.referencia)
+    );
+    const itens = criarSecaoPedido('Itens');
+    for (const item of pedido.itens) {
+        const linha = document.createElement('p');
+        linha.textContent = item.nomeProduto + ' — ' + item.quantidade + ' × ' +
+            formatarMoeda(item.precoUnitario) + ' = ' + formatarMoeda(item.subtotal);
+        itens.append(linha);
+    }
+    const financeiro = criarSecaoPedido('Pagamentos');
+    if (pagamentos.length === 0) {
+        const aviso = document.createElement('p');
+        aviso.textContent = 'Nenhum pagamento registrado.';
+        financeiro.append(aviso);
+    }
+    for (const pagamento of pagamentos) {
+        const linha = document.createElement('p');
+        linha.textContent = '#' + pagamento.id + ' — ' + pagamento.metodo + ' — ' +
+            formatarMoeda(pagamento.valor) + ' — ' + pagamento.status + ' — ' +
+            formatarData(pagamento.criadoEm);
+        financeiro.append(linha);
+    }
+    const observacao = criarSecaoPedido('Observação');
+    const texto = document.createElement('p');
+    texto.textContent = pedido.observacao || 'Nenhuma observação.';
+    observacao.append(texto);
+    pedidoConteudo.replaceChildren(resumo, entrega, itens, financeiro, observacao);
+}
+
+async function abrirModalPedido(pedidoId) {
+    const consulta = ++consultaPedidoAtual;
+    pedidoTitulo.textContent = 'Pedido #' + pedidoId;
+    pedidoConteudo.replaceChildren();
+    setFeedback(pedidoFeedback, 'Carregando detalhes...');
+    pedidoConteudo.setAttribute('aria-busy', 'true');
+    pedidoModal.showModal();
+    pedidoFechar.focus();
+
+    try {
+        const pedido = await apiFetch('/pedidos/' + pedidoId);
+        if (consulta !== consultaPedidoAtual) return;
+        // Cliente e pagamentos podem ser consultados ao mesmo tempo.
+        const [cliente, pagamentos] = await Promise.all([
+            apiFetch('/clientes/' + pedido.clienteId),
+            apiFetch('/pagamentos/pedido/' + pedidoId)
+        ]);
+        if (consulta !== consultaPedidoAtual) return;
+        renderizarDetalhesPedido(pedido, cliente, pagamentos);
+        setFeedback(pedidoFeedback, '');
+    } catch (erro) {
+        if (consulta !== consultaPedidoAtual) return;
+        setFeedback(pedidoFeedback, 'Não foi possível carregar os detalhes: ' + erro.message, 'error');
+    } finally {
+        if (consulta === consultaPedidoAtual) pedidoConteudo.setAttribute('aria-busy', 'false');
+    }
+}
+
+pedidoFechar.addEventListener('click', () => pedidoModal.close());
+pedidoModal.addEventListener('close', () => {
+    // Ignora respostas que chegarem depois que o modal foi fechado.
+    consultaPedidoAtual++;
+    pedidoConteudo.replaceChildren();
+    pedidoConteudo.setAttribute('aria-busy', 'false');
+});
+
 function criarLinhaPedido(pedido) {
     const tr = document.createElement("tr");
     const actions = document.createElement("div");
@@ -500,7 +602,9 @@ function criarLinhaPedido(pedido) {
     const salvar = criarBotao("Salvar");
 
     salvar.addEventListener("click", () => atualizarStatusPedido(pedido.id, statusSelect.value));
-    actions.append(statusSelect, salvar);
+    const detalhes = criarBotao('Ver detalhes');
+    detalhes.addEventListener('click', () => abrirModalPedido(pedido.id));
+    actions.append(detalhes, statusSelect, salvar);
 
     const tdActions = document.createElement("td");
     tdActions.append(actions);

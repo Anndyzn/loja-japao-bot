@@ -394,3 +394,50 @@ tr:last-child td {
         grid-column: auto;
     }
 }
+
+/* Detalhes do pedido: o dialog cuida do foco e do fechamento com Esc. */
+.pedido-dialog {
+    width: min(760px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    color: var(--text);
+    background: var(--panel);
+    overflow-y: auto;
+}
+
+.pedido-dialog::backdrop {
+    background: rgba(31, 28, 24, 0.38);
+}
+
+.pedido-dialog .modal-panel {
+    width: 100%;
+    min-width: 0;
+}
+
+.pedido-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pedido-secao {
+    display: grid;
+    gap: 8px;
+    padding: 16px 0;
+    border-top: 1px solid var(--line);
+    overflow-wrap: anywhere;
+}
+
+.pedido-secao h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.pedido-secao p {
+    white-space: pre-wrap;
+    line-height: 1.5;
+}

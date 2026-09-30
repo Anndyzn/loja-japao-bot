@@ -284,6 +284,16 @@
                 </div>
             </form>
         </section>
+        <dialog id="pedido-modal" class="pedido-dialog" aria-labelledby="pedido-titulo">
+            <div class="modal-panel modal-panel-wide">
+                <div class="pedido-cabecalho">
+                    <h2 id="pedido-titulo">Detalhes do pedido</h2>
+                    <button id="pedido-fechar" class="small-button" type="button">Fechar</button>
+                </div>
+                <p id="pedido-feedback" class="feedback" role="status"></p>
+                <div id="pedido-conteudo" aria-busy="false"></div>
+            </div>
+        </dialog>
     </main>
 
     <script src="/admin/app.js" type="module"></script>
