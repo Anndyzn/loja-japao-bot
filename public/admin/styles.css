@@ -24,7 +24,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
     font: inherit;
 }
 
@@ -48,7 +49,8 @@ button:disabled {
     opacity: 0.6;
 }
 
-input {
+input,
+select {
     width: 100%;
     min-height: 40px;
     border: 1px solid var(--line);
@@ -214,7 +216,7 @@ p {
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 720px;
+    min-width: 860px;
 }
 
 th,
@@ -239,6 +241,7 @@ tr:last-child td {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .small-button {
@@ -257,6 +260,16 @@ tr:last-child td {
 
 .danger-button:hover {
     background: #322123;
+}
+
+.status-select {
+    width: auto;
+    min-width: 140px;
+    min-height: 34px;
+}
+
+.muted-cell {
+    color: var(--muted);
 }
 
 .feedback {

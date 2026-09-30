@@ -40,6 +40,10 @@
                 <nav class="nav">
                     <button class="nav-button active" type="button" data-view="dashboard">Dashboard</button>
                     <button class="nav-button" type="button" data-view="produtos">Produtos</button>
+                    <button class="nav-button" type="button" data-view="clientes">Clientes</button>
+                    <button class="nav-button" type="button" data-view="pedidos">Pedidos</button>
+                    <button class="nav-button" type="button" data-view="pagamentos">Pagamentos</button>
+                    <button class="nav-button" type="button" data-view="solicitacoes">Solicitacoes</button>
                 </nav>
 
                 <button id="logout-button" class="ghost-button" type="button">Sair</button>
@@ -90,6 +94,77 @@
                                 </tr>
                             </thead>
                             <tbody id="produtos-tbody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="clientes-view" class="view-section hidden">
+                    <div class="table-shell">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Telefone</th>
+                                    <th>Endereco</th>
+                                    <th>Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientes-tbody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="pedidos-view" class="view-section hidden">
+                    <div class="table-shell">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Criado em</th>
+                                    <th>Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pedidos-tbody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="pagamentos-view" class="view-section hidden">
+                    <div class="table-shell">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Pedido</th>
+                                    <th>Valor</th>
+                                    <th>Metodo</th>
+                                    <th>Status</th>
+                                    <th>Criado em</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pagamentos-tbody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="solicitacoes-view" class="view-section hidden">
+                    <div class="table-shell">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Cliente</th>
+                                    <th>Produto</th>
+                                    <th>Status</th>
+                                    <th>Criado em</th>
+                                    <th>Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="solicitacoes-tbody"></tbody>
                         </table>
                     </div>
                 </section>

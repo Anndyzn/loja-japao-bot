@@ -490,10 +490,13 @@ http://localhost:3000/admin
 O admin podera:
 
 - cadastrar e editar produtos;
+- ver clientes;
 - ver pedidos;
 - atualizar status de pedidos;
+- ver pagamentos;
 - ver dashboard;
-- gerenciar solicitacoes.
+- gerenciar solicitacoes;
+- atualizar status de solicitacoes.
 
 O cliente comum podera fazer pedido pelo site ou WhatsApp sem login, pelo menos
 na primeira versao.
