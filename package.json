@@ -7,9 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:generate": "npx prisma generate",
-    "db:migrate": "npx prisma migrate dev",
-    "db:studio": "npx prisma studio"
+    "db:generate": "npx --yes prisma@7.10.0 generate",
+    "db:migrate": "npx --yes prisma@7.10.0 migrate dev",
+    "db:studio": "npx --yes prisma@7.10.0 studio"
   },
   "keywords": [],
   "author": "",
