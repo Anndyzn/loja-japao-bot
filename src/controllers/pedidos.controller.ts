@@ -5,9 +5,40 @@ import type { StatusPedido } from "../services/pedidos.service.js";
 import { atualizarRastreioPedidoPorId, atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
+import { validarTokenAdmin } from "../utils/tokens.js";
+
+function obterPermissaoProdutoInterno(req: Request) {
+    const authorization = req.headers.authorization;
+
+    if (!authorization) {
+        return {
+            permitir: false
+        };
+    }
+
+    if (!authorization.startsWith("Bearer ")) {
+        return {
+            permitir: false,
+            mensagemErro: "Token de admin invalido"
+        };
+    }
+
+    const token = authorization.replace("Bearer ", "").trim();
+
+    if (!validarTokenAdmin(token)) {
+        return {
+            permitir: false,
+            mensagemErro: "Token de admin invalido ou expirado"
+        };
+    }
+
+    return {
+        permitir: true
+    };
+}
 
 export async function listarPedidos(req: Request, res: Response) {
-    const { status, pagina, limite } = req.query;
+    const { status, pagina, limite, busca } = req.query;
 
     if (status !== undefined) {
         const erroValidacao = validarAtualizacaoStatusPedido(status);
@@ -19,8 +50,23 @@ export async function listarPedidos(req: Request, res: Response) {
         }
     }
 
+    if (busca !== undefined && typeof busca !== "string") {
+        return res.status(400).json({
+            mensagem: "Busca deve ser um texto"
+        });
+    }
+
+    const buscaTratada = typeof busca === "string" ? busca.trim() : undefined;
+
+    if (buscaTratada && buscaTratada.length > 100) {
+        return res.status(400).json({
+            mensagem: "Busca deve ter no maximo 100 caracteres"
+        });
+    }
+
     const pedidosFiltrados = await obterPedidosFiltrados({
-        status: status as StatusPedido | undefined
+        status: status as StatusPedido | undefined,
+        busca: buscaTratada
     });
 
     const paginacao = obterParametrosPaginacao(pagina, limite);
@@ -56,6 +102,7 @@ export async function buscarPedidoPorId(req: Request, res: Response) {
 
 export async function acompanharPedido(req: Request, res: Response) {
     const id = Number(req.params.id);
+    const telefone = typeof req.query.telefone === "string" ? req.query.telefone.trim() : "";
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
@@ -63,15 +110,21 @@ export async function acompanharPedido(req: Request, res: Response) {
         });
     }
 
-    const acompanhamento = await obterAcompanhamentoPedido(id);
-
-    if (!acompanhamento) {
-        return res.status(404).json({
-            mensagem: "Pedido nao encontrado"
+    if (!telefone) {
+        return res.status(400).json({
+            mensagem: "Informe o telefone usado no pedido"
         });
     }
 
-    return res.json(acompanhamento);
+    const resultado = await obterAcompanhamentoPedido(id, telefone);
+
+    if (resultado.mensagemErro) {
+        return res.status(resultado.statusHttp).json({
+            mensagem: resultado.mensagemErro
+        });
+    }
+
+    return res.json(resultado.acompanhamento);
 }
 
 export async function listarPedidosPorCliente(req: Request, res: Response) {
@@ -118,8 +171,17 @@ export async function cadastrarPedido(req: Request, res: Response) {
     }
 
     const observacaoTratada = typeof observacao === "string" ? observacao.trim() : undefined;
+    const permissaoProdutoInterno = obterPermissaoProdutoInterno(req);
 
-    const resultado = await criarPedido(clienteId, itens, observacaoTratada);
+    if (permissaoProdutoInterno.mensagemErro) {
+        return res.status(401).json({
+            mensagem: permissaoProdutoInterno.mensagemErro
+        });
+    }
+
+    const resultado = await criarPedido(clienteId, itens, observacaoTratada, {
+        permitirProdutoInterno: permissaoProdutoInterno.permitir
+    });
 
     if (resultado.mensagemErro) {
         return res.status(400).json({

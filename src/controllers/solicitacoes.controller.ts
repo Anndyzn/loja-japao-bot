@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusSolicitacao } from "../services/solicitacoes.service.js";
-import { criarSolicitacaoPublica, atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
+import { criarSolicitacaoPublica, atualizarCotacaoSolicitacaoPorId, atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId, vincularClienteSolicitacaoPorId, vincularPedidoSolicitacaoPorId, vincularProdutoSolicitacaoPorId } from "../services/solicitacoes.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
-import { validarSolicitacaoPublica, idEhInvalido, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
+import { validarSolicitacaoPublica, idEhInvalido, validarAtualizacaoCotacaoSolicitacao, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
 
 export async function listarSolicitacoes(req: Request, res: Response) {
     const { status, pagina, limite } = req.query;
@@ -142,6 +142,123 @@ export async function atualizarStatusSolicitacao(req: Request, res: Response) {
     }
 
     return res.json(solicitacao);
+}
+
+export async function atualizarCotacaoSolicitacao(req: Request, res: Response) {
+    const id = Number(req.params.id);
+
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const { valorCotado, observacaoAdmin } = req.body;
+    const erroValidacao = validarAtualizacaoCotacaoSolicitacao(valorCotado, observacaoAdmin);
+
+    if (erroValidacao) {
+        return res.status(400).json({
+            mensagem: erroValidacao
+        });
+    }
+
+    const solicitacao = await atualizarCotacaoSolicitacaoPorId(
+        id,
+        valorCotado,
+        typeof observacaoAdmin === "string" && observacaoAdmin.trim() !== "" ? observacaoAdmin.trim() : undefined
+    );
+
+    if (!solicitacao) {
+        return res.status(404).json({
+            mensagem: "Solicitacao nao encontrada"
+        });
+    }
+
+    return res.json(solicitacao);
+}
+
+export async function vincularClienteSolicitacao(req: Request, res: Response) {
+    const id = Number(req.params.id);
+
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const { clienteId } = req.body;
+
+    if (typeof clienteId !== "number" || idEhInvalido(clienteId)) {
+        return res.status(400).json({
+            mensagem: "Cliente ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const resultado = await vincularClienteSolicitacaoPorId(id, clienteId);
+
+    if (resultado.mensagemErro) {
+        return res.status(404).json({
+            mensagem: resultado.mensagemErro
+        });
+    }
+
+    return res.json(resultado.solicitacao);
+}
+
+export async function vincularProdutoSolicitacao(req: Request, res: Response) {
+    const id = Number(req.params.id);
+
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const { produtoId } = req.body;
+
+    if (typeof produtoId !== "number" || idEhInvalido(produtoId)) {
+        return res.status(400).json({
+            mensagem: "Produto ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const resultado = await vincularProdutoSolicitacaoPorId(id, produtoId);
+
+    if (resultado.mensagemErro) {
+        return res.status(404).json({
+            mensagem: resultado.mensagemErro
+        });
+    }
+
+    return res.json(resultado.solicitacao);
+}
+
+export async function vincularPedidoSolicitacao(req: Request, res: Response) {
+    const id = Number(req.params.id);
+
+    if (idEhInvalido(id)) {
+        return res.status(400).json({
+            mensagem: "ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const { pedidoId } = req.body;
+
+    if (typeof pedidoId !== "number" || idEhInvalido(pedidoId)) {
+        return res.status(400).json({
+            mensagem: "Pedido ID deve ser um numero inteiro positivo"
+        });
+    }
+
+    const resultado = await vincularPedidoSolicitacaoPorId(id, pedidoId);
+
+    if (resultado.mensagemErro) {
+        return res.status(404).json({
+            mensagem: resultado.mensagemErro
+        });
+    }
+
+    return res.json(resultado.solicitacao);
 }
 
 export async function cadastrarSolicitacaoPublica(req: Request, res: Response) {

@@ -1,7 +1,9 @@
 const trackingForm = document.querySelector("#tracking-form");
 const pedidoIdInput = document.querySelector("#pedido-id");
+const telefoneInput = document.querySelector("#pedido-telefone");
 const trackingResult = document.querySelector("#tracking-result");
 const trackingFeedback = document.querySelector("#tracking-feedback");
+const CHAVE_TELEFONE_ACOMPANHAMENTO = "lojaJapaoTelefoneAcompanhamento";
 
 const etapas = [
     {
@@ -27,6 +29,38 @@ function formatarMoeda(valor) {
 
 function formatarData(valor) {
     return new Date(valor).toLocaleString("pt-BR");
+}
+
+function normalizarDigitos(valor) {
+    return String(valor ?? "").replace(/\D/g, "");
+}
+
+function normalizarTexto(texto) {
+    return String(texto ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+}
+
+function criarLinkRastreio(rastreio) {
+    if (!rastreio) {
+        return undefined;
+    }
+
+    const transportadora = normalizarTexto(rastreio.transportadora);
+
+    if (!transportadora.includes("correios")) {
+        return undefined;
+    }
+
+    const link = document.createElement("a");
+    link.className = "hero-button tracking-link";
+    link.href = "https://rastreamento.correios.com.br/app/index.php?objeto=" + encodeURIComponent(rastreio.codigo);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Abrir rastreamento";
+
+    return link;
 }
 
 function setFeedback(mensagem, tipo = "") {
@@ -169,26 +203,57 @@ function renderizarPedido(pedido) {
         tituloEnvio.textContent = "Rastreio do envio";
         const transportadora = document.createElement("p");
         const codigo = document.createElement("p");
+        codigo.className = "tracking-code";
         const orientacao = document.createElement("p");
         if (pedido.rastreio) {
             transportadora.textContent = "Transportadora: " + pedido.rastreio.transportadora;
-            codigo.textContent = "Código de rastreio: " + pedido.rastreio.codigo;
+            codigo.textContent = pedido.rastreio.codigo;
             orientacao.textContent = "Use este código no site da transportadora para consultar a entrega.";
+            const linkRastreio = criarLinkRastreio(pedido.rastreio);
+            envio.append(tituloEnvio, transportadora, codigo, orientacao);
+
+            if (linkRastreio) {
+                envio.append(linkRastreio);
+            }
         } else {
             orientacao.textContent = "O código de rastreio ainda não foi informado. Consulte novamente mais tarde.";
+            envio.append(tituloEnvio, transportadora, codigo, orientacao);
         }
-        envio.append(tituloEnvio, transportadora, codigo, orientacao);
         detalhes.append(envio);
+    }
+
+    if (Array.isArray(pedido.historico) && pedido.historico.length > 0) {
+        const historico = document.createElement("article");
+        historico.className = "tracking-card tracking-history";
+        const tituloHistorico = document.createElement("div");
+        tituloHistorico.innerHTML = `
+            <p class="eyebrow">Historico</p>
+            <h3>Linha do tempo</h3>
+        `;
+        const listaHistorico = document.createElement("div");
+        listaHistorico.className = "tracking-history-list";
+
+        listaHistorico.replaceChildren(...pedido.historico.map((evento) => {
+            const linha = document.createElement("p");
+            linha.textContent = `${formatarData(evento.criadoEm)} - ${evento.descricao}`;
+            return linha;
+        }));
+
+        historico.append(tituloHistorico, listaHistorico);
+        detalhes.append(historico);
     }
 
     trackingResult.append(resumo, status, detalhes);
 }
 
-async function buscarPedido(pedidoId) {
+async function buscarPedido(pedidoId, telefone) {
     setFeedback("Buscando pedido...");
     trackingResult.classList.add("hidden");
 
-    const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento`);
+    const parametros = new URLSearchParams({
+        telefone
+    });
+    const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento?${parametros.toString()}`);
     renderizarPedido(pedido);
     setFeedback("Pedido encontrado.", "success");
 }
@@ -197,14 +262,22 @@ trackingForm.addEventListener("submit", async (evento) => {
     evento.preventDefault();
 
     const pedidoId = Number(pedidoIdInput.value);
+    const telefone = telefoneInput.value.trim();
 
     if (!Number.isInteger(pedidoId) || pedidoId <= 0) {
         setFeedback("Informe um numero de pedido valido.", "error");
         return;
     }
 
+    if (normalizarDigitos(telefone).length < 8) {
+        setFeedback("Informe o telefone usado no pedido.", "error");
+        telefoneInput.focus();
+        return;
+    }
+
     try {
-        await buscarPedido(pedidoId);
+        sessionStorage.setItem(CHAVE_TELEFONE_ACOMPANHAMENTO, telefone);
+        await buscarPedido(pedidoId, telefone);
     } catch (erro) {
         setFeedback(erro.message, "error");
     }
@@ -214,5 +287,12 @@ const pedidoUrl = new URLSearchParams(window.location.search).get("pedido");
 
 if (pedidoUrl) {
     pedidoIdInput.value = pedidoUrl;
-    trackingForm.requestSubmit();
+    const telefoneSalvo = sessionStorage.getItem(CHAVE_TELEFONE_ACOMPANHAMENTO);
+
+    if (telefoneSalvo) {
+        telefoneInput.value = telefoneSalvo;
+        trackingForm.requestSubmit();
+    } else {
+        setFeedback("Informe o telefone usado no pedido para ver o acompanhamento.");
+    }
 }

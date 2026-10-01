@@ -39,7 +39,9 @@ model Produto {
   preco     Decimal      @db.Decimal(10, 2)
   estoque   Int
   imagemUrl String?
+  publicadoNaLoja Boolean @default(true)
   itens     ItemPedido[]
+  solicitacoes SolicitacaoProduto[]
   criadoEm  DateTime     @default(now())
   atualizadoEm DateTime  @updatedAt
 }
@@ -69,13 +71,37 @@ model Pedido {
   cliente      Cliente      @relation(fields: [clienteId], references: [id])
   itens        ItemPedido[]
   pagamentos   Pagamento[]
+  solicitacoes SolicitacaoProduto[]
+  historico    HistoricoPedido[]
   total        Decimal      @db.Decimal(10, 2)
   status       StatusPedido @default(pendente)
   observacao   String?
+  entregaNome  String?
+  entregaTelefone String?
+  entregaEmail String?
+  entregaCep   String?
+  entregaEndereco String?
+  entregaNumero String?
+  entregaComplemento String?
+  entregaBairro String?
+  entregaCidade String?
+  entregaEstado String?
+  entregaReferencia String?
   transportadora String?      @db.VarChar(100)
   codigoRastreio String?      @db.VarChar(100)
   criadoEm     DateTime     @default(now())
   atualizadoEm DateTime     @updatedAt
+}
+
+model HistoricoPedido {
+  id        Int          @id @default(autoincrement())
+  pedidoId  Int
+  pedido    Pedido       @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  status    StatusPedido
+  descricao String
+  criadoEm  DateTime     @default(now())
+
+  @@index([pedidoId])
 }
 
 model ItemPedido {
@@ -104,11 +130,17 @@ model SolicitacaoProduto {
   id             Int               @id @default(autoincrement())
   clienteId      Int?
   cliente        Cliente?          @relation(fields: [clienteId], references: [id])
+  produtoId      Int?
+  produto        Produto?          @relation(fields: [produtoId], references: [id], onDelete: SetNull)
+  pedidoId       Int?
+  pedido         Pedido?           @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
   contatoNome    String?           @db.VarChar(120)
   contatoTelefone String?          @db.VarChar(30)
   nomeProduto    String
   descricao      String
   linkReferencia String?
+  valorCotado    Decimal?          @db.Decimal(10, 2)
+  observacaoAdmin String?
   status         StatusSolicitacao @default(recebida)
   criadoEm       DateTime          @default(now())
   atualizadoEm   DateTime          @updatedAt

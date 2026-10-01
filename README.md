@@ -138,7 +138,7 @@ npm run db:studio    abre o Prisma Studio
 2. Listar produtos disponiveis.
 3. Criar um pedido com `clienteId` e itens.
 4. Criar um pagamento para o pedido.
-5. Acompanhar o pedido pelo endpoint de acompanhamento.
+5. Acompanhar o pedido informando numero do pedido e telefone.
 
 ## Rotas
 
@@ -414,7 +414,7 @@ Content-Type: application/json
 Acompanhar pedido:
 
 ```http
-GET /pedidos/1/acompanhamento
+GET /pedidos/1/acompanhamento?telefone=11999990001
 ```
 
 Tambem existe a tela publica:
@@ -422,6 +422,9 @@ Tambem existe a tela publica:
 ```txt
 http://localhost:3000/loja/acompanhamento?pedido=1
 ```
+
+A tela preenche o numero quando ele vem na URL, mas ainda pede o telefone do
+pedido antes de mostrar os dados.
 
 ### Pagamentos
 
@@ -560,7 +563,7 @@ Exemplo de fluxo futuro:
 3. Cliente escolhe itens.
 4. Bot chama `POST /clientes` se o cliente ainda nao existir.
 5. Bot chama `POST /pedidos`.
-6. Bot envia o status usando `GET /pedidos/:id/acompanhamento`.
+6. Bot envia o status usando `GET /pedidos/:id/acompanhamento?telefone=...`.
 
 ## Admin
 
@@ -591,8 +594,9 @@ na primeira versao.
 No admin, abra Pedidos > Ver detalhes e informe transportadora e codigo de
 rastreio. Os campos podem ser cadastrados ou corrigidos em pedidos pagos ou
 enviados. Salvar o rastreio nao muda o status; apos a postagem, use Marcar como
-enviado. O cliente vera os dados na pagina de acompanhamento, podendo consultar
-o codigo no site da transportadora. Ainda nao ha sincronizacao de eventos de entrega.
+enviado. O cliente vera os dados na pagina de acompanhamento depois de informar
+o telefone do pedido. Para Correios, o sistema mostra um botao para abrir o
+rastreamento no site da transportadora. Ainda nao ha sincronizacao de eventos de entrega.
 
 A rota administrativa e PATCH /pedidos/:id/rastreio, com os campos
 transportadora e codigoRastreio (textos de 1 a 100 caracteres).

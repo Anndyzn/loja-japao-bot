@@ -1,0 +1,2 @@
+ALTER TABLE "Produto"
+ADD COLUMN "publicadoNaLoja" BOOLEAN NOT NULL DEFAULT true;

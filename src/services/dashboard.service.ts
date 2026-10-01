@@ -13,7 +13,9 @@ export async function obterResumoDashboard() {
         totalPagamentos,
         pagamentosAprovados,
         totalSolicitacoes,
-        solicitacoesAbertas
+        solicitacoesAbertas,
+        pedidosRecentes,
+        produtosEstoqueBaixoLista
     ] = await Promise.all([
         prisma.produto.count(),
         prisma.produto.count({
@@ -63,6 +65,44 @@ export async function obterResumoDashboard() {
                     in: ["recebida", "em_analise", "cotada"]
                 }
             }
+        }),
+        prisma.pedido.findMany({
+            take: 5,
+            include: {
+                cliente: {
+                    select: {
+                        id: true,
+                        nome: true,
+                        telefone: true
+                    }
+                }
+            },
+            orderBy: {
+                criadoEm: "desc"
+            }
+        }),
+        prisma.produto.findMany({
+            take: 5,
+            where: {
+                estoque: {
+                    lte: 5
+                }
+            },
+            orderBy: [
+                {
+                    estoque: "asc"
+                },
+                {
+                    nome: "asc"
+                }
+            ],
+            select: {
+                id: true,
+                nome: true,
+                preco: true,
+                estoque: true,
+                publicadoNaLoja: true
+            }
         })
     ]);
 
@@ -88,6 +128,28 @@ export async function obterResumoDashboard() {
         solicitacoes: {
             total: totalSolicitacoes,
             abertas: solicitacoesAbertas
-        }
+        },
+        pedidosRecentes: pedidosRecentes.map((pedido) => {
+            return {
+                id: pedido.id,
+                cliente: {
+                    id: pedido.cliente.id,
+                    nome: pedido.cliente.nome,
+                    telefone: pedido.cliente.telefone
+                },
+                total: Number(pedido.total),
+                status: pedido.status,
+                criadoEm: pedido.criadoEm.toISOString()
+            };
+        }),
+        produtosEstoqueBaixo: produtosEstoqueBaixoLista.map((produto) => {
+            return {
+                id: produto.id,
+                nome: produto.nome,
+                preco: Number(produto.preco),
+                estoque: produto.estoque,
+                publicadoNaLoja: produto.publicadoNaLoja
+            };
+        })
     };
 }

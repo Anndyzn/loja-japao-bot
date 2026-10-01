@@ -98,6 +98,7 @@ checkoutForm.addEventListener("reset", () => {
 });
 
 const CHAVE_CARRINHO = "lojaJapaoCarrinho";
+const CHAVE_TELEFONE_ACOMPANHAMENTO = "lojaJapaoTelefoneAcompanhamento";
 const ORDEM_ETAPAS = ["resumo", "entrega", "pagamento", "acompanhamento"];
 
 let produtos = [];
@@ -384,7 +385,7 @@ function renderizarPedidoCriado(pedido) {
 }
 
 async function carregarProdutos() {
-    const resposta = await apiFetch("/produtos?limite=50");
+    const resposta = await apiFetch("/produtos?limite=50&publicadoNaLoja=true");
     produtos = resposta.dados ?? resposta;
     sincronizarCarrinhoComProdutos();
     renderizarCarrinho();
@@ -406,6 +407,7 @@ async function finalizarPedido(evento) {
     }
 
     const formData = new FormData(checkoutForm);
+    const telefonePedido = obterTexto(formData, "telefone");
 
     try {
         setFeedback("Enviando pedido...");
@@ -414,7 +416,7 @@ async function finalizarPedido(evento) {
             method: "POST",
             body: JSON.stringify({
                 nome: obterTexto(formData, "nome"),
-                telefone: obterTexto(formData, "telefone"),
+                telefone: telefonePedido,
                 email: obterTextoOpcional(formData, "email"),
                 cep: obterTexto(formData, "cep"),
                 endereco: obterTexto(formData, "endereco"),
@@ -450,6 +452,7 @@ async function finalizarPedido(evento) {
         });
 
         pedidoCriado = pedido;
+        sessionStorage.setItem(CHAVE_TELEFONE_ACOMPANHAMENTO, telefonePedido);
         carrinho.clear();
         salvarCarrinho();
         renderizarCarrinho();

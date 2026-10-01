@@ -10,10 +10,20 @@ type FiltrosSolicitacoes = {
 type SolicitacaoResposta = {
     id: number;
     clienteId: number | null;
+    produtoId: number | null;
+    pedidoId: number | null;
     contato?: { nome: string; telefone: string };
+    produto?: {
+        id: number;
+        nome: string;
+        preco: number;
+        estoque: number;
+    };
     nomeProduto: string;
     descricao: string;
     linkReferencia?: string;
+    valorCotado?: number;
+    observacaoAdmin?: string;
     status: StatusSolicitacao;
     criadoEm: string;
 };
@@ -21,11 +31,21 @@ type SolicitacaoResposta = {
 type SolicitacaoBanco = {
     id: number;
     clienteId: number | null;
+    produtoId: number | null;
+    pedidoId: number | null;
     contatoNome: string | null;
     contatoTelefone: string | null;
+    produto?: {
+        id: number;
+        nome: string;
+        preco: unknown;
+        estoque: number;
+    } | null;
     nomeProduto: string;
     descricao: string;
     linkReferencia: string | null;
+    valorCotado: unknown | null;
+    observacaoAdmin: string | null;
     status: StatusSolicitacao;
     criadoEm: Date;
 };
@@ -39,11 +59,22 @@ function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta
     const resposta: SolicitacaoResposta = {
         id: solicitacao.id,
         clienteId: solicitacao.clienteId,
+        produtoId: solicitacao.produtoId,
+        pedidoId: solicitacao.pedidoId,
         nomeProduto: solicitacao.nomeProduto,
         descricao: solicitacao.descricao,
         status: solicitacao.status,
         criadoEm: solicitacao.criadoEm.toISOString()
     };
+
+    if (solicitacao.produto) {
+        resposta.produto = {
+            id: solicitacao.produto.id,
+            nome: solicitacao.produto.nome,
+            preco: Number(solicitacao.produto.preco),
+            estoque: solicitacao.produto.estoque
+        };
+    }
 
     if (solicitacao.contatoNome && solicitacao.contatoTelefone) {
         resposta.contato = { nome: solicitacao.contatoNome, telefone: solicitacao.contatoTelefone };
@@ -53,11 +84,29 @@ function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta
         resposta.linkReferencia = solicitacao.linkReferencia;
     }
 
+    if (solicitacao.valorCotado !== null) {
+        resposta.valorCotado = Number(solicitacao.valorCotado);
+    }
+
+    if (solicitacao.observacaoAdmin !== null) {
+        resposta.observacaoAdmin = solicitacao.observacaoAdmin;
+    }
+
     return resposta;
 }
 
 export async function obterTodasSolicitacoes() {
     const solicitacoes = await prisma.solicitacaoProduto.findMany({
+        include: {
+            produto: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    estoque: true
+                }
+            }
+        },
         orderBy: {
             id: "asc"
         }
@@ -69,6 +118,16 @@ export async function obterTodasSolicitacoes() {
 export async function obterSolicitacoesFiltradas(filtros: FiltrosSolicitacoes) {
     if (!filtros.status) {
         const solicitacoes = await prisma.solicitacaoProduto.findMany({
+            include: {
+                produto: {
+                    select: {
+                        id: true,
+                        nome: true,
+                        preco: true,
+                        estoque: true
+                    }
+                }
+            },
             orderBy: {
                 id: "asc"
             }
@@ -80,6 +139,16 @@ export async function obterSolicitacoesFiltradas(filtros: FiltrosSolicitacoes) {
     const solicitacoes = await prisma.solicitacaoProduto.findMany({
         where: {
             status: filtros.status
+        },
+        include: {
+            produto: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    estoque: true
+                }
+            }
         },
         orderBy: {
             id: "asc"
@@ -93,6 +162,16 @@ export async function obterSolicitacaoPorId(id: number) {
     const solicitacao = await prisma.solicitacaoProduto.findUnique({
         where: {
             id
+        },
+        include: {
+            produto: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    estoque: true
+                }
+            }
         }
     });
 
@@ -107,6 +186,16 @@ export async function obterSolicitacoesPorClienteId(clienteId: number) {
     const solicitacoes = await prisma.solicitacaoProduto.findMany({
         where: {
             clienteId
+        },
+        include: {
+            produto: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    estoque: true
+                }
+            }
         },
         orderBy: {
             id: "asc"
@@ -179,6 +268,179 @@ export async function atualizarStatusSolicitacaoPorId(id: number, status: Status
     });
 
     return formatarSolicitacao(solicitacaoAtualizada);
+}
+
+export async function atualizarCotacaoSolicitacaoPorId(
+    id: number,
+    valorCotado: number,
+    observacaoAdmin: string | undefined
+) {
+    const solicitacaoExiste = await prisma.solicitacaoProduto.findUnique({
+        where: {
+            id
+        }
+    });
+
+    if (!solicitacaoExiste) {
+        return undefined;
+    }
+
+    const solicitacaoAtualizada = await prisma.solicitacaoProduto.update({
+        where: {
+            id
+        },
+        data: {
+            valorCotado,
+            observacaoAdmin: observacaoAdmin ?? null,
+            status: "cotada"
+        }
+    });
+
+    return formatarSolicitacao(solicitacaoAtualizada);
+}
+
+export async function vincularClienteSolicitacaoPorId(id: number, clienteId: number) {
+    const solicitacaoExiste = await prisma.solicitacaoProduto.findUnique({
+        where: {
+            id
+        }
+    });
+
+    if (!solicitacaoExiste) {
+        return {
+            mensagemErro: "Solicitacao nao encontrada"
+        };
+    }
+
+    const clienteExiste = await prisma.cliente.findUnique({
+        where: {
+            id: clienteId
+        }
+    });
+
+    if (!clienteExiste) {
+        return {
+            mensagemErro: "Cliente nao encontrado"
+        };
+    }
+
+    const solicitacaoAtualizada = await prisma.solicitacaoProduto.update({
+        where: {
+            id
+        },
+        data: {
+            clienteId
+        }
+    });
+
+    return {
+        solicitacao: formatarSolicitacao(solicitacaoAtualizada)
+    };
+}
+
+export async function vincularProdutoSolicitacaoPorId(id: number, produtoId: number) {
+    const solicitacaoExiste = await prisma.solicitacaoProduto.findUnique({
+        where: {
+            id
+        }
+    });
+
+    if (!solicitacaoExiste) {
+        return {
+            mensagemErro: "Solicitacao nao encontrada"
+        };
+    }
+
+    const produtoExiste = await prisma.produto.findUnique({
+        where: {
+            id: produtoId
+        }
+    });
+
+    if (!produtoExiste) {
+        return {
+            mensagemErro: "Produto nao encontrado"
+        };
+    }
+
+    const solicitacaoAtualizada = await prisma.solicitacaoProduto.update({
+        where: {
+            id
+        },
+        data: {
+            produtoId
+        },
+        include: {
+            produto: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    estoque: true
+                }
+            }
+        }
+    });
+
+    return {
+        solicitacao: formatarSolicitacao(solicitacaoAtualizada)
+    };
+}
+
+export async function vincularPedidoSolicitacaoPorId(id: number, pedidoId: number) {
+    const solicitacaoExiste = await prisma.solicitacaoProduto.findUnique({
+        where: {
+            id
+        }
+    });
+
+    if (!solicitacaoExiste) {
+        return {
+            mensagemErro: "Solicitacao nao encontrada"
+        };
+    }
+
+    if (solicitacaoExiste.pedidoId !== null && solicitacaoExiste.pedidoId !== pedidoId) {
+        return {
+            mensagemErro: `Solicitacao ja vinculada ao pedido ${solicitacaoExiste.pedidoId}`
+        };
+    }
+
+    const pedidoExiste = await prisma.pedido.findUnique({
+        where: {
+            id: pedidoId
+        }
+    });
+
+    if (!pedidoExiste) {
+        return {
+            mensagemErro: "Pedido nao encontrado"
+        };
+    }
+
+    const solicitacaoAtualizada = await prisma.solicitacaoProduto.update({
+        where: {
+            id
+        },
+        data: {
+            pedidoId,
+            status: "aprovada"
+        },
+        include: {
+            produto: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    estoque: true
+                }
+            }
+        }
+    });
+
+    return {
+        solicitacao: formatarSolicitacao(solicitacaoAtualizada)
+    };
 }
 
 export async function criarSolicitacaoPublica(

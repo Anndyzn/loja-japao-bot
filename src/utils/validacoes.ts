@@ -10,7 +10,13 @@ function campoTextoOpcionalEhInvalido(valor: unknown) {
     return valor !== undefined && (typeof valor !== "string" || valor.trim() === "");
 }
 
-export function validarCriacaoProduto(nome: unknown, preco: unknown, estoque: unknown, imagemUrl: unknown) {
+export function validarCriacaoProduto(
+    nome: unknown,
+    preco: unknown,
+    estoque: unknown,
+    imagemUrl: unknown,
+    publicadoNaLoja: unknown
+) {
     if (campoTextoObrigatorioEhInvalido(nome)) {
         return "Nome deve ser um texto nao vazio";
     }
@@ -27,11 +33,27 @@ export function validarCriacaoProduto(nome: unknown, preco: unknown, estoque: un
         return "URL da imagem deve ser um texto nao vazio";
     }
 
+    if (publicadoNaLoja !== undefined && typeof publicadoNaLoja !== "boolean") {
+        return "Publicado na loja deve ser verdadeiro ou falso";
+    }
+
     return undefined;
 }
 
-export function validarAtualizacaoProduto(nome: unknown, preco: unknown, estoque: unknown, imagemUrl: unknown) {
-    if (nome === undefined && preco === undefined && estoque === undefined && imagemUrl === undefined) {
+export function validarAtualizacaoProduto(
+    nome: unknown,
+    preco: unknown,
+    estoque: unknown,
+    imagemUrl: unknown,
+    publicadoNaLoja: unknown
+) {
+    if (
+        nome === undefined &&
+        preco === undefined &&
+        estoque === undefined &&
+        imagemUrl === undefined &&
+        publicadoNaLoja === undefined
+    ) {
         return "Informe ao menos um campo para atualizar";
     }
 
@@ -49,6 +71,10 @@ export function validarAtualizacaoProduto(nome: unknown, preco: unknown, estoque
 
     if (campoTextoOpcionalEhInvalido(imagemUrl)) {
         return "URL da imagem deve ser um texto nao vazio";
+    }
+
+    if (publicadoNaLoja !== undefined && typeof publicadoNaLoja !== "boolean") {
+        return "Publicado na loja deve ser verdadeiro ou falso";
     }
 
     return undefined;
@@ -265,6 +291,18 @@ export function validarAtualizacaoStatusSolicitacao(status: unknown) {
 
     if (typeof status !== "string" || !statusValidos.includes(status)) {
         return "Status deve ser recebida, em_analise, cotada, aprovada, recusada ou cancelada";
+    }
+
+    return undefined;
+}
+
+export function validarAtualizacaoCotacaoSolicitacao(valorCotado: unknown, observacaoAdmin: unknown) {
+    if (typeof valorCotado !== "number" || !Number.isFinite(valorCotado) || valorCotado <= 0) {
+        return "Valor cotado deve ser um numero maior que zero";
+    }
+
+    if (campoTextoOpcionalEhInvalido(observacaoAdmin)) {
+        return "Observacao interna deve ser um texto nao vazio";
     }
 
     return undefined;

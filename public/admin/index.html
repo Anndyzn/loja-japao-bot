@@ -60,6 +60,7 @@
 
                 <section id="dashboard-view" class="view-section">
                     <div id="stats-grid" class="stats-grid"></div>
+                    <div id="dashboard-alerts" class="dashboard-grid"></div>
                 </section>
 
                 <section id="produtos-view" class="view-section hidden">
@@ -85,7 +86,27 @@
                             <input id="produto-imagem-arquivo" class="file-input-hidden" name="imagemArquivo" type="file" accept="image/png,image/jpeg,image/webp">
                         </div>
 
+                        <label class="checkbox-control">
+                            <input id="produto-publicado-na-loja" name="publicadoNaLoja" type="checkbox" checked>
+                            Loja
+                        </label>
+
                         <button type="submit">Cadastrar</button>
+                    </form>
+
+                    <form id="produto-filtros-form" class="filters-bar">
+                        <label>
+                            Nome
+                            <input id="produto-nome-filtro" type="search" placeholder="Buscar produto">
+                        </label>
+
+                        <label class="checkbox-control">
+                            <input id="produto-estoque-baixo-filtro" type="checkbox">
+                            Estoque baixo
+                        </label>
+
+                        <button type="submit">Buscar</button>
+                        <button id="produto-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
 
                     <div class="table-shell">
@@ -97,6 +118,7 @@
                                     <th>Produto</th>
                                     <th>Preco</th>
                                     <th>Estoque</th>
+                                    <th>Loja</th>
                                     <th>Acoes</th>
                                 </tr>
                             </thead>
@@ -106,6 +128,21 @@
                 </section>
 
                 <section id="clientes-view" class="view-section hidden">
+                    <form id="cliente-filtros-form" class="filters-bar">
+                        <label>
+                            Nome
+                            <input id="cliente-nome-filtro" type="search" placeholder="Buscar por nome">
+                        </label>
+
+                        <label>
+                            Telefone
+                            <input id="cliente-telefone-filtro" type="search" placeholder="Buscar por telefone">
+                        </label>
+
+                        <button type="submit">Buscar</button>
+                        <button id="cliente-filtros-limpar" class="small-button" type="button">Limpar</button>
+                    </form>
+
                     <div class="table-shell">
                         <table>
                             <thead>
@@ -123,6 +160,51 @@
                 </section>
 
                 <section id="pedidos-view" class="view-section hidden">
+                    <form id="pedido-form" class="order-form">
+                        <label>
+                            Cliente
+                            <select id="pedido-cliente" required></select>
+                        </label>
+
+                        <label>
+                            Produto
+                            <select id="pedido-produto" required></select>
+                        </label>
+
+                        <label>
+                            Quantidade
+                            <input id="pedido-quantidade" type="number" min="1" step="1" value="1" required>
+                        </label>
+
+                        <label class="field-wide">
+                            Observacao
+                            <input id="pedido-observacao" type="text" placeholder="Opcional">
+                        </label>
+
+                        <button type="submit">Criar pedido</button>
+                    </form>
+
+                    <form id="pedido-filtros-form" class="filters-bar">
+                        <label>
+                            Buscar
+                            <input id="pedido-busca-filtro" type="search" placeholder="#pedido, cliente, telefone ou item">
+                        </label>
+
+                        <label>
+                            Status
+                            <select id="pedido-status-filtro">
+                                <option value="">Todos</option>
+                                <option value="pendente">Pendente</option>
+                                <option value="pago">Pago</option>
+                                <option value="enviado">Enviado</option>
+                                <option value="cancelado">Cancelado</option>
+                            </select>
+                        </label>
+
+                        <button type="submit">Buscar</button>
+                        <button id="pedido-filtros-limpar" class="small-button" type="button">Limpar</button>
+                    </form>
+
                     <div class="table-shell">
                         <table>
                             <thead>
@@ -160,6 +242,21 @@
                 </section>
 
                 <section id="solicitacoes-view" class="view-section hidden">
+                    <div class="filters-bar">
+                        <label>
+                            Status
+                            <select id="solicitacao-status-filtro">
+                                <option value="">Todas</option>
+                                <option value="recebida">Recebida</option>
+                                <option value="em_analise">Em analise</option>
+                                <option value="cotada">Cotada</option>
+                                <option value="aprovada">Aprovada</option>
+                                <option value="recusada">Recusada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </label>
+                    </div>
+
                     <div class="table-shell">
                         <table>
                             <thead>
@@ -205,6 +302,11 @@
                     <input id="produto-edit-estoque" name="estoque" type="number" min="0" step="1" required>
                 </label>
 
+                <label class="checkbox-control">
+                    <input id="produto-edit-publicado-na-loja" name="publicadoNaLoja" type="checkbox">
+                    Publicado na loja
+                </label>
+
                 <div class="modal-actions">
                     <button id="produto-edit-cancelar" class="small-button" type="button">Cancelar</button>
                     <button type="submit">Salvar</button>
@@ -216,7 +318,7 @@
             <form id="cliente-edit-form" class="modal-panel modal-panel-wide">
                 <div>
                     <p class="eyebrow">Cliente</p>
-                    <h2>Editar cliente</h2>
+                    <h2 id="cliente-modal-titulo">Editar cliente</h2>
                 </div>
 
                 <input id="cliente-edit-id" name="id" type="hidden">
@@ -241,6 +343,10 @@
                         CEP
                         <input id="cliente-edit-cep" name="cep" type="text" required>
                     </label>
+
+                    <button id="cliente-edit-cep-buscar" class="small-button" type="button">Buscar CEP</button>
+
+                    <p id="cliente-edit-cep-feedback" class="feedback field-wide" role="status"></p>
 
                     <label>
                         Numero

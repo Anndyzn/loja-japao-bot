@@ -78,7 +78,7 @@ function decodificarImagemProduto(valor: unknown): ResultadoImagemProduto {
 }
 
 export async function listarProdutos(req: Request, res: Response) {
-    const { nome, estoqueBaixo, pagina, limite } = req.query;
+    const { nome, estoqueBaixo, publicadoNaLoja, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
         return res.status(400).json({
@@ -92,9 +92,16 @@ export async function listarProdutos(req: Request, res: Response) {
         });
     }
 
+    if (publicadoNaLoja !== undefined && publicadoNaLoja !== "true" && publicadoNaLoja !== "false") {
+        return res.status(400).json({
+            mensagem: "Filtro publicadoNaLoja deve ser true ou false"
+        });
+    }
+
     const produtosFiltrados = await obterProdutosFiltrados({
         nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
-        estoqueBaixo: estoqueBaixo === "true"
+        estoqueBaixo: estoqueBaixo === "true",
+        publicadoNaLoja: publicadoNaLoja === undefined ? undefined : publicadoNaLoja === "true"
     });
 
     const paginacao = obterParametrosPaginacao(pagina, limite);
@@ -129,9 +136,9 @@ export async function buscarProdutoPorId(req: Request, res: Response) {
 }
 
 export async function cadastrarProduto(req: Request, res: Response) {
-    const { nome, preco, estoque, imagemUrl } = req.body;
+    const { nome, preco, estoque, imagemUrl, publicadoNaLoja } = req.body;
 
-    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl);
+    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -139,7 +146,8 @@ export async function cadastrarProduto(req: Request, res: Response) {
         });
     }
 
-    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl));
+    const produtoPublicado = typeof publicadoNaLoja === "boolean" ? publicadoNaLoja : true;
+    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado);
 
     return res.status(201).json(novoProduto);
 }
@@ -153,9 +161,9 @@ export async function atualizarProduto(req: Request, res: Response) {
         });
     }
 
-    const { nome, preco, estoque, imagemUrl } = req.body;
+    const { nome, preco, estoque, imagemUrl, publicadoNaLoja } = req.body;
 
-    const erroValidacao = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl);
+    const erroValidacao = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -165,7 +173,7 @@ export async function atualizarProduto(req: Request, res: Response) {
 
     const nomeAtualizado = typeof nome === "string" ? nome.trim() : nome;
 
-    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl));
+    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja);
 
     if (!produto) {
         return res.status(404).json({
@@ -211,7 +219,7 @@ export async function enviarImagemProduto(req: Request, res: Response) {
 
     await writeFile(caminhoArquivo, resultadoImagem.conteudo);
 
-    const produto = await atualizarProdutoPorId(id, undefined, undefined, undefined, imagemUrl);
+    const produto = await atualizarProdutoPorId(id, undefined, undefined, undefined, imagemUrl, undefined);
 
     return res.json(produto);
 }

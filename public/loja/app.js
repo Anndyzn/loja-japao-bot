@@ -329,7 +329,7 @@ function renderizarProdutos() {
 async function carregarProdutos() {
     try {
         setFeedback("");
-        const resposta = await apiFetch("/produtos?limite=50");
+        const resposta = await apiFetch("/produtos?limite=50&publicadoNaLoja=true");
         produtos = resposta.dados ?? resposta;
         sincronizarCarrinhoComProdutos();
         renderizarProdutos();

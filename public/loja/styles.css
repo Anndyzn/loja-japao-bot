@@ -519,7 +519,7 @@ p {
 
 .tracking-form {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) auto;
+    grid-template-columns: minmax(160px, 0.7fr) minmax(220px, 1fr) auto;
     align-items: end;
     gap: 12px;
 }
@@ -627,6 +627,36 @@ p {
 
 .tracking-card h3 {
     font-size: 1.1rem;
+}
+
+.tracking-code {
+    display: inline-flex;
+    width: fit-content;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.tracking-link {
+    width: fit-content;
+}
+
+.tracking-history {
+    grid-column: 1 / -1;
+}
+
+.tracking-history-list {
+    display: grid;
+    gap: 8px;
+}
+
+.tracking-history-list p {
+    border-left: 3px solid var(--accent);
+    padding-left: 10px;
+    color: var(--muted);
+    line-height: 1.45;
 }
 
 .tracking-items {

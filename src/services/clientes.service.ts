@@ -88,6 +88,10 @@ function montarDadosCliente(dados: DadosCliente) {
     return dadosCliente;
 }
 
+function obterDigitos(texto: string) {
+    return texto.replace(/\D/g, "");
+}
+
 export async function obterClientesFiltrados(filtros: FiltrosClientes) {
     const clientes = await prisma.cliente.findMany({
         orderBy: {
@@ -104,8 +108,10 @@ export async function obterClientesFiltrados(filtros: FiltrosClientes) {
     }
 
     if (filtros.telefone !== undefined) {
+        const telefoneBuscado = obterDigitos(filtros.telefone);
+
         clientesFiltrados = clientesFiltrados.filter((cliente) => {
-            return cliente.telefone.includes(filtros.telefone!);
+            return obterDigitos(cliente.telefone).includes(telefoneBuscado);
         });
     }
 

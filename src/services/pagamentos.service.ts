@@ -120,6 +120,14 @@ export async function criarPagamento(
             }
         });
 
+        await tx.historicoPedido.create({
+            data: {
+                pedidoId,
+                status: "pago",
+                descricao: "Pagamento aprovado via " + metodo + "."
+            }
+        });
+
         return {
             pagamento: formatarPagamento(novoPagamento)
         };
