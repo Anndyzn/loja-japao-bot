@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Solicitar produto | Loja Japão</title>
+    <link rel="stylesheet" href="/loja/styles.css">
+</head>
+<body>
+    <main class="tracking-page">
+        <header class="store-topbar checkout-topbar">
+            <a class="brand-link" href="/loja">Loja Japão</a>
+            <a class="cart-link muted-link" href="/loja">Voltar ao catálogo</a>
+        </header>
+        <section class="tracking-shell">
+            <div class="tracking-heading">
+                <p class="eyebrow">Direto do Japão</p>
+                <h1>Não encontrou o produto?</h1>
+            </div>
+            <p>Conte o que procura. Vamos analisar a disponibilidade e entrar em contato pelo telefone informado. Solicitar uma cotação não gera um pedido nem uma cobrança.</p>
+            <form id="solicitacao-form" class="checkout-flow">
+                <label>Seu nome
+                    <input name="nome" type="text" autocomplete="name" maxlength="120" required>
+                </label>
+                <label>Telefone / WhatsApp com DDD
+                    <input name="telefone" type="tel" autocomplete="tel" maxlength="30" required>
+                </label>
+                <label>Nome do produto
+                    <input name="nomeProduto" type="text" maxlength="200" required>
+                </label>
+                <label>Descrição
+                    <textarea name="descricao" rows="4" maxlength="2000" placeholder="Informe modelo, tamanho, cor, quantidade ou outros detalhes." required></textarea>
+                </label>
+                <label>Link de referência (opcional)
+                    <input name="linkReferencia" type="url" maxlength="2000" placeholder="https://...">
+                </label>
+                <button id="solicitacao-enviar" type="submit">Enviar solicitação</button>
+            </form>
+            <p id="solicitacao-feedback" class="feedback" role="status" tabindex="-1"></p>
+            <button id="solicitacao-nova" type="button" class="ghost-button hidden">Solicitar outro produto</button>
+        </section>
+    </main>
+    <script src="/loja/solicitacao.js" type="module"></script>
+</body>
+</html>

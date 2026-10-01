@@ -283,3 +283,41 @@ export function validarCriacaoPagamento(pedidoId: unknown, metodo: unknown) {
 
     return undefined;
 }
+
+export function validarSolicitacaoPublica(
+    nome: unknown,
+    telefone: unknown,
+    nomeProduto: unknown,
+    descricao: unknown,
+    linkReferencia: unknown
+) {
+    const campos = [
+        { valor: nome, rotulo: "Nome", limite: 120 },
+        { valor: telefone, rotulo: "Telefone", limite: 30 },
+        { valor: nomeProduto, rotulo: "Produto", limite: 200 },
+        { valor: descricao, rotulo: "Descrição", limite: 2000 }
+    ];
+    for (const campo of campos) {
+        if (typeof campo.valor !== "string" || !campo.valor.trim() || campo.valor.trim().length > campo.limite) {
+            return campo.rotulo + " deve ter de 1 a " + campo.limite + " caracteres";
+        }
+    }
+    if (typeof telefone === "string") {
+        const digitos = telefone.replace(/\D/g, "");
+        if (digitos.length < 10 || digitos.length > 15 || !/^[+()\d\s.-]+$/.test(telefone)) {
+            return "Informe um telefone válido com DDD";
+        }
+    }
+    if (linkReferencia !== undefined) {
+        if (typeof linkReferencia !== "string" || !linkReferencia.trim() || linkReferencia.trim().length > 2000) {
+            return "Link deve ser um endereço de até 2000 caracteres";
+        }
+        try {
+            const url = new URL(linkReferencia.trim());
+            if (!["http:", "https:"].includes(url.protocol)) return "Link deve começar com http:// ou https://";
+        } catch {
+            return "Informe um link válido, começando com https://";
+        }
+    }
+    return undefined;
+}

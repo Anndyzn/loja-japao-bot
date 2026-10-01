@@ -11,6 +11,92 @@ const trackingLink = document.querySelector("#tracking-link");
 const stepTabs = Array.from(document.querySelectorAll("[data-step-target]"));
 const stepPanels = Array.from(document.querySelectorAll("[data-step]"));
 
+const cepInput = checkoutForm.elements.cep;
+const cepFeedback = document.querySelector("#cep-feedback");
+const camposEndereco = {
+    endereco: "logradouro",
+    bairro: "bairro",
+    cidade: "localidade",
+    estado: "uf"
+};
+let cepAtual = "";
+let buscaCep = null;
+let buscandoCep = false;
+
+function mostrarFeedbackCep(mensagem, tipo = "") {
+    cepFeedback.textContent = mensagem;
+    cepFeedback.className = ("feedback " + tipo).trim();
+}
+
+function cancelarBuscaCep() {
+    buscaCep?.abort();
+    buscaCep = null;
+    buscandoCep = false;
+}
+
+async function buscarEnderecoPorCep() {
+    const cep = cepInput.value.replace(/\D/g, "");
+    cepInput.value = cep.length > 5 ? cep.slice(0, 5) + "-" + cep.slice(5) : cep;
+    if (cep === cepAtual) return;
+    cepAtual = cep;
+    cancelarBuscaCep();
+
+    // Não reutiliza rua e cidade de um CEP anterior.
+    for (const campo of Object.keys(camposEndereco)) {
+        checkoutForm.elements[campo].value = "";
+    }
+    if (cep.length !== 8) {
+        mostrarFeedbackCep("Digite os 8 dígitos do CEP.");
+        return;
+    }
+
+    const consulta = new AbortController();
+    buscaCep = consulta;
+    buscandoCep = true;
+    mostrarFeedbackCep("Buscando endereço...");
+    const tempoLimite = setTimeout(() => consulta.abort(), 8000);
+    // Preserva correções que o cliente fizer enquanto a busca estiver em andamento.
+    const valoresIniciais = Object.fromEntries(Object.keys(camposEndereco).map(campo => [campo, checkoutForm.elements[campo].value]));
+
+    try {
+        const resposta = await fetch("https://viacep.com.br/ws/" + cep + "/json/", {
+            signal: consulta.signal
+        });
+        if (!resposta.ok) throw new Error("Falha na consulta");
+        const endereco = await resposta.json();
+        if (buscaCep !== consulta) return;
+        if (!endereco || typeof endereco !== "object") throw new Error("Resposta inválida");
+        if (endereco.erro) {
+            mostrarFeedbackCep("CEP não encontrado. Confira o CEP ou preencha o endereço manualmente.", "error");
+            return;
+        }
+        for (const [campo, propriedade] of Object.entries(camposEndereco)) {
+            const input = checkoutForm.elements[campo];
+            if (input.value === valoresIniciais[campo]) {
+                input.value = typeof endereco[propriedade] === "string" ? endereco[propriedade] : "";
+            }
+        }
+        mostrarFeedbackCep("Confira o endereço e informe o número. Complete os campos que estiverem vazios.", "success");
+    } catch {
+        if (buscaCep !== consulta) return;
+        mostrarFeedbackCep("Não foi possível buscar o CEP. Preencha o endereço manualmente.", "error");
+    } finally {
+        clearTimeout(tempoLimite);
+        if (buscaCep === consulta) {
+            buscaCep = null;
+            buscandoCep = false;
+        }
+    }
+}
+
+cepInput.addEventListener("input", buscarEnderecoPorCep);
+cepInput.addEventListener("change", buscarEnderecoPorCep);
+checkoutForm.addEventListener("reset", () => {
+    cancelarBuscaCep();
+    cepAtual = "";
+    mostrarFeedbackCep("Digite o CEP para buscar o endereço.");
+});
+
 const CHAVE_CARRINHO = "lojaJapaoCarrinho";
 const ORDEM_ETAPAS = ["resumo", "entrega", "pagamento", "acompanhamento"];
 
@@ -148,6 +234,11 @@ function validarCarrinho() {
 }
 
 function validarEntrega() {
+    if (buscandoCep) {
+        definirEtapa("entrega");
+        mostrarFeedbackCep("Aguarde a busca do endereço terminar.");
+        return false;
+    }
     const entrega = document.querySelector('[data-step="entrega"]');
     const campoInvalido = Array.from(entrega.querySelectorAll("input, select, textarea")).find((campo) => {
         return !campo.checkValidity();

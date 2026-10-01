@@ -47,6 +47,9 @@ export async function obterAcompanhamentoPedido(pedidoId: number) {
         pedidoId: pedido.id,
         status: pedido.status,
         mensagem: obterMensagemAcompanhamento(pedido.status),
+        rastreio: pedido.status === "enviado" && pedido.transportadora && pedido.codigoRastreio
+            ? { transportadora: pedido.transportadora, codigo: pedido.codigoRastreio }
+            : null,
         cliente: {
             id: pedido.cliente.id,
             nome: pedido.cliente.nome

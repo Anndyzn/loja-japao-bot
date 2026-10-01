@@ -585,3 +585,39 @@ O admin podera:
 
 O cliente comum podera fazer pedido pelo site ou WhatsApp sem login, pelo menos
 na primeira versao.
+
+## Rastreio de envio
+
+No admin, abra Pedidos > Ver detalhes e informe transportadora e codigo de
+rastreio. Os campos podem ser cadastrados ou corrigidos em pedidos pagos ou
+enviados. Salvar o rastreio nao muda o status; apos a postagem, use Marcar como
+enviado. O cliente vera os dados na pagina de acompanhamento, podendo consultar
+o codigo no site da transportadora. Ainda nao ha sincronizacao de eventos de entrega.
+
+A rota administrativa e PATCH /pedidos/:id/rastreio, com os campos
+transportadora e codigoRastreio (textos de 1 a 100 caracteres).
+
+Ao trazer esta alteracao para outra maquina, preserve o .env local e, com o
+banco iniciado, aplique as migrations existentes e gere o cliente Prisma antes
+de iniciar a API:
+
+~~~powershell
+npx.cmd --yes prisma@7.10.0 migrate deploy
+npm.cmd run db:generate
+npm.cmd run dev
+~~~
+
+## Solicitacao publica de produtos
+
+A pagina /loja/solicitacao permite pedir uma cotacao informando nome, telefone,
+produto, descricao e link opcional. Nao exige compra anterior nem endereco.
+A solicitacao guarda os dados de contato e nasce com status recebida; nao cria
+pedido, pagamento ou cadastro de cliente. Solicitacoes antigas continuam ligadas
+aos clientes existentes. A vinculacao automatica com o checkout fica para outra etapa.
+
+No admin, a aba Solicitacoes mostra o contato. Use Ver descricao para consultar
+os detalhes e o link. O contato com o visitante e feito manualmente.
+A rota publica e POST /solicitacoes/publica; a listagem continua exclusiva do admin.
+
+Ao atualizar outra maquina, aplique as migrations e gere o Prisma Client antes
+de iniciar o servidor, conforme os comandos da secao anterior.

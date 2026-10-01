@@ -9,7 +9,8 @@ type FiltrosSolicitacoes = {
 
 type SolicitacaoResposta = {
     id: number;
-    clienteId: number;
+    clienteId: number | null;
+    contato?: { nome: string; telefone: string };
     nomeProduto: string;
     descricao: string;
     linkReferencia?: string;
@@ -19,7 +20,9 @@ type SolicitacaoResposta = {
 
 type SolicitacaoBanco = {
     id: number;
-    clienteId: number;
+    clienteId: number | null;
+    contatoNome: string | null;
+    contatoTelefone: string | null;
     nomeProduto: string;
     descricao: string;
     linkReferencia: string | null;
@@ -41,6 +44,10 @@ function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta
         status: solicitacao.status,
         criadoEm: solicitacao.criadoEm.toISOString()
     };
+
+    if (solicitacao.contatoNome && solicitacao.contatoTelefone) {
+        resposta.contato = { nome: solicitacao.contatoNome, telefone: solicitacao.contatoTelefone };
+    }
 
     if (solicitacao.linkReferencia !== null) {
         resposta.linkReferencia = solicitacao.linkReferencia;
@@ -172,4 +179,24 @@ export async function atualizarStatusSolicitacaoPorId(id: number, status: Status
     });
 
     return formatarSolicitacao(solicitacaoAtualizada);
+}
+
+export async function criarSolicitacaoPublica(
+    nome: string,
+    telefone: string,
+    nomeProduto: string,
+    descricao: string,
+    linkReferencia: string | undefined
+) {
+    // Visitantes podem pedir uma cotação antes de terem um cadastro de entrega.
+    const solicitacao = await prisma.solicitacaoProduto.create({
+        data: {
+            contatoNome: nome,
+            contatoTelefone: telefone,
+            nomeProduto,
+            descricao,
+            ...(linkReferencia ? { linkReferencia } : {})
+        }
+    });
+    return { id: solicitacao.id, status: solicitacao.status };
 }

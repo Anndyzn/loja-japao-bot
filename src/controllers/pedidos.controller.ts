@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { obterAcompanhamentoPedido } from "../services/acompanhamento.service.js";
 import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusPedido } from "../services/pedidos.service.js";
-import { atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
+import { atualizarRastreioPedidoPorId, atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
 
@@ -163,5 +163,25 @@ export async function atualizarStatusPedido(req: Request, res: Response) {
         });
     }
 
+    return res.json(resultado.pedido);
+}
+
+export async function atualizarRastreioPedido(req: Request, res: Response) {
+    const id = Number(req.params.id);
+    if (idEhInvalido(id)) {
+        return res.status(400).json({ mensagem: "ID deve ser um numero inteiro positivo" });
+    }
+    const { transportadora, codigoRastreio } = req.body ?? {};
+    if (typeof transportadora !== "string" || !transportadora.trim() || transportadora.trim().length > 100) {
+        return res.status(400).json({ mensagem: "Transportadora deve ter de 1 a 100 caracteres" });
+    }
+    if (typeof codigoRastreio !== "string" || !codigoRastreio.trim() || codigoRastreio.trim().length > 100) {
+        return res.status(400).json({ mensagem: "Codigo de rastreio deve ter de 1 a 100 caracteres" });
+    }
+    const resultado = await atualizarRastreioPedidoPorId(id, transportadora.trim(), codigoRastreio.trim());
+    if (resultado.mensagemErro) {
+        return res.status(resultado.mensagemErro === "Pedido nao encontrado" ? 404 : 400)
+            .json({ mensagem: resultado.mensagemErro });
+    }
     return res.json(resultado.pedido);
 }

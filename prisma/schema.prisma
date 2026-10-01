@@ -72,6 +72,8 @@ model Pedido {
   total        Decimal      @db.Decimal(10, 2)
   status       StatusPedido @default(pendente)
   observacao   String?
+  transportadora String?      @db.VarChar(100)
+  codigoRastreio String?      @db.VarChar(100)
   criadoEm     DateTime     @default(now())
   atualizadoEm DateTime     @updatedAt
 }
@@ -100,8 +102,10 @@ model Pagamento {
 
 model SolicitacaoProduto {
   id             Int               @id @default(autoincrement())
-  clienteId      Int
-  cliente        Cliente           @relation(fields: [clienteId], references: [id])
+  clienteId      Int?
+  cliente        Cliente?          @relation(fields: [clienteId], references: [id])
+  contatoNome    String?           @db.VarChar(120)
+  contatoTelefone String?          @db.VarChar(30)
   nomeProduto    String
   descricao      String
   linkReferencia String?

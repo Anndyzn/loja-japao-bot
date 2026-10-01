@@ -90,7 +90,8 @@
                         <div class="address-grid">
                             <label>
                                 CEP
-                                <input name="cep" type="text" autocomplete="postal-code" required>
+                                <input name="cep" type="text" inputmode="numeric" maxlength="9" pattern="[0-9]{5}-?[0-9]{3}" title="Informe um CEP com 8 dígitos" autocomplete="postal-code" aria-describedby="cep-feedback" required>
+                                <span id="cep-feedback" class="feedback" role="status">Digite o CEP para buscar o endereço.</span>
                             </label>
 
                             <label>

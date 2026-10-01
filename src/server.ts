@@ -27,6 +27,10 @@ app.get("/loja/acompanhamento", (req, res) => {
     });
 });
 
+app.get("/loja/solicitacao", (req, res) => {
+    res.sendFile("solicitacao.html", { root: "public/loja" });
+});
+
 const PORT = 3000;
 
 app.get("/", (req, res) => {

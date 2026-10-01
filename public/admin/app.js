@@ -66,7 +66,6 @@ const viewSections = {
     solicitacoes: document.querySelector("#solicitacoes-view")
 };
 
-const statusPedidos = ["pendente", "pago", "enviado", "cancelado"];
 const statusSolicitacoes = ["recebida", "em_analise", "cotada", "aprovada", "recusada", "cancelada"];
 
 let token = localStorage.getItem("adminToken");
@@ -515,6 +514,75 @@ function criarSecaoPedido(titulo) {
     return secao;
 }
 
+function criarRastreioPedido(pedido) {
+    const secao = criarSecaoPedido("Rastreio do envio");
+    if (pedido.status !== "pago" && pedido.status !== "enviado") {
+        secao.append(
+            criarDetalhePedido("Transportadora", pedido.transportadora),
+            criarDetalhePedido("Código de rastreio", pedido.codigoRastreio)
+        );
+        return secao;
+    }
+
+    const form = document.createElement("form");
+    form.className = "modal-grid";
+    function criarCampo(rotulo, valor) {
+        const label = document.createElement("label");
+        label.textContent = rotulo;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.required = true;
+        input.maxLength = 100;
+        input.value = valor ?? "";
+        label.append(input);
+        form.append(label);
+        return input;
+    }
+    const transportadora = criarCampo("Transportadora (ex.: Correios)", pedido.transportadora);
+    const codigo = criarCampo("Código de rastreio", pedido.codigoRastreio);
+    const aviso = document.createElement("p");
+    aviso.className = "field-wide";
+    aviso.textContent = "Após a postagem, salve o código e marque o pedido como enviado. O cliente verá o rastreio no acompanhamento.";
+    const mensagem = document.createElement("p");
+    mensagem.className = "feedback";
+    mensagem.setAttribute("role", "status");
+    const salvar = criarBotao("Salvar rastreio");
+    salvar.type = "submit";
+    form.append(aviso, salvar, mensagem);
+    form.addEventListener("submit", async (evento) => {
+        evento.preventDefault();
+        if (salvar.disabled) return;
+        if (!transportadora.value.trim() || !codigo.value.trim()) {
+            setFeedback(mensagem, "Informe a transportadora e o código.", "error");
+            return;
+        }
+        salvar.disabled = true;
+        transportadora.disabled = true;
+        codigo.disabled = true;
+        setFeedback(mensagem, "Salvando rastreio...");
+        try {
+            const atualizado = await apiFetch("/pedidos/" + pedido.id + "/rastreio", {
+                method: "PATCH",
+                body: JSON.stringify({
+                    transportadora: transportadora.value.trim(),
+                    codigoRastreio: codigo.value.trim()
+                })
+            });
+            transportadora.value = atualizado.transportadora;
+            codigo.value = atualizado.codigoRastreio;
+            setFeedback(mensagem, "Rastreio salvo.", "success");
+        } catch (erro) {
+            setFeedback(mensagem, erro.message, "error");
+        } finally {
+            salvar.disabled = false;
+            transportadora.disabled = false;
+            codigo.disabled = false;
+        }
+    });
+    secao.append(form);
+    return secao;
+}
+
 function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     const resumo = criarSecaoPedido('Resumo');
     resumo.append(
@@ -554,7 +622,7 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     const texto = document.createElement('p');
     texto.textContent = pedido.observacao || 'Nenhuma observação.';
     observacao.append(texto);
-    pedidoConteudo.replaceChildren(resumo, entrega, itens, financeiro, observacao);
+    pedidoConteudo.replaceChildren(resumo, entrega, criarRastreioPedido(pedido), itens, financeiro, observacao);
 }
 
 async function abrirModalPedido(pedidoId) {
@@ -598,13 +666,25 @@ function criarLinhaPedido(pedido) {
     const actions = document.createElement("div");
     actions.className = "actions";
 
-    const statusSelect = criarSelectStatus(statusPedidos, pedido.status);
-    const salvar = criarBotao("Salvar");
+    const detalhes = criarBotao("Ver detalhes");
+    detalhes.addEventListener("click", () => abrirModalPedido(pedido.id));
+    actions.append(detalhes);
 
-    salvar.addEventListener("click", () => atualizarStatusPedido(pedido.id, statusSelect.value));
-    const detalhes = criarBotao('Ver detalhes');
-    detalhes.addEventListener('click', () => abrirModalPedido(pedido.id));
-    actions.append(detalhes, statusSelect, salvar);
+    function adicionarAcao(texto, status, classe = "small-button") {
+        const botao = criarBotao(texto, classe);
+        botao.addEventListener("click", () => atualizarStatusPedido(pedido.id, status, actions));
+        actions.append(botao);
+    }
+
+    if (pedido.status === "pendente") {
+        adicionarAcao("Marcar como pago", "pago");
+    }
+    if (pedido.status === "pago") {
+        adicionarAcao("Marcar como enviado", "enviado");
+    }
+    if (pedido.status !== "cancelado") {
+        adicionarAcao("Cancelar pedido", "cancelado", "danger-button");
+    }
 
     const tdActions = document.createElement("td");
     tdActions.append(actions);
@@ -631,16 +711,41 @@ async function carregarPedidos() {
     );
 }
 
-async function atualizarStatusPedido(pedidoId, status) {
-    await apiFetch(`/pedidos/${pedidoId}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({
-            status
-        })
-    });
+async function atualizarStatusPedido(pedidoId, status, actions) {
+    if (actions.dataset.atualizando === "true") return;
 
-    setFeedback(appFeedback, "Status do pedido atualizado", "success");
-    await carregarPedidos();
+    if (status === "cancelado") {
+        const confirmou = window.confirm(
+            "Cancelar o pedido #" + pedidoId + "? Os itens voltarão ao estoque. " +
+            "O pedido não poderá ser reaberto e nenhum estorno será realizado automaticamente."
+        );
+        if (!confirmou) return;
+    }
+
+    actions.dataset.atualizando = "true";
+    const botoes = actions.querySelectorAll("button");
+    botoes.forEach(botao => { botao.disabled = true; });
+    setFeedback(appFeedback, "Atualizando pedido...");
+
+    try {
+        await apiFetch("/pedidos/" + pedidoId + "/status", {
+            method: "PATCH",
+            body: JSON.stringify({ status })
+        });
+    } catch (erro) {
+        setFeedback(appFeedback, "Não foi possível atualizar o pedido: " + erro.message, "error");
+        actions.dataset.atualizando = "false";
+        botoes.forEach(botao => { botao.disabled = false; });
+        return;
+    }
+
+    try {
+        await carregarPedidos();
+        setFeedback(appFeedback, "Pedido #" + pedidoId + " atualizado para " + status + ".", "success");
+    } catch {
+        // O status foi salvo: mantém as ações antigas bloqueadas até recarregar.
+        setFeedback(appFeedback, "Status salvo, mas não foi possível recarregar a lista. Clique em Atualizar.", "error");
+    }
 }
 
 function criarLinhaPagamento(pagamento) {
@@ -666,6 +771,42 @@ async function carregarPagamentos() {
     );
 }
 
+function criarCelulaContatoSolicitacao(solicitacao) {
+    if (!solicitacao.contato) return criarCelula(solicitacao.clienteId ?? "Visitante");
+    const td = criarCelula("");
+    const nome = document.createElement("p");
+    nome.textContent = solicitacao.contato.nome;
+    const telefone = document.createElement("p");
+    telefone.textContent = solicitacao.contato.telefone;
+    td.append(nome, telefone);
+    return td;
+}
+
+function criarCelulaProdutoSolicitado(solicitacao) {
+    const td = criarCelula(solicitacao.nomeProduto);
+    const detalhes = document.createElement("details");
+    const resumo = document.createElement("summary");
+    resumo.textContent = "Ver descrição";
+    const descricao = document.createElement("p");
+    descricao.textContent = solicitacao.descricao;
+    detalhes.append(resumo, descricao);
+    if (solicitacao.linkReferencia) {
+        try {
+            const url = new URL(solicitacao.linkReferencia);
+            if (["http:", "https:"].includes(url.protocol)) {
+                const link = document.createElement("a");
+                link.href = url.href;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = "Abrir referência do produto";
+                detalhes.append(link);
+            }
+        } catch { /* Referências antigas podem não ser URLs. */ }
+    }
+    td.append(detalhes);
+    return td;
+}
+
 function criarLinhaSolicitacao(solicitacao) {
     const tr = document.createElement("tr");
     const actions = document.createElement("div");
@@ -682,8 +823,8 @@ function criarLinhaSolicitacao(solicitacao) {
 
     tr.append(
         criarCelula(solicitacao.id),
-        criarCelula(solicitacao.clienteId),
-        criarCelula(solicitacao.nomeProduto),
+        criarCelulaContatoSolicitacao(solicitacao),
+        criarCelulaProdutoSolicitado(solicitacao),
         criarCelula(solicitacao.status),
         criarCelula(formatarData(solicitacao.criadoEm)),
         tdActions

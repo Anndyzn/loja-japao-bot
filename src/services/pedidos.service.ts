@@ -27,6 +27,8 @@ export type PedidoResposta = {
     total: number;
     status: StatusPedido;
     observacao?: string;
+    transportadora: string | null;
+    codigoRastreio: string | null;
     criadoEm: string;
 };
 
@@ -36,6 +38,8 @@ type PedidoComItens = {
     total: unknown;
     status: StatusPedido;
     observacao: string | null;
+    transportadora: string | null;
+    codigoRastreio: string | null;
     criadoEm: Date;
     itens: Array<{
         produtoId: number;
@@ -71,6 +75,8 @@ function formatarPedido(pedido: PedidoComItens): PedidoResposta {
         }),
         total: Number(pedido.total),
         status: pedido.status,
+        transportadora: pedido.transportadora,
+        codigoRastreio: pedido.codigoRastreio,
         criadoEm: pedido.criadoEm.toISOString()
     };
 
@@ -351,5 +357,28 @@ export async function atualizarStatusPedidoPorId(
         return {
             pedido: formatarPedido(pedidoAtualizado)
         };
+    });
+}
+
+export async function atualizarRastreioPedidoPorId(
+    id: number,
+    transportadora: string,
+    codigoRastreio: string
+): Promise<ResultadoAtualizacaoStatusPedido> {
+    return await prisma.$transaction(async (tx) => {
+        // A condição também impede editar o rastreio de um pedido cancelado.
+        const resultado = await tx.pedido.updateMany({
+            where: { id, status: { in: ["pago", "enviado"] } },
+            data: { transportadora, codigoRastreio }
+        });
+        const pedido = await tx.pedido.findUnique({
+            where: { id },
+            include: includeItensPedido
+        });
+        if (!pedido) return { mensagemErro: "Pedido nao encontrado" };
+        if (resultado.count === 0) {
+            return { mensagemErro: "Rastreio so pode ser informado para pedidos pagos ou enviados" };
+        }
+        return { pedido: formatarPedido(pedido) };
     });
 }

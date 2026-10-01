@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusSolicitacao } from "../services/solicitacoes.service.js";
-import { atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
+import { criarSolicitacaoPublica, atualizarStatusSolicitacaoPorId, criarSolicitacaoProduto, obterSolicitacaoPorId, obterSolicitacoesFiltradas, obterSolicitacoesPorClienteId } from "../services/solicitacoes.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
-import { idEhInvalido, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
+import { validarSolicitacaoPublica, idEhInvalido, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
 
 export async function listarSolicitacoes(req: Request, res: Response) {
     const { status, pagina, limite } = req.query;
@@ -142,4 +142,15 @@ export async function atualizarStatusSolicitacao(req: Request, res: Response) {
     }
 
     return res.json(solicitacao);
+}
+
+export async function cadastrarSolicitacaoPublica(req: Request, res: Response) {
+    const { nome, telefone, nomeProduto, descricao, linkReferencia } = req.body ?? {};
+    const erro = validarSolicitacaoPublica(nome, telefone, nomeProduto, descricao, linkReferencia);
+    if (erro) return res.status(400).json({ mensagem: erro });
+    const resultado = await criarSolicitacaoPublica(
+        nome.trim(), telefone.trim(), nomeProduto.trim(), descricao.trim(),
+        typeof linkReferencia === "string" ? linkReferencia.trim() : undefined
+    );
+    return res.status(201).json(resultado);
 }

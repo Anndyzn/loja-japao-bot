@@ -162,6 +162,25 @@ function renderizarPedido(pedido) {
     itens.append(itensTitulo, itensLista);
     detalhes.append(pagamento, itens);
 
+    if (pedido.status === "enviado") {
+        const envio = document.createElement("article");
+        envio.className = "tracking-card";
+        const tituloEnvio = document.createElement("h3");
+        tituloEnvio.textContent = "Rastreio do envio";
+        const transportadora = document.createElement("p");
+        const codigo = document.createElement("p");
+        const orientacao = document.createElement("p");
+        if (pedido.rastreio) {
+            transportadora.textContent = "Transportadora: " + pedido.rastreio.transportadora;
+            codigo.textContent = "Código de rastreio: " + pedido.rastreio.codigo;
+            orientacao.textContent = "Use este código no site da transportadora para consultar a entrega.";
+        } else {
+            orientacao.textContent = "O código de rastreio ainda não foi informado. Consulte novamente mais tarde.";
+        }
+        envio.append(tituloEnvio, transportadora, codigo, orientacao);
+        detalhes.append(envio);
+    }
+
     trackingResult.append(resumo, status, detalhes);
 }
 
