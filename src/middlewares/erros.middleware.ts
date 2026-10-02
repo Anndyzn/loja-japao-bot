@@ -9,7 +9,8 @@ type ErroHttp = Error & {
 export const tratarRotaNaoEncontrada: RequestHandler = (req, res) => {
     return res.status(404).json({
         mensagem: "Rota nao encontrada",
-        caminho: req.originalUrl
+        caminho: req.originalUrl,
+        requestId: res.locals.requestId
     });
 };
 
@@ -21,6 +22,7 @@ export const tratarErros: ErrorRequestHandler = (erro, req, res, next) => {
     const erroHttp = erro as ErroHttp;
 
     console.error("Erro na requisicao:", {
+        requestId: res.locals.requestId,
         metodo: req.method,
         caminho: req.originalUrl,
         erro
@@ -28,7 +30,8 @@ export const tratarErros: ErrorRequestHandler = (erro, req, res, next) => {
 
     if (erroHttp.type === "entity.parse.failed") {
         return res.status(400).json({
-            mensagem: "JSON invalido no corpo da requisicao"
+            mensagem: "JSON invalido no corpo da requisicao",
+            requestId: res.locals.requestId
         });
     }
 
@@ -36,11 +39,13 @@ export const tratarErros: ErrorRequestHandler = (erro, req, res, next) => {
 
     if (status >= 400 && status < 500) {
         return res.status(status).json({
-            mensagem: erroHttp.message || "Erro na requisicao"
+            mensagem: erroHttp.message || "Erro na requisicao",
+            requestId: res.locals.requestId
         });
     }
 
     return res.status(500).json({
-        mensagem: "Erro interno do servidor"
+        mensagem: "Erro interno do servidor",
+        requestId: res.locals.requestId
     });
 };

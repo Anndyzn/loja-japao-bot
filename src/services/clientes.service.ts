@@ -46,6 +46,11 @@ type ClienteResposta = {
     referencia?: string;
 };
 
+type ResultadoCriacaoCliente = {
+    cliente: ClienteResposta;
+    criado: boolean;
+};
+
 function adicionarCampoOpcional<T extends Record<string, unknown>>(
     objeto: T,
     campo: keyof T,
@@ -92,6 +97,28 @@ function obterDigitos(texto: string) {
     return texto.replace(/\D/g, "");
 }
 
+async function obterClienteExistentePorTelefone(telefone: string) {
+    const telefoneBuscado = obterDigitos(telefone);
+
+    if (!telefoneBuscado) {
+        return undefined;
+    }
+
+    const clientes = await prisma.cliente.findMany({
+        select: {
+            id: true,
+            telefone: true
+        },
+        orderBy: {
+            id: "asc"
+        }
+    });
+
+    return clientes.find((cliente) => {
+        return obterDigitos(cliente.telefone) === telefoneBuscado;
+    });
+}
+
 export async function obterClientesFiltrados(filtros: FiltrosClientes) {
     const clientes = await prisma.cliente.findMany({
         orderBy: {
@@ -132,12 +159,31 @@ export async function obterClientePorId(id: number) {
     return formatarCliente(cliente);
 }
 
-export async function criarCliente(dados: DadosCriacaoCliente) {
+export async function criarCliente(dados: DadosCriacaoCliente): Promise<ResultadoCriacaoCliente> {
+    const clienteExistente = await obterClienteExistentePorTelefone(dados.telefone);
+
+    if (clienteExistente) {
+        const clienteAtualizado = await prisma.cliente.update({
+            where: {
+                id: clienteExistente.id
+            },
+            data: montarDadosCliente(dados)
+        });
+
+        return {
+            cliente: formatarCliente(clienteAtualizado),
+            criado: false
+        };
+    }
+
     const novoCliente = await prisma.cliente.create({
         data: dados
     });
 
-    return formatarCliente(novoCliente);
+    return {
+        cliente: formatarCliente(novoCliente),
+        criado: true
+    };
 }
 
 export async function atualizarClientePorId(id: number, dados: DadosCliente) {

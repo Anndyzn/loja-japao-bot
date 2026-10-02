@@ -44,6 +44,7 @@
                     <button class="nav-button" type="button" data-view="pedidos">Pedidos</button>
                     <button class="nav-button" type="button" data-view="pagamentos">Pagamentos</button>
                     <button class="nav-button" type="button" data-view="solicitacoes">Solicitacoes</button>
+                    <button class="nav-button" type="button" data-view="seguranca">Seguranca</button>
                 </nav>
 
                 <button id="logout-button" class="ghost-button" type="button">Sair</button>
@@ -272,6 +273,33 @@
                             <tbody id="solicitacoes-tbody"></tbody>
                         </table>
                     </div>
+                </section>
+
+                <section id="seguranca-view" class="view-section hidden">
+                    <form id="senha-form" class="security-form">
+                        <div>
+                            <p class="eyebrow">Conta admin</p>
+                            <h3>Alterar senha</h3>
+                        </div>
+
+                        <label>
+                            Senha atual
+                            <input id="senha-atual" type="password" autocomplete="current-password" required>
+                        </label>
+
+                        <label>
+                            Nova senha
+                            <input id="nova-senha" type="password" autocomplete="new-password" minlength="6" required>
+                        </label>
+
+                        <label>
+                            Confirmar nova senha
+                            <input id="confirmar-senha" type="password" autocomplete="new-password" minlength="6" required>
+                        </label>
+
+                        <button type="submit">Alterar senha</button>
+                        <p id="senha-feedback" class="feedback" role="status"></p>
+                    </form>
                 </section>
 
                 <p id="app-feedback" class="feedback" role="status"></p>

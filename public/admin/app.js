@@ -11,6 +11,11 @@ const viewTitle = document.querySelector("#view-title");
 const navButtons = document.querySelectorAll(".nav-button");
 const statsGrid = document.querySelector("#stats-grid");
 const dashboardAlerts = document.querySelector("#dashboard-alerts");
+const senhaForm = document.querySelector("#senha-form");
+const senhaAtual = document.querySelector("#senha-atual");
+const novaSenha = document.querySelector("#nova-senha");
+const confirmarSenha = document.querySelector("#confirmar-senha");
+const senhaFeedback = document.querySelector("#senha-feedback");
 const produtoForm = document.querySelector("#produto-form");
 const produtoNome = document.querySelector("#produto-nome");
 const produtoPreco = document.querySelector("#produto-preco");
@@ -81,7 +86,8 @@ const viewTitles = {
     clientes: "Clientes",
     pedidos: "Pedidos",
     pagamentos: "Pagamentos",
-    solicitacoes: "Solicitacoes"
+    solicitacoes: "Solicitacoes",
+    seguranca: "Seguranca"
 };
 
 const viewSections = {
@@ -90,7 +96,8 @@ const viewSections = {
     clientes: document.querySelector("#clientes-view"),
     pedidos: document.querySelector("#pedidos-view"),
     pagamentos: document.querySelector("#pagamentos-view"),
-    solicitacoes: document.querySelector("#solicitacoes-view")
+    solicitacoes: document.querySelector("#solicitacoes-view"),
+    seguranca: document.querySelector("#seguranca-view")
 };
 
 const statusSolicitacoes = ["recebida", "em_analise", "cotada", "aprovada", "recusada", "cancelada"];
@@ -475,6 +482,8 @@ async function apiFetch(caminho, opcoes = {}) {
 function mostrarLogin() {
     token = null;
     localStorage.removeItem("adminToken");
+    senhaForm.reset();
+    setFeedback(senhaFeedback, "");
     loginView.classList.remove("hidden");
     appView.classList.add("hidden");
 }
@@ -2025,6 +2034,38 @@ loginForm.addEventListener("submit", async (evento) => {
     }
 });
 
+senhaForm.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    setFeedback(senhaFeedback, "");
+
+    if (novaSenha.value.length < 6) {
+        setFeedback(senhaFeedback, "Nova senha deve ter pelo menos 6 caracteres", "error");
+        return;
+    }
+
+    if (novaSenha.value !== confirmarSenha.value) {
+        setFeedback(senhaFeedback, "Confirmacao da senha nao confere", "error");
+        return;
+    }
+
+    try {
+        await apiFetch("/auth/senha", {
+            method: "PATCH",
+            body: JSON.stringify({
+                senhaAtual: senhaAtual.value,
+                novaSenha: novaSenha.value,
+                confirmacaoSenha: confirmarSenha.value
+            })
+        });
+
+        senhaForm.reset();
+        mostrarLogin();
+        setFeedback(loginFeedback, "Senha alterada. Entre novamente.", "success");
+    } catch (erro) {
+        setFeedback(senhaFeedback, erro.message, "error");
+    }
+});
+
 produtoForm.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const formData = new FormData(produtoForm);
@@ -2352,7 +2393,18 @@ clienteEditForm.addEventListener("submit", async (evento) => {
         fecharModalCliente();
         invalidarDadosFormularioPedido();
         await carregarView();
-        setFeedback(appFeedback, editando ? "Cliente atualizado" : "Cliente cadastrado e vinculado", "success");
+
+        let mensagemCliente = "Cliente atualizado";
+
+        if (!editando) {
+            mensagemCliente = clienteSalvo.criadoAgora === false ? "Cliente existente atualizado" : "Cliente cadastrado";
+
+            if (clienteOrigemSolicitacaoId !== null) {
+                mensagemCliente += " e vinculado";
+            }
+        }
+
+        setFeedback(appFeedback, mensagemCliente, "success");
     } catch (erro) {
         setFeedback(appFeedback, erro.message, "error");
     }

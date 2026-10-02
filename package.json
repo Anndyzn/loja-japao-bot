@@ -5,10 +5,16 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/src/server.js",
+    "check": "tsc --noEmit",
+    "gerar:segredo": "node scripts/gerar-segredo.mjs",
+    "verificar:deploy": "node scripts/verificar-deploy.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:generate": "npx --yes prisma@7.10.0 generate",
     "db:migrate": "npx --yes prisma@7.10.0 migrate dev",
+    "db:deploy": "npx --yes prisma@7.10.0 migrate deploy",
     "db:seed": "node scripts/seed.mjs",
     "db:studio": "npx --yes prisma@7.10.0 studio"
   },

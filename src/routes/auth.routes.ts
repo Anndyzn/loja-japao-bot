@@ -1,6 +1,9 @@
 import { Router } from "express";
-import { autenticarAdmin } from "../controllers/auth.controller.js";
+import { alterarSenhaAdmin, autenticarAdmin } from "../controllers/auth.controller.js";
+import { exigirAdmin } from "../middlewares/auth.middleware.js";
 
 export const authRoutes = Router();
 
 authRoutes.post("/login", autenticarAdmin);
+
+authRoutes.patch("/senha", exigirAdmin, alterarSenhaAdmin);

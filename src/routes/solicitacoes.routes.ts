@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { cadastrarSolicitacaoPublica, atualizarCotacaoSolicitacao, atualizarStatusSolicitacao, buscarSolicitacaoPorId, cadastrarSolicitacao, listarSolicitacoes, listarSolicitacoesPorCliente, vincularClienteSolicitacao, vincularPedidoSolicitacao, vincularProdutoSolicitacao } from "../controllers/solicitacoes.controller.js";
 import { exigirAdmin } from "../middlewares/auth.middleware.js";
+import { limitarEscritaPublica } from "../middlewares/rate-limit.middleware.js";
 
 export const solicitacoesRoutes = Router();
 
@@ -10,7 +11,7 @@ solicitacoesRoutes.get("/cliente/:clienteId", exigirAdmin, listarSolicitacoesPor
 
 solicitacoesRoutes.get("/:id", exigirAdmin, buscarSolicitacaoPorId);
 
-solicitacoesRoutes.post("/", cadastrarSolicitacao);
+solicitacoesRoutes.post("/", limitarEscritaPublica, cadastrarSolicitacao);
 
 solicitacoesRoutes.patch("/:id/status", exigirAdmin, atualizarStatusSolicitacao);
 
@@ -22,4 +23,4 @@ solicitacoesRoutes.patch("/:id/produto", exigirAdmin, vincularProdutoSolicitacao
 
 solicitacoesRoutes.patch("/:id/pedido", exigirAdmin, vincularPedidoSolicitacao);
 
-solicitacoesRoutes.post("/publica", cadastrarSolicitacaoPublica);
+solicitacoesRoutes.post("/publica", limitarEscritaPublica, cadastrarSolicitacaoPublica);

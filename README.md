@@ -38,6 +38,47 @@ ADMIN_PASSWORD="admin123"
 
 Esses dados sao usados pelo `npm run db:seed`.
 
+As variaveis principais sao:
+
+```txt
+NODE_ENV=development
+PORT=3000
+DATABASE_URL="postgresql://..."
+UPLOADS_DIR="public/uploads"
+TRUST_PROXY=false
+LOG_REQUESTS=true
+PUBLIC_WRITE_MAX_REQUISICOES=30
+PUBLIC_WRITE_JANELA_MINUTOS=10
+PUBLIC_TRACKING_MAX_CONSULTAS=60
+PUBLIC_TRACKING_JANELA_MINUTOS=10
+ADMIN_LOGIN_MAX_TENTATIVAS=5
+ADMIN_LOGIN_BLOQUEIO_MINUTOS=15
+AUTH_TOKEN_SECRET="troque-este-segredo-em-producao"
+```
+
+`PORT` define onde a API vai rodar. Em desenvolvimento, o padrao e `3000`.
+`UPLOADS_DIR` define onde as fotos enviadas pelo admin ficam salvas no disco.
+O padrao local e `public/uploads`, e as imagens continuam sendo acessadas pela
+URL publica `/uploads/...`.
+`TRUST_PROXY` deve ficar `true` somente quando a API estiver atras de um proxy
+confiavel. Isso ajuda o Express a identificar corretamente o IP real do cliente.
+`LOG_REQUESTS` controla os logs simples de requisicao no terminal.
+`PUBLIC_WRITE_MAX_REQUISICOES` e `PUBLIC_WRITE_JANELA_MINUTOS` limitam criacoes
+publicas, como cliente, pedido, pagamento e solicitacao, para reduzir spam.
+`PUBLIC_TRACKING_MAX_CONSULTAS` e `PUBLIC_TRACKING_JANELA_MINUTOS` limitam a
+consulta publica de acompanhamento de pedidos.
+`ADMIN_LOGIN_MAX_TENTATIVAS` e `ADMIN_LOGIN_BLOQUEIO_MINUTOS` controlam a
+protecao contra muitas tentativas de login incorretas no admin.
+`AUTH_TOKEN_SECRET` assina o login do admin. Em desenvolvimento o sistema aceita
+o valor do exemplo, mas em producao ele deve ser trocado por um texto forte,
+com pelo menos 32 caracteres.
+
+Para gerar um segredo forte:
+
+```bash
+npm run gerar:segredo
+```
+
 A porta do banco pode variar entre computadores. O `.env` e local e nao vai
 para o Git: ao atualizar o projeto, preserve esse arquivo em cada maquina.
 
@@ -90,6 +131,27 @@ A API roda em:
 http://localhost:3000
 ```
 
+A raiz da API retorna um JSON com links rapidos para `info`, `health`, admin,
+loja, carrinho e acompanhamento.
+
+O health check da API roda em:
+
+```txt
+http://localhost:3000/health
+```
+
+Ele retorna `200` quando a API e o banco estao respondendo. Se o banco falhar,
+retorna `503`, que e o codigo usado para indicar indisponibilidade temporaria.
+
+As informacoes publicas da API rodam em:
+
+```txt
+http://localhost:3000/info
+```
+
+Essa rota retorna nome, versao, ambiente, uptime e horario da API sem consultar
+o banco e sem expor segredos.
+
 A tela admin roda em:
 
 ```txt
@@ -120,13 +182,97 @@ Se o PowerShell bloquear `npm`, use `npm.cmd`:
 npm.cmd run dev
 ```
 
+## Ambiente de Producao
+
+Antes de colocar no ar, configure um `.env` proprio no servidor:
+
+```env
+NODE_ENV=production
+PORT=3000
+DATABASE_URL="postgresql://usuario:senha@host:5432/banco?schema=public"
+UPLOADS_DIR="/caminho/persistente/uploads"
+TRUST_PROXY=true
+LOG_REQUESTS=true
+PUBLIC_WRITE_MAX_REQUISICOES=30
+PUBLIC_WRITE_JANELA_MINUTOS=10
+PUBLIC_TRACKING_MAX_CONSULTAS=60
+PUBLIC_TRACKING_JANELA_MINUTOS=10
+ADMIN_LOGIN_MAX_TENTATIVAS=5
+ADMIN_LOGIN_BLOQUEIO_MINUTOS=15
+AUTH_TOKEN_SECRET="gere-um-segredo-forte-com-mais-de-32-caracteres"
+```
+
+Voce pode gerar o valor do `AUTH_TOKEN_SECRET` com:
+
+```bash
+npm.cmd run gerar:segredo
+```
+
+Em `NODE_ENV=production`, o servidor nao inicia se `AUTH_TOKEN_SECRET` estiver
+vazio, curto demais ou com o valor de exemplo. Isso evita publicar o admin com
+tokens faceis de falsificar.
+
+Antes de publicar, rode uma verificacao basica do ambiente:
+
+```bash
+npm.cmd run verificar:deploy
+```
+
+Esse comando confere variaveis obrigatorias, segredo do admin, valores booleanos
+e se `UPLOADS_DIR` pode ser criado/escrito. Ele nao imprime valores sensiveis.
+
+Depois de configurar o banco no servidor, aplique as migrations e inicie a API:
+
+```bash
+npm.cmd run db:deploy
+npm.cmd run db:generate
+npm.cmd run build
+npm.cmd start
+```
+
+Para uma publicacao real, tambem garanta HTTPS, backup do banco e persistencia
+para a pasta configurada em `UPLOADS_DIR`, porque as fotos dos produtos ficam
+nessa pasta.
+
+O projeto tambem possui `.dockerignore` para evitar que `.env`, `node_modules`,
+`dist`, `generated`, caches e uploads locais sejam enviados em builds Docker.
+
+Ao receber `Ctrl+C`, `SIGINT` ou `SIGTERM`, a API tenta encerrar com seguranca:
+fecha o servidor HTTP e desconecta do banco antes de finalizar o processo.
+
+O login admin possui uma protecao simples contra varias senhas erradas. Por
+padrao, 5 falhas para o mesmo IP e email bloqueiam novas tentativas por 15
+minutos. Em uma estrutura com varios servidores, essa contagem deve evoluir
+para banco ou cache compartilhado.
+
+Rotas publicas que criam dados possuem limite simples por IP. Por padrao, sao
+30 envios a cada 10 minutos para cliente, pedido, pagamento e solicitacao. Se a
+chamada tiver token admin valido, esse limite publico nao e aplicado.
+O acompanhamento publico de pedido tambem tem limite por IP. Por padrao, sao 60
+consultas a cada 10 minutos.
+
+A API tambem envia headers basicos de seguranca nas respostas, como bloqueio de
+iframe, protecao contra MIME sniffing e politica simples de permissao de
+recursos do navegador.
+
+Toda resposta tambem recebe `X-Request-Id`. Esse identificador ajuda a ligar um
+erro visto no navegador ou cliente HTTP com o log correspondente no servidor.
+Quando `LOG_REQUESTS=true`, cada requisicao registra metodo, caminho, status,
+tempo de resposta e `requestId` no terminal.
+
 ## Scripts
 
 ```txt
 npm run dev          inicia a API em modo desenvolvimento
+npm run build        compila o TypeScript para a pasta dist
+npm start            inicia a API compilada em dist/src/server.js
+npm run check        valida o TypeScript sem gerar arquivos
+npm run gerar:segredo gera um AUTH_TOKEN_SECRET forte
+npm run verificar:deploy verifica configuracoes antes de publicar
 npm run db:up        sobe o PostgreSQL com Docker
 npm run db:down      derruba o PostgreSQL
 npm run db:migrate   aplica migrations do Prisma
+npm run db:deploy    aplica migrations existentes em producao
 npm run db:generate  gera o Prisma Client
 npm run db:seed      cadastra dados iniciais
 npm run db:studio    abre o Prisma Studio
@@ -139,6 +285,41 @@ npm run db:studio    abre o Prisma Studio
 3. Criar um pedido com `clienteId` e itens.
 4. Criar um pagamento para o pedido.
 5. Acompanhar o pedido informando numero do pedido e telefone.
+
+## Roteiro de Teste Manual
+
+Use este roteiro quando puxar o projeto em outro computador, quando fizer uma
+alteracao importante ou antes de publicar:
+
+1. Rodar `npm run check` para validar o TypeScript.
+2. Rodar `npm run build` para confirmar que a versao compilada gera sem erro.
+3. Rodar `npm run verificar:deploy` para revisar variaveis de ambiente.
+4. Subir o banco com `npm run db:up`.
+5. Aplicar migrations com `npm run db:migrate` em desenvolvimento ou
+   `npm run db:deploy` em producao.
+6. Rodar `npm run db:generate` se o Prisma Client precisar ser atualizado.
+7. Iniciar a API com `npm run dev`.
+8. Abrir `http://localhost:3000/info` e confirmar as informacoes publicas.
+9. Abrir `http://localhost:3000/health` e confirmar que o banco esta `ok`.
+10. Entrar no admin em `http://localhost:3000/admin`.
+11. Cadastrar ou editar um produto, incluindo imagem, preco, estoque e
+    visibilidade na loja.
+12. Abrir `http://localhost:3000/loja` e confirmar que o produto publicado
+    aparece para o cliente.
+13. Fazer um pedido publico pelo carrinho, preenchendo CEP, numero,
+    complemento e telefone.
+14. No admin, conferir detalhes do pedido, endereco do pedido, endereco atual
+    do cliente, itens, total e historico.
+15. Registrar pagamento ou marcar como pago, depois salvar rastreio e marcar
+    como enviado.
+16. Abrir o acompanhamento publico e consultar usando numero do pedido e
+    telefone do cliente.
+17. Criar uma solicitacao publica de produto e conferir no admin se contato,
+    descricao e link aparecem corretamente.
+
+Esse teste e manual de proposito: ele imita o caminho real do cliente e do
+admin. Quando tudo passa aqui, a chance de quebrar algo importante fica bem
+menor.
 
 ## Rotas
 
@@ -196,8 +377,8 @@ Criar produto:
 Requer token admin.
 
 Pelo painel admin, a foto do produto e enviada por upload do computador. A API
-salva a imagem em `public/uploads/produtos` e o produto passa a usar uma URL
-local, como `/uploads/produtos/produto-1.png`.
+salva a imagem dentro de `UPLOADS_DIR/produtos` e o produto passa a usar uma
+URL local, como `/uploads/produtos/produto-1.png`.
 
 ```http
 POST /produtos
@@ -306,6 +487,12 @@ Content-Type: application/json
   "referencia": "Proximo ao mercado"
 }
 ```
+
+Se ja existir cliente com o mesmo telefone, ignorando parenteses, espacos e
+tracos, a API reaproveita esse cadastro, atualiza os dados atuais do cliente e
+retorna `200`. Se o telefone ainda nao existir, cria um novo cliente e retorna
+`201`. A resposta de cadastro tambem traz `criadoAgora`, que sera `true` quando
+criou um cliente novo e `false` quando reaproveitou um cliente existente.
 
 Atualizar cliente:
 

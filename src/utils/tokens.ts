@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { env } from "../config/env.js";
 
 type PayloadTokenAdmin = {
     adminId: number;
@@ -9,7 +10,7 @@ type PayloadTokenAdmin = {
 const DURACAO_TOKEN_SEGUNDOS = 60 * 60 * 8;
 
 function obterSegredoToken() {
-    return process.env.AUTH_TOKEN_SECRET ?? "segredo-local-de-desenvolvimento";
+    return env.AUTH_TOKEN_SECRET;
 }
 
 function codificarBase64Url(valor: string) {

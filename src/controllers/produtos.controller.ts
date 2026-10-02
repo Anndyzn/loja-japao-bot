@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Request, Response } from "express";
+import { env } from "../config/env.js";
 import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterProdutosFiltrados, removerProdutoPorId } from "../services/produtos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoProduto, validarCriacaoProduto } from "../utils/validacoes.js";
 
-const DIRETORIO_UPLOAD_PRODUTOS = "public/uploads/produtos";
+const DIRETORIO_UPLOAD_PRODUTOS = join(env.UPLOADS_DIR, "produtos");
 const LIMITE_IMAGEM_BYTES = 3 * 1024 * 1024;
 
 const extensoesPorMime = {

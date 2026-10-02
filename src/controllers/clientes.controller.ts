@@ -127,9 +127,12 @@ export async function cadastrarCliente(req: Request, res: Response) {
     adicionarTextoOpcional(dadosCliente, "complemento", complemento);
     adicionarTextoOpcional(dadosCliente, "referencia", referencia);
 
-    const novoCliente = await criarCliente(dadosCliente);
+    const resultado = await criarCliente(dadosCliente);
 
-    return res.status(201).json(novoCliente);
+    return res.status(resultado.criado ? 201 : 200).json({
+        ...resultado.cliente,
+        criadoAgora: resultado.criado
+    });
 }
 
 export async function atualizarCliente(req: Request, res: Response) {
