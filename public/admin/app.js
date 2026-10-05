@@ -16,6 +16,7 @@ const senhaAtual = document.querySelector("#senha-atual");
 const novaSenha = document.querySelector("#nova-senha");
 const confirmarSenha = document.querySelector("#confirmar-senha");
 const senhaFeedback = document.querySelector("#senha-feedback");
+const adminLogadoInfo = document.querySelector("#admin-logado-info");
 const produtoForm = document.querySelector("#produto-form");
 const produtoNome = document.querySelector("#produto-nome");
 const produtoPreco = document.querySelector("#produto-preco");
@@ -50,6 +51,11 @@ const pedidoFiltroContexto = document.querySelector("#pedido-filtro-contexto");
 const pedidoListaResumo = document.querySelector("#pedido-lista-resumo");
 const pagamentosTbody = document.querySelector("#pagamentos-tbody");
 const pagamentoListaResumo = document.querySelector("#pagamento-lista-resumo");
+const pagamentoFiltrosForm = document.querySelector("#pagamento-filtros-form");
+const pagamentoBuscaFiltro = document.querySelector("#pagamento-busca-filtro");
+const pagamentoMetodoFiltro = document.querySelector("#pagamento-metodo-filtro");
+const pagamentoStatusFiltro = document.querySelector("#pagamento-status-filtro");
+const pagamentoFiltrosLimpar = document.querySelector("#pagamento-filtros-limpar");
 const solicitacoesTbody = document.querySelector("#solicitacoes-tbody");
 const solicitacaoBuscaFiltro = document.querySelector("#solicitacao-busca-filtro");
 const solicitacaoStatusFiltro = document.querySelector("#solicitacao-status-filtro");
@@ -116,11 +122,13 @@ const statusSolicitacoes = ["recebida", "em_analise", "cotada", "aprovada", "rec
 
 let token = localStorage.getItem("adminToken");
 let activeView = "dashboard";
+let adminLogado = null;
 let clienteCepAtual = "";
 let clienteBuscaCep = null;
 let produtoFiltroTimer = null;
 let clienteFiltroTimer = null;
 let pedidoFiltroTimer = null;
+let pagamentoFiltroTimer = null;
 let solicitacaoFiltroTimer = null;
 let clienteOrigemSolicitacaoId = null;
 let produtoOrigemSolicitacao = null;
@@ -286,6 +294,26 @@ function montarMensagemWhatsAppPedido(pedido) {
     return partes.join(" ");
 }
 
+function formatarErroLogin(erro) {
+    const tentarNovamenteEm = erro.dados?.tentarNovamenteEm;
+
+    if (erro.status !== 429 || !tentarNovamenteEm) {
+        return erro.message;
+    }
+
+    const dataTentativa = new Date(tentarNovamenteEm);
+
+    if (Number.isNaN(dataTentativa.getTime())) {
+        return erro.message;
+    }
+
+    return erro.message + " Tente novamente as " +
+        dataTentativa.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit"
+        }) + ".";
+}
+
 function normalizarTexto(texto) {
     return String(texto ?? "")
         .normalize("NFD")
@@ -379,6 +407,39 @@ function solicitacaoConfereBuscaLocal(solicitacao, busca) {
         String(solicitacao.produtoId ?? ""),
         String(solicitacao.pedidoId ?? ""),
         solicitacao.contato?.telefone
+    ].some((campo) => normalizarDigitos(campo).includes(buscaDigitos));
+}
+
+function pagamentoConfereBuscaLocal(pagamento, busca) {
+    const buscaTratada = busca.trim();
+
+    if (!buscaTratada) {
+        return true;
+    }
+
+    const buscaTexto = normalizarTexto(buscaTratada);
+    const buscaDigitos = normalizarDigitos(buscaTratada);
+    const camposTexto = [
+        String(pagamento.id),
+        "pedido " + pagamento.pedidoId,
+        "#" + pagamento.pedidoId,
+        pagamento.metodo,
+        pagamento.status,
+        formatarMoeda(pagamento.valor)
+    ];
+
+    if (camposTexto.some((campo) => normalizarTexto(campo).includes(buscaTexto))) {
+        return true;
+    }
+
+    if (!buscaDigitos) {
+        return false;
+    }
+
+    return [
+        String(pagamento.id),
+        String(pagamento.pedidoId),
+        String(pagamento.valor)
     ].some((campo) => normalizarDigitos(campo).includes(buscaDigitos));
 }
 
@@ -707,6 +768,7 @@ async function apiFetch(caminho, opcoes = {}) {
         const mensagem = conteudo?.mensagem ?? "Erro ao processar requisicao";
         const erro = new Error(mensagem);
         erro.status = resposta.status;
+        erro.dados = conteudo;
 
         if (resposta.status === 401 && caminho !== "/auth/login") {
             erro.sessaoEncerrada = true;
@@ -722,17 +784,49 @@ async function apiFetch(caminho, opcoes = {}) {
 
 function mostrarLogin() {
     token = null;
+    adminLogado = null;
     localStorage.removeItem("adminToken");
     senhaForm.reset();
     setFeedback(senhaFeedback, "");
+    atualizarAdminLogadoInfo();
     loginView.classList.remove("hidden");
     appView.classList.add("hidden");
 }
 
 async function mostrarApp() {
+    atualizarAdminLogadoInfo();
     loginView.classList.add("hidden");
     appView.classList.remove("hidden");
     await carregarView();
+}
+
+function atualizarAdminLogadoInfo() {
+    if (!adminLogado) {
+        adminLogadoInfo.textContent = "Sessao nao validada.";
+        return;
+    }
+
+    adminLogadoInfo.textContent = adminLogado.nome + " | " + adminLogado.email;
+}
+
+async function iniciarAdmin() {
+    if (!token) {
+        mostrarLogin();
+        return;
+    }
+
+    try {
+        setFeedback(loginFeedback, "Validando sessao...");
+        const resultado = await apiFetch("/auth/me");
+        adminLogado = resultado.admin;
+        setFeedback(loginFeedback, "");
+        await mostrarApp();
+    } catch (erro) {
+        if (!erro.sessaoEncerrada) {
+            mostrarLogin();
+            setFeedback(loginFeedback, erro.message, "error");
+        }
+    }
 }
 
 function trocarView(view) {
@@ -919,6 +1013,7 @@ async function irParaPedidosDashboard(status = "") {
 
 async function irParaPagamentosDashboard() {
     trocarView("pagamentos");
+    pagamentoFiltrosForm.reset();
     await carregarView();
 }
 
@@ -2367,7 +2462,22 @@ function criarLinhaPagamento(pagamento) {
 }
 
 async function carregarPagamentos() {
-    const pagamentos = await apiFetch("/pagamentos");
+    let pagamentos = await apiFetch("/pagamentos");
+    const busca = pagamentoBuscaFiltro.value.trim();
+    const metodo = pagamentoMetodoFiltro.value;
+    const status = pagamentoStatusFiltro.value;
+
+    if (busca) {
+        pagamentos = pagamentos.filter((pagamento) => pagamentoConfereBuscaLocal(pagamento, busca));
+    }
+
+    if (metodo) {
+        pagamentos = pagamentos.filter((pagamento) => pagamento.metodo === metodo);
+    }
+
+    if (status) {
+        pagamentos = pagamentos.filter((pagamento) => pagamento.status === status);
+    }
 
     pagamentosTbody.replaceChildren(
         ...(pagamentos.length > 0 ? pagamentos.map(criarLinhaPagamento) : [criarLinhaVazia(6, "Nenhum pagamento encontrado")])
@@ -2701,10 +2811,11 @@ loginForm.addEventListener("submit", async (evento) => {
         });
 
         token = resultado.token;
+        adminLogado = resultado.admin;
         localStorage.setItem("adminToken", token);
         await mostrarApp();
     } catch (erro) {
-        setFeedback(loginFeedback, erro.message, "error");
+        setFeedback(loginFeedback, formatarErroLogin(erro), "error");
     }
 });
 
@@ -2712,8 +2823,8 @@ senhaForm.addEventListener("submit", async (evento) => {
     evento.preventDefault();
     setFeedback(senhaFeedback, "");
 
-    if (novaSenha.value.length < 6) {
-        setFeedback(senhaFeedback, "Nova senha deve ter pelo menos 6 caracteres", "error");
+    if (novaSenha.value.length < 10) {
+        setFeedback(senhaFeedback, "Nova senha deve ter pelo menos 10 caracteres", "error");
         return;
     }
 
@@ -3019,6 +3130,44 @@ pedidoStatusFiltro.addEventListener("change", async () => {
 pedidoCliente.addEventListener("change", limparOrigemPedidoSolicitacao);
 pedidoProduto.addEventListener("change", limparOrigemPedidoSolicitacao);
 
+pagamentoFiltrosForm.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    if (activeView === "pagamentos") {
+        await carregarPagamentos();
+    }
+});
+
+pagamentoFiltrosLimpar.addEventListener("click", async () => {
+    pagamentoFiltrosForm.reset();
+    window.clearTimeout(pagamentoFiltroTimer);
+
+    if (activeView === "pagamentos") {
+        await carregarPagamentos();
+    }
+});
+
+pagamentoBuscaFiltro.addEventListener("input", () => {
+    window.clearTimeout(pagamentoFiltroTimer);
+    pagamentoFiltroTimer = window.setTimeout(() => {
+        if (activeView === "pagamentos") {
+            void carregarPagamentos();
+        }
+    }, 300);
+});
+
+pagamentoMetodoFiltro.addEventListener("change", async () => {
+    if (activeView === "pagamentos") {
+        await carregarPagamentos();
+    }
+});
+
+pagamentoStatusFiltro.addEventListener("change", async () => {
+    if (activeView === "pagamentos") {
+        await carregarPagamentos();
+    }
+});
+
 solicitacaoStatusFiltro.addEventListener("change", async () => {
     if (activeView === "solicitacoes") {
         await carregarSolicitacoes();
@@ -3116,8 +3265,4 @@ for (const botao of navButtons) {
 refreshButton.addEventListener("click", carregarView);
 logoutButton.addEventListener("click", mostrarLogin);
 
-if (token) {
-    mostrarApp();
-} else {
-    mostrarLogin();
-}
+void iniciarAdmin();

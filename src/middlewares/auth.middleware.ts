@@ -19,5 +19,7 @@ export const exigirAdmin: RequestHandler = (req, res, next) => {
         });
     }
 
+    res.locals.adminPayload = payload;
+
     return next();
 };

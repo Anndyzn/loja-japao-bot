@@ -1,20 +1,12 @@
 import type { Request, Response } from "express";
-import { alterarSenhaAdmin as alterarSenhaAdminService, loginAdmin } from "../services/auth.service.js";
+import { alterarSenhaAdmin as alterarSenhaAdminService, loginAdmin, obterAdminPorId } from "../services/auth.service.js";
 import { limparFalhasLogin, registrarFalhaLogin, verificarBloqueioLogin } from "../services/login-rate-limit.service.js";
-import { validarTokenAdmin } from "../utils/tokens.js";
+import type { PayloadTokenAdmin } from "../utils/tokens.js";
 
 type ResultadoBloqueio = ReturnType<typeof verificarBloqueioLogin>;
 
-function obterPayloadAdmin(req: Request) {
-    const authorization = req.headers.authorization;
-
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-        return undefined;
-    }
-
-    const token = authorization.replace("Bearer ", "").trim();
-
-    return validarTokenAdmin(token);
+function obterPayloadAdmin(res: Response) {
+    return res.locals.adminPayload as PayloadTokenAdmin | undefined;
 }
 
 function obterChaveTentativasLogin(req: Request, email: string) {
@@ -80,6 +72,28 @@ export async function autenticarAdmin(req: Request, res: Response) {
     return res.json(resultado);
 }
 
+export async function obterSessaoAdmin(req: Request, res: Response) {
+    const payload = obterPayloadAdmin(res);
+
+    if (!payload) {
+        return res.status(401).json({
+            mensagem: "Token de admin invalido ou expirado"
+        });
+    }
+
+    const admin = await obterAdminPorId(payload.adminId);
+
+    if (!admin) {
+        return res.status(404).json({
+            mensagem: "Admin nao encontrado"
+        });
+    }
+
+    return res.json({
+        admin
+    });
+}
+
 export async function alterarSenhaAdmin(req: Request, res: Response) {
     const { senhaAtual, novaSenha, confirmacaoSenha } = req.body;
 
@@ -89,9 +103,9 @@ export async function alterarSenhaAdmin(req: Request, res: Response) {
         });
     }
 
-    if (typeof novaSenha !== "string" || novaSenha.length < 6) {
+    if (typeof novaSenha !== "string" || novaSenha.length < 10) {
         return res.status(400).json({
-            mensagem: "Nova senha deve ter pelo menos 6 caracteres"
+            mensagem: "Nova senha deve ter pelo menos 10 caracteres"
         });
     }
 
@@ -101,7 +115,7 @@ export async function alterarSenhaAdmin(req: Request, res: Response) {
         });
     }
 
-    const payload = obterPayloadAdmin(req);
+    const payload = obterPayloadAdmin(res);
 
     if (!payload) {
         return res.status(401).json({

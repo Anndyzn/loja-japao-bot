@@ -393,10 +393,41 @@ A resposta retorna um `token`. Use esse token nas rotas administrativas:
 Authorization: Bearer SEU_TOKEN_AQUI
 ```
 
+Depois de muitas tentativas incorretas, o login retorna `429` com
+`tentarNovamenteEm`. O painel admin mostra esse horario para orientar a nova
+tentativa.
+
+Validar token/sessao atual:
+
+Requer token admin.
+
+```http
+GET /auth/me
+```
+
+Retorna os dados basicos do admin logado quando o token ainda e valido.
+
 Na primeira versao, o login e apenas para admin. O cliente comum ainda pode
 criar cliente, pedido, pagamento e solicitacao sem login. Por isso o checkout
 publico pede mais dados de entrega, como CEP, numero, complemento, bairro,
 cidade, estado e ponto de referencia.
+
+Alterar senha do admin:
+
+Requer token admin. A nova senha deve ter pelo menos 10 caracteres.
+
+```http
+PATCH /auth/senha
+Content-Type: application/json
+```
+
+```json
+{
+  "senhaAtual": "senha-atual",
+  "novaSenha": "nova-senha-forte",
+  "confirmacaoSenha": "nova-senha-forte"
+}
+```
 
 ### Produtos
 

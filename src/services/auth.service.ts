@@ -30,6 +30,24 @@ export async function loginAdmin(email: string, senha: string) {
     };
 }
 
+export async function obterAdminPorId(adminId: number) {
+    const admin = await prisma.admin.findUnique({
+        where: {
+            id: adminId
+        }
+    });
+
+    if (!admin) {
+        return undefined;
+    }
+
+    return {
+        id: admin.id,
+        nome: admin.nome,
+        email: admin.email
+    };
+}
+
 export async function alterarSenhaAdmin(adminId: number, senhaAtual: string, novaSenha: string) {
     const admin = await prisma.admin.findUnique({
         where: {

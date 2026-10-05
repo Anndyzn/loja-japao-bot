@@ -250,6 +250,34 @@
                 </section>
 
                 <section id="pagamentos-view" class="view-section hidden">
+                    <form id="pagamento-filtros-form" class="filters-bar">
+                        <label>
+                            Buscar
+                            <input id="pagamento-busca-filtro" type="search" placeholder="#pedido, metodo ou status">
+                        </label>
+
+                        <label>
+                            Metodo
+                            <select id="pagamento-metodo-filtro">
+                                <option value="">Todos</option>
+                                <option value="pix">Pix</option>
+                                <option value="cartao">Cartao</option>
+                                <option value="boleto">Boleto</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Status
+                            <select id="pagamento-status-filtro">
+                                <option value="">Todos</option>
+                                <option value="aprovado">Aprovado</option>
+                            </select>
+                        </label>
+
+                        <button type="submit">Buscar</button>
+                        <button id="pagamento-filtros-limpar" class="small-button" type="button">Limpar</button>
+                    </form>
+
                     <p id="pagamento-lista-resumo" class="lista-resumo"></p>
 
                     <div class="table-shell">
@@ -325,6 +353,7 @@
                         <div>
                             <p class="eyebrow">Conta admin</p>
                             <h3>Alterar senha</h3>
+                            <p id="admin-logado-info" class="form-hint">Sessao nao validada.</p>
                         </div>
 
                         <label>
@@ -334,13 +363,16 @@
 
                         <label>
                             Nova senha
-                            <input id="nova-senha" type="password" autocomplete="new-password" minlength="6" required>
+                            <input id="nova-senha" type="password" autocomplete="new-password" minlength="10" required>
+                            <span class="form-hint">Use pelo menos 10 caracteres.</span>
                         </label>
 
                         <label>
                             Confirmar nova senha
-                            <input id="confirmar-senha" type="password" autocomplete="new-password" minlength="6" required>
+                            <input id="confirmar-senha" type="password" autocomplete="new-password" minlength="10" required>
                         </label>
+
+                        <p class="form-hint">Depois de alterar a senha, sera necessario entrar novamente.</p>
 
                         <button type="submit">Alterar senha</button>
                         <p id="senha-feedback" class="feedback" role="status"></p>

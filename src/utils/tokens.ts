@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.js";
 
-type PayloadTokenAdmin = {
+export type PayloadTokenAdmin = {
     adminId: number;
     email: string;
     exp: number;
