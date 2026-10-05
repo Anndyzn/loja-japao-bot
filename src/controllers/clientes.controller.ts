@@ -214,6 +214,12 @@ export async function removerCliente(req: Request, res: Response) {
 
     const clienteFoiRemovido = await removerClientePorId(id);
 
+    if (clienteFoiRemovido === "emUso") {
+        return res.status(409).json({
+            mensagem: "Cliente possui pedidos ou solicitacoes vinculadas. Mantenha o cadastro para preservar o historico."
+        });
+    }
+
     if (!clienteFoiRemovido) {
         return res.status(404).json({
             mensagem: "Cliente nao encontrado"

@@ -6,6 +6,13 @@ const SEGREDOS_PROIBIDOS = new Set([
     "segredo-local-de-desenvolvimento",
     "troque-este-segredo-em-producao"
 ]);
+const SENHAS_ADMIN_PROIBIDAS = new Set([
+    "admin123",
+    "123456",
+    "12345678",
+    "password",
+    "senha123"
+]);
 
 const erros = [];
 const avisos = [];
@@ -134,6 +141,47 @@ function validarDatabaseUrl() {
     oks.push("DATABASE_URL parece ser PostgreSQL");
 }
 
+function validarAdminInicial() {
+    const nodeEnv = obterVariavel("NODE_ENV") || "development";
+    const email = obterVariavel("ADMIN_EMAIL");
+    const senha = obterVariavel("ADMIN_PASSWORD");
+    const algumaVariavelAdmin = email || senha;
+
+    if (!algumaVariavelAdmin) {
+        avisos.push("ADMIN_EMAIL e ADMIN_PASSWORD nao configurados; configure antes de usar db:seed para criar admin inicial.");
+        return;
+    }
+
+    if (!email) {
+        erros.push("ADMIN_EMAIL nao configurado");
+    } else if (!email.includes("@")) {
+        erros.push("ADMIN_EMAIL parece invalido");
+    } else {
+        oks.push("ADMIN_EMAIL configurado");
+    }
+
+    if (!senha) {
+        erros.push("ADMIN_PASSWORD nao configurado");
+        return;
+    }
+
+    if (senha.length < 10) {
+        const mensagem = "ADMIN_PASSWORD deve ter pelo menos 10 caracteres";
+
+        if (nodeEnv === "production") {
+            erros.push(mensagem);
+        } else {
+            avisos.push(mensagem + " antes de publicar.");
+        }
+    } else {
+        oks.push("ADMIN_PASSWORD tem tamanho minimo");
+    }
+
+    if (SENHAS_ADMIN_PROIBIDAS.has(senha.toLowerCase())) {
+        erros.push("ADMIN_PASSWORD nao pode usar senha padrao ou fraca");
+    }
+}
+
 function imprimirResultado() {
     console.log("Verificacao de deploy");
     console.log("");
@@ -170,6 +218,7 @@ carregarEnv();
 validarAmbiente();
 validarDatabaseUrl();
 validarSegredo();
+validarAdminInicial();
 validarBooleano("TRUST_PROXY");
 validarBooleano("LOG_REQUESTS");
 validarInteiroPositivo("PORT");

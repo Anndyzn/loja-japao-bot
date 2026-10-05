@@ -1,10 +1,11 @@
-import type { StatusSolicitacao } from "../../generated/prisma/client.js";
+import type { Prisma, StatusSolicitacao } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 
 export type { StatusSolicitacao } from "../../generated/prisma/client.js";
 
 type FiltrosSolicitacoes = {
     status?: StatusSolicitacao | undefined;
+    busca?: string | undefined;
 };
 
 type SolicitacaoResposta = {
@@ -55,6 +56,64 @@ type ResultadoCriacaoSolicitacao = {
     mensagemErro?: string;
 };
 
+const includeProdutoSolicitacao = {
+    produto: {
+        select: {
+            id: true,
+            nome: true,
+            preco: true,
+            estoque: true
+        }
+    }
+} satisfies Prisma.SolicitacaoProdutoInclude;
+
+function criarWhereSolicitacoes(filtros: FiltrosSolicitacoes) {
+    const where: Prisma.SolicitacaoProdutoWhereInput = {};
+
+    if (filtros.status) {
+        where.status = filtros.status;
+    }
+
+    const busca = filtros.busca?.trim();
+
+    if (!busca) {
+        return where;
+    }
+
+    const buscaNumerica = Number(busca);
+    const buscaEhId = Number.isInteger(buscaNumerica) && buscaNumerica > 0;
+    const texto: Prisma.StringFilter<"SolicitacaoProduto"> = {
+        contains: busca,
+        mode: "insensitive"
+    };
+    const textoCliente: Prisma.StringFilter<"Cliente"> = {
+        contains: busca,
+        mode: "insensitive"
+    };
+
+    where.OR = [
+        { nomeProduto: texto },
+        { descricao: texto },
+        { contatoNome: texto },
+        { contatoTelefone: { contains: busca } },
+        { linkReferencia: texto },
+        { observacaoAdmin: texto },
+        { cliente: { is: { nome: textoCliente } } },
+        { cliente: { is: { telefone: { contains: busca } } } }
+    ];
+
+    if (buscaEhId) {
+        where.OR.push(
+            { id: buscaNumerica },
+            { clienteId: buscaNumerica },
+            { produtoId: buscaNumerica },
+            { pedidoId: buscaNumerica }
+        );
+    }
+
+    return where;
+}
+
 function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta {
     const resposta: SolicitacaoResposta = {
         id: solicitacao.id,
@@ -97,16 +156,7 @@ function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta
 
 export async function obterTodasSolicitacoes() {
     const solicitacoes = await prisma.solicitacaoProduto.findMany({
-        include: {
-            produto: {
-                select: {
-                    id: true,
-                    nome: true,
-                    preco: true,
-                    estoque: true
-                }
-            }
-        },
+        include: includeProdutoSolicitacao,
         orderBy: {
             id: "asc"
         }
@@ -116,40 +166,9 @@ export async function obterTodasSolicitacoes() {
 }
 
 export async function obterSolicitacoesFiltradas(filtros: FiltrosSolicitacoes) {
-    if (!filtros.status) {
-        const solicitacoes = await prisma.solicitacaoProduto.findMany({
-            include: {
-                produto: {
-                    select: {
-                        id: true,
-                        nome: true,
-                        preco: true,
-                        estoque: true
-                    }
-                }
-            },
-            orderBy: {
-                id: "asc"
-            }
-        });
-
-        return solicitacoes.map(formatarSolicitacao);
-    }
-
     const solicitacoes = await prisma.solicitacaoProduto.findMany({
-        where: {
-            status: filtros.status
-        },
-        include: {
-            produto: {
-                select: {
-                    id: true,
-                    nome: true,
-                    preco: true,
-                    estoque: true
-                }
-            }
-        },
+        where: criarWhereSolicitacoes(filtros),
+        include: includeProdutoSolicitacao,
         orderBy: {
             id: "asc"
         }
@@ -182,21 +201,15 @@ export async function obterSolicitacaoPorId(id: number) {
     return formatarSolicitacao(solicitacao);
 }
 
-export async function obterSolicitacoesPorClienteId(clienteId: number) {
+export async function obterSolicitacoesPorClienteId(clienteId: number, busca?: string) {
     const solicitacoes = await prisma.solicitacaoProduto.findMany({
         where: {
-            clienteId
+            AND: [
+                { clienteId },
+                criarWhereSolicitacoes({ busca })
+            ]
         },
-        include: {
-            produto: {
-                select: {
-                    id: true,
-                    nome: true,
-                    preco: true,
-                    estoque: true
-                }
-            }
-        },
+        include: includeProdutoSolicitacao,
         orderBy: {
             id: "asc"
         }

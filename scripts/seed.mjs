@@ -6,12 +6,49 @@ if (typeof process.loadEnvFile === "function") {
 }
 
 const connectionString = process.env.DATABASE_URL;
+const nodeEnv = process.env.NODE_ENV ?? "development";
 
 if (!connectionString) {
     throw new Error("DATABASE_URL nao configurada");
 }
 
 const { Client } = pg;
+const SENHAS_ADMIN_PROIBIDAS = new Set([
+    "admin123",
+    "123456",
+    "12345678",
+    "password",
+    "senha123"
+]);
+
+function obterAdminInicial() {
+    const email = process.env.ADMIN_EMAIL ?? "admin@lojajapao.com";
+    const senha = process.env.ADMIN_PASSWORD ?? "admin123";
+
+    if (nodeEnv === "production") {
+        if (!process.env.ADMIN_EMAIL?.trim()) {
+            throw new Error("ADMIN_EMAIL deve ser configurado para executar seed em producao");
+        }
+
+        if (!process.env.ADMIN_PASSWORD?.trim()) {
+            throw new Error("ADMIN_PASSWORD deve ser configurado para executar seed em producao");
+        }
+
+        if (senha.length < 10) {
+            throw new Error("ADMIN_PASSWORD deve ter pelo menos 10 caracteres em producao");
+        }
+
+        if (SENHAS_ADMIN_PROIBIDAS.has(senha.toLowerCase())) {
+            throw new Error("ADMIN_PASSWORD nao pode usar senha padrao ou fraca em producao");
+        }
+    }
+
+    return {
+        nome: "Administrador",
+        email,
+        senha
+    };
+}
 
 function gerarHashSenha(senha) {
     const salt = randomBytes(16).toString("hex");
@@ -82,11 +119,7 @@ const clientesIniciais = [
     }
 ];
 
-const adminInicial = {
-    nome: "Administrador",
-    email: process.env.ADMIN_EMAIL ?? "admin@lojajapao.com",
-    senha: process.env.ADMIN_PASSWORD ?? "admin123"
-};
+const adminInicial = obterAdminInicial();
 
 const client = new Client({
     connectionString

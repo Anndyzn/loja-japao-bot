@@ -23,12 +23,15 @@ const produtoEstoque = document.querySelector("#produto-estoque");
 const produtoPublicadoNaLoja = document.querySelector("#produto-publicado-na-loja");
 const produtoFiltrosForm = document.querySelector("#produto-filtros-form");
 const produtoNomeFiltro = document.querySelector("#produto-nome-filtro");
+const produtoPublicadoFiltro = document.querySelector("#produto-publicado-filtro");
 const produtoEstoqueBaixoFiltro = document.querySelector("#produto-estoque-baixo-filtro");
 const produtoFiltrosLimpar = document.querySelector("#produto-filtros-limpar");
 const produtoImagemBotao = document.querySelector("#produto-imagem-botao");
 const produtoImagemArquivo = document.querySelector("#produto-imagem-arquivo");
 const produtosTbody = document.querySelector("#produtos-tbody");
+const produtoListaResumo = document.querySelector("#produto-lista-resumo");
 const clientesTbody = document.querySelector("#clientes-tbody");
+const clienteListaResumo = document.querySelector("#cliente-lista-resumo");
 const clienteFiltrosForm = document.querySelector("#cliente-filtros-form");
 const clienteNomeFiltro = document.querySelector("#cliente-nome-filtro");
 const clienteTelefoneFiltro = document.querySelector("#cliente-telefone-filtro");
@@ -43,9 +46,16 @@ const pedidoFiltrosForm = document.querySelector("#pedido-filtros-form");
 const pedidoBuscaFiltro = document.querySelector("#pedido-busca-filtro");
 const pedidoStatusFiltro = document.querySelector("#pedido-status-filtro");
 const pedidoFiltrosLimpar = document.querySelector("#pedido-filtros-limpar");
+const pedidoFiltroContexto = document.querySelector("#pedido-filtro-contexto");
+const pedidoListaResumo = document.querySelector("#pedido-lista-resumo");
 const pagamentosTbody = document.querySelector("#pagamentos-tbody");
+const pagamentoListaResumo = document.querySelector("#pagamento-lista-resumo");
 const solicitacoesTbody = document.querySelector("#solicitacoes-tbody");
+const solicitacaoBuscaFiltro = document.querySelector("#solicitacao-busca-filtro");
 const solicitacaoStatusFiltro = document.querySelector("#solicitacao-status-filtro");
+const solicitacaoFiltrosLimpar = document.querySelector("#solicitacao-filtros-limpar");
+const solicitacaoFiltroContexto = document.querySelector("#solicitacao-filtro-contexto");
+const solicitacaoListaResumo = document.querySelector("#solicitacao-lista-resumo");
 const produtoModal = document.querySelector("#produto-modal");
 const produtoEditForm = document.querySelector("#produto-edit-form");
 const produtoEditId = document.querySelector("#produto-edit-id");
@@ -72,6 +82,8 @@ const clienteEditCidade = document.querySelector("#cliente-edit-cidade");
 const clienteEditEstado = document.querySelector("#cliente-edit-estado");
 const clienteEditReferencia = document.querySelector("#cliente-edit-referencia");
 const clienteEditCancelar = document.querySelector("#cliente-edit-cancelar");
+const clienteHistoricoResumo = document.querySelector("#cliente-historico-resumo");
+const clienteWhatsAppLink = document.querySelector("#cliente-whatsapp-link");
 
 const pedidoModal = document.querySelector('#pedido-modal');
 const pedidoTitulo = document.querySelector('#pedido-titulo');
@@ -109,11 +121,23 @@ let clienteBuscaCep = null;
 let produtoFiltroTimer = null;
 let clienteFiltroTimer = null;
 let pedidoFiltroTimer = null;
+let solicitacaoFiltroTimer = null;
 let clienteOrigemSolicitacaoId = null;
 let produtoOrigemSolicitacao = null;
 let pedidoOrigemSolicitacaoId = null;
 let pedidoFormDadosCarregados = false;
 let pedidoProdutosDisponiveis = [];
+let pedidoClienteFiltro = null;
+let solicitacaoClienteFiltro = null;
+let consultaClienteResumoAtual = 0;
+
+function travarScrollPagina() {
+    document.body.classList.add("modal-open");
+}
+
+function liberarScrollPagina() {
+    document.body.classList.remove("modal-open");
+}
 
 function invalidarDadosFormularioPedido() {
     pedidoFormDadosCarregados = false;
@@ -187,6 +211,23 @@ function criarLinkWhatsApp(telefone, texto = "") {
     return link;
 }
 
+function atualizarLinkWhatsAppCliente() {
+    const nome = clienteEditNome.value.trim();
+    const link = criarLinkWhatsApp(
+        clienteEditTelefone.value,
+        "Ola, " + (nome || "tudo bem") + ". Aqui e da Loja Japao."
+    );
+
+    if (!link) {
+        clienteWhatsAppLink.classList.add("hidden");
+        clienteWhatsAppLink.removeAttribute("href");
+        return;
+    }
+
+    clienteWhatsAppLink.href = link.href;
+    clienteWhatsAppLink.classList.remove("hidden");
+}
+
 function obterTelefoneContatoPedido(pedido) {
     return pedido.enderecoEntrega?.telefone ?? pedido.cliente?.telefone ?? "";
 }
@@ -206,10 +247,31 @@ function obterDescricaoStatusPedido(status) {
     return descricoes[status] ?? status;
 }
 
+function montarLinkAcompanhamentoPedido(pedidoId) {
+    return new URL("/loja/acompanhamento?pedido=" + pedidoId, window.location.origin).href;
+}
+
+async function copiarTexto(texto) {
+    if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(texto);
+        return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = texto;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+}
+
 function montarMensagemWhatsAppPedido(pedido) {
     const nome = obterNomeContatoPedido(pedido);
     const saudacao = nome ? "Ola, " + nome + "." : "Ola.";
-    const linkAcompanhamento = new URL("/loja/acompanhamento?pedido=" + pedido.id, window.location.origin).href;
+    const linkAcompanhamento = montarLinkAcompanhamentoPedido(pedido.id);
     const partes = [
         saudacao + " Seu pedido #" + pedido.id + " na Loja Japao esta " +
             obterDescricaoStatusPedido(pedido.status) + ".",
@@ -229,6 +291,165 @@ function normalizarTexto(texto) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase();
+}
+
+function normalizarDigitos(texto) {
+    return String(texto ?? "").replace(/\D/g, "");
+}
+
+function pedidoConfereBuscaLocal(pedido, busca) {
+    const buscaTratada = busca.trim();
+
+    if (!buscaTratada) {
+        return true;
+    }
+
+    if (buscaTratada.startsWith("#")) {
+        const buscaId = normalizarDigitos(buscaTratada);
+
+        return buscaId ? String(pedido.id).startsWith(buscaId) : true;
+    }
+
+    const buscaTexto = normalizarTexto(buscaTratada);
+    const buscaDigitos = normalizarDigitos(buscaTratada);
+    const camposTexto = [
+        String(pedido.id),
+        pedido.status,
+        pedido.cliente?.nome,
+        pedido.enderecoEntrega?.nome,
+        pedido.observacao,
+        ...(pedido.itens ?? []).map((item) => item.nomeProduto)
+    ];
+
+    if (camposTexto.some((campo) => normalizarTexto(campo).includes(buscaTexto))) {
+        return true;
+    }
+
+    if (!buscaDigitos) {
+        return false;
+    }
+
+    return [
+        String(pedido.id),
+        pedido.cliente?.telefone,
+        pedido.enderecoEntrega?.telefone
+    ].some((campo) => normalizarDigitos(campo).includes(buscaDigitos));
+}
+
+function solicitacaoConfereBuscaLocal(solicitacao, busca) {
+    const buscaTratada = busca.trim();
+
+    if (!buscaTratada) {
+        return true;
+    }
+
+    if (buscaTratada.startsWith("#")) {
+        const buscaId = normalizarDigitos(buscaTratada);
+
+        return buscaId ? String(solicitacao.id).startsWith(buscaId) : true;
+    }
+
+    const buscaTexto = normalizarTexto(buscaTratada);
+    const buscaDigitos = normalizarDigitos(buscaTratada);
+    const camposTexto = [
+        String(solicitacao.id),
+        String(solicitacao.clienteId ?? ""),
+        String(solicitacao.produtoId ?? ""),
+        String(solicitacao.pedidoId ?? ""),
+        solicitacao.status,
+        solicitacao.contato?.nome,
+        solicitacao.nomeProduto,
+        solicitacao.descricao,
+        solicitacao.linkReferencia,
+        solicitacao.observacaoAdmin,
+        solicitacao.produto?.nome
+    ];
+
+    if (camposTexto.some((campo) => normalizarTexto(campo).includes(buscaTexto))) {
+        return true;
+    }
+
+    if (!buscaDigitos) {
+        return false;
+    }
+
+    return [
+        String(solicitacao.id),
+        String(solicitacao.clienteId ?? ""),
+        String(solicitacao.produtoId ?? ""),
+        String(solicitacao.pedidoId ?? ""),
+        solicitacao.contato?.telefone
+    ].some((campo) => normalizarDigitos(campo).includes(buscaDigitos));
+}
+
+function atualizarContextoFiltroPedidos() {
+    if (!pedidoClienteFiltro) {
+        pedidoFiltroContexto.classList.add("hidden");
+        pedidoFiltroContexto.textContent = "";
+        return;
+    }
+
+    pedidoFiltroContexto.classList.remove("hidden");
+    pedidoFiltroContexto.textContent = "Filtrando pedidos de " + pedidoClienteFiltro.nome +
+        ". Use Limpar para voltar a todos os pedidos.";
+}
+
+function atualizarContextoFiltroSolicitacoes() {
+    if (!solicitacaoClienteFiltro) {
+        solicitacaoFiltroContexto.classList.add("hidden");
+        solicitacaoFiltroContexto.textContent = "";
+        return;
+    }
+
+    solicitacaoFiltroContexto.classList.remove("hidden");
+    solicitacaoFiltroContexto.textContent = "Filtrando solicitacoes de " + solicitacaoClienteFiltro.nome +
+        ". Use Limpar para voltar a todas as solicitacoes.";
+}
+
+function atualizarResumoListaPedidos(pedidos) {
+    const quantidade = pedidos.length;
+    const total = pedidos.reduce((soma, pedido) => soma + Number(pedido.total), 0);
+    const textoQuantidade = quantidade === 1 ? "1 pedido listado" : quantidade + " pedidos listados";
+
+    pedidoListaResumo.textContent = textoQuantidade + " | Total " + formatarMoeda(total);
+}
+
+function atualizarResumoListaSolicitacoes(solicitacoes) {
+    const quantidade = solicitacoes.length;
+    const abertas = solicitacoes.filter((solicitacao) => {
+        return ["recebida", "em_analise", "cotada"].includes(solicitacao.status);
+    }).length;
+    const cotadas = solicitacoes.filter((solicitacao) => solicitacao.status === "cotada").length;
+    const textoQuantidade = quantidade === 1 ? "1 solicitacao listada" : quantidade + " solicitacoes listadas";
+
+    solicitacaoListaResumo.textContent = textoQuantidade + " | Abertas " + abertas + " | Cotadas " + cotadas;
+}
+
+function atualizarResumoListaPagamentos(pagamentos) {
+    const quantidade = pagamentos.length;
+    const total = pagamentos.reduce((soma, pagamento) => soma + Number(pagamento.valor), 0);
+    const textoQuantidade = quantidade === 1 ? "1 pagamento listado" : quantidade + " pagamentos listados";
+
+    pagamentoListaResumo.textContent = textoQuantidade + " | Total aprovado " + formatarMoeda(total);
+}
+
+function atualizarResumoListaProdutos(produtos) {
+    const quantidade = produtos.length;
+    const publicados = produtos.filter((produto) => produto.publicadoNaLoja).length;
+    const internos = quantidade - publicados;
+    const estoqueBaixo = produtos.filter((produto) => produto.estoque <= 5).length;
+    const textoQuantidade = quantidade === 1 ? "1 produto listado" : quantidade + " produtos listados";
+
+    produtoListaResumo.textContent = textoQuantidade + " | Loja " + publicados +
+        " | Internos " + internos + " | Estoque baixo " + estoqueBaixo;
+}
+
+function atualizarResumoListaClientes(clientes) {
+    const quantidade = clientes.length;
+    const comWhatsApp = clientes.filter((cliente) => normalizarDigitos(cliente.telefone).length >= 10).length;
+    const textoQuantidade = quantidade === 1 ? "1 cliente listado" : quantidade + " clientes listados";
+
+    clienteListaResumo.textContent = textoQuantidade + " | Com WhatsApp " + comWhatsApp;
 }
 
 function criarLinkRastreio(transportadora, codigoRastreio) {
@@ -392,6 +613,26 @@ function criarCelula(texto, className = "") {
     }
 
     return td;
+}
+
+function criarCelulaComConteudo(conteudo, className = "") {
+    const td = document.createElement("td");
+
+    if (className) {
+        td.className = className;
+    }
+
+    td.append(conteudo);
+
+    return td;
+}
+
+function criarStatusBadge(status, texto = status) {
+    const badge = document.createElement("span");
+    badge.className = "status-badge status-" + String(status).replace(/_/g, "-");
+    badge.textContent = texto;
+
+    return badge;
 }
 
 function criarBotao(texto, className = "small-button") {
@@ -657,6 +898,7 @@ function criarLinhaProdutoEstoqueDashboard(produto) {
 async function irParaProdutosDashboard(opcoes = {}) {
     trocarView("produtos");
     produtoFiltrosForm.reset();
+    produtoPublicadoFiltro.value = opcoes.publicadoNaLoja ?? "";
     produtoEstoqueBaixoFiltro.checked = opcoes.estoqueBaixo === true;
     await carregarView();
 }
@@ -670,6 +912,7 @@ async function irParaClientesDashboard() {
 async function irParaPedidosDashboard(status = "") {
     trocarView("pedidos");
     pedidoFiltrosForm.reset();
+    pedidoClienteFiltro = null;
     pedidoStatusFiltro.value = status;
     await carregarView();
 }
@@ -681,6 +924,8 @@ async function irParaPagamentosDashboard() {
 
 async function irParaSolicitacoesDashboard(status = "") {
     trocarView("solicitacoes");
+    solicitacaoClienteFiltro = null;
+    solicitacaoBuscaFiltro.value = "";
     solicitacaoStatusFiltro.value = status;
     await carregarView();
 }
@@ -860,7 +1105,15 @@ function criarLinhaProduto(produto) {
     editar.addEventListener("click", () => editarProduto(produto));
     foto.addEventListener("click", () => selecionarFotoProduto(produto));
     excluir.addEventListener("click", () => excluirProduto(produto));
-    actions.append(editar, foto, excluir);
+    actions.append(editar, foto);
+
+    if (produto.imagemUrl) {
+        const removerFoto = criarBotao("Remover foto");
+        removerFoto.addEventListener("click", () => removerFotoProduto(produto));
+        actions.append(removerFoto);
+    }
+
+    actions.append(excluir);
 
     const tdActions = document.createElement("td");
     tdActions.append(actions);
@@ -871,7 +1124,12 @@ function criarLinhaProduto(produto) {
         criarCelula(produto.nome),
         criarCelula(formatarMoeda(produto.preco)),
         criarCelula(produto.estoque),
-        criarCelula(produto.publicadoNaLoja ? "Publicado" : "Interno"),
+        criarCelulaComConteudo(
+            criarStatusBadge(
+                produto.publicadoNaLoja ? "publicado" : "interno",
+                produto.publicadoNaLoja ? "Publicado" : "Interno"
+            )
+        ),
         tdActions
     );
 
@@ -925,12 +1183,28 @@ function selecionarFotoProduto(produto) {
     input.click();
 }
 
+async function removerFotoProduto(produto) {
+    const confirmou = window.confirm("Remover a foto de " + produto.nome + "?");
+
+    if (!confirmou) {
+        return;
+    }
+
+    await apiFetch(`/produtos/${produto.id}/imagem`, {
+        method: "DELETE"
+    });
+
+    setFeedback(appFeedback, "Foto do produto removida", "success");
+    await carregarProdutos();
+}
+
 function abrirModalProduto(produto) {
     produtoEditId.value = String(produto.id);
     produtoEditNome.value = produto.nome;
     produtoEditPreco.value = String(produto.preco);
     produtoEditEstoque.value = String(produto.estoque);
     produtoEditPublicadoNaLoja.checked = produto.publicadoNaLoja;
+    travarScrollPagina();
     produtoModal.classList.remove("hidden");
     produtoEditNome.focus();
 }
@@ -938,14 +1212,20 @@ function abrirModalProduto(produto) {
 function fecharModalProduto() {
     produtoEditForm.reset();
     produtoModal.classList.add("hidden");
+    liberarScrollPagina();
 }
 
 async function carregarProdutos() {
     const parametros = new URLSearchParams({ limite: "50" });
     const nome = produtoNomeFiltro.value.trim();
+    const publicadoNaLoja = produtoPublicadoFiltro.value;
 
     if (nome) {
         parametros.set("nome", nome);
+    }
+
+    if (publicadoNaLoja) {
+        parametros.set("publicadoNaLoja", publicadoNaLoja);
     }
 
     if (produtoEstoqueBaixoFiltro.checked) {
@@ -958,6 +1238,8 @@ async function carregarProdutos() {
     produtosTbody.replaceChildren(
         ...(produtos.length > 0 ? produtos.map(criarLinhaProduto) : [criarLinhaVazia(7, "Nenhum produto encontrado")])
     );
+
+    atualizarResumoListaProdutos(produtos);
 }
 
 async function preencherProdutoPorSolicitacao(solicitacao) {
@@ -1105,19 +1387,31 @@ function agendarBuscaProdutos() {
 }
 
 async function excluirProduto(produto) {
-    const confirmou = window.confirm(`Excluir ${produto.nome}?`);
+    const confirmou = window.confirm(
+        "Excluir " + produto.nome + "?\n\n" +
+        "Se este produto ja tiver pedidos vinculados, o sistema vai bloquear a exclusao. " +
+        "Nesse caso, edite o produto e desmarque Publicado na loja."
+    );
 
     if (!confirmou) {
         return;
     }
 
-    await apiFetch(`/produtos/${produto.id}`, {
-        method: "DELETE"
-    });
+    try {
+        await apiFetch(`/produtos/${produto.id}`, {
+            method: "DELETE"
+        });
 
-    setFeedback(appFeedback, "Produto removido", "success");
-    invalidarDadosFormularioPedido();
-    await carregarProdutos();
+        setFeedback(appFeedback, "Produto removido", "success");
+        invalidarDadosFormularioPedido();
+        await carregarProdutos();
+    } catch (erro) {
+        const mensagem = erro.status === 409
+            ? erro.message + " Use Editar e desmarque Publicado na loja."
+            : erro.message;
+
+        setFeedback(appFeedback, mensagem, "error");
+    }
 }
 
 function criarLinhaCliente(cliente) {
@@ -1170,6 +1464,8 @@ async function carregarClientes() {
     clientesTbody.replaceChildren(
         ...(clientes.length > 0 ? clientes.map(criarLinhaCliente) : [criarLinhaVazia(5, "Nenhum cliente encontrado")])
     );
+
+    atualizarResumoListaClientes(clientes);
 }
 
 function agendarBuscaClientes() {
@@ -1192,6 +1488,265 @@ function agendarBuscaPedidos() {
     }, 350);
 }
 
+function agendarBuscaSolicitacoes() {
+    window.clearTimeout(solicitacaoFiltroTimer);
+
+    solicitacaoFiltroTimer = window.setTimeout(async () => {
+        if (activeView === "solicitacoes") {
+            await carregarSolicitacoes();
+        }
+    }, 350);
+}
+
+function esconderHistoricoCliente() {
+    consultaClienteResumoAtual++;
+    clienteHistoricoResumo.classList.add("hidden");
+    clienteHistoricoResumo.replaceChildren();
+}
+
+function criarCardPedidoCliente(pedido) {
+    const card = document.createElement("article");
+    card.className = "cliente-pedido-card";
+
+    const info = document.createElement("div");
+
+    const titulo = document.createElement("strong");
+    titulo.textContent = "Pedido #" + pedido.id;
+
+    const detalhe = document.createElement("p");
+    detalhe.className = "muted-cell";
+    detalhe.textContent = pedido.status + " - " + formatarMoeda(pedido.total) + " - " + formatarData(pedido.criadoEm);
+
+    info.append(titulo, detalhe);
+
+    const abrir = criarBotao("Ver pedido");
+    abrir.addEventListener("click", async () => {
+        fecharModalCliente();
+        await irParaPedido(pedido.id);
+    });
+
+    card.append(info, abrir);
+
+    return card;
+}
+
+async function irParaSolicitacoesDoCliente(clienteId, clienteNome, status = "") {
+    solicitacaoClienteFiltro = {
+        id: clienteId,
+        nome: clienteNome || "Cliente #" + clienteId
+    };
+    solicitacaoBuscaFiltro.value = "";
+    solicitacaoStatusFiltro.value = status;
+    trocarView("solicitacoes");
+    await carregarView();
+}
+
+function criarCardSolicitacaoCliente(solicitacao, clienteId, clienteNome) {
+    const card = document.createElement("article");
+    card.className = "cliente-pedido-card";
+
+    const info = document.createElement("div");
+
+    const titulo = document.createElement("strong");
+    titulo.textContent = "Solicitacao #" + solicitacao.id;
+
+    const detalhe = document.createElement("p");
+    detalhe.className = "muted-cell";
+    detalhe.textContent = solicitacao.status + " - " + solicitacao.nomeProduto + " - " + formatarData(solicitacao.criadoEm);
+
+    if (solicitacao.valorCotado) {
+        detalhe.textContent += " - " + formatarMoeda(solicitacao.valorCotado);
+    }
+
+    info.append(titulo, detalhe);
+
+    const abrir = criarBotao("Ver na lista");
+    abrir.addEventListener("click", async () => {
+        fecharModalCliente();
+        await irParaSolicitacoesDoCliente(clienteId, clienteNome, solicitacao.status);
+    });
+
+    card.append(info, abrir);
+
+    return card;
+}
+
+function criarGrupoResumoCliente(tituloTexto, vazioTexto, itens, criarCard, opcoes = {}) {
+    const grupo = document.createElement("section");
+    grupo.className = "cliente-resumo-grupo";
+
+    const cabecalho = document.createElement("div");
+    cabecalho.className = "cliente-resumo-grupo-cabecalho";
+
+    const titulo = document.createElement("h4");
+    titulo.textContent = tituloTexto;
+    cabecalho.append(titulo);
+
+    if (itens.length === 0) {
+        const vazio = document.createElement("p");
+        vazio.className = "muted-cell";
+        vazio.textContent = vazioTexto;
+        grupo.append(cabecalho, vazio);
+        return grupo;
+    }
+
+    if (opcoes.textoAcao && opcoes.acao) {
+        const botao = criarBotao(opcoes.textoAcao);
+        botao.addEventListener("click", opcoes.acao);
+        cabecalho.append(botao);
+    }
+
+    const lista = document.createElement("div");
+    lista.className = "cliente-pedidos-lista";
+    lista.replaceChildren(...itens.map((item) => criarCard(item)));
+
+    grupo.append(cabecalho, lista);
+
+    return grupo;
+}
+
+function criarMetricaCliente(rotulo, valor) {
+    const card = document.createElement("article");
+    card.className = "cliente-metrica-card";
+
+    const titulo = document.createElement("span");
+    titulo.textContent = rotulo;
+
+    const numero = document.createElement("strong");
+    numero.textContent = valor;
+
+    card.append(titulo, numero);
+
+    return card;
+}
+
+function criarMetricasCliente(pedidos, solicitacoes) {
+    const faturados = pedidos.filter((pedido) => {
+        return pedido.status === "pago" || pedido.status === "enviado";
+    });
+
+    const totalConfirmado = faturados.reduce((soma, pedido) => soma + Number(pedido.total), 0);
+    const pedidosAbertos = pedidos.filter((pedido) => pedido.status === "pendente").length;
+    const solicitacoesAbertas = solicitacoes.filter((solicitacao) => {
+        return ["recebida", "em_analise", "cotada"].includes(solicitacao.status);
+    }).length;
+
+    const metricas = document.createElement("div");
+    metricas.className = "cliente-metricas-grid";
+    metricas.append(
+        criarMetricaCliente("Pedidos", String(pedidos.length)),
+        criarMetricaCliente("Faturamento confirmado", formatarMoeda(totalConfirmado)),
+        criarMetricaCliente("Pedidos em aberto", String(pedidosAbertos)),
+        criarMetricaCliente("Solicitacoes abertas", String(solicitacoesAbertas))
+    );
+
+    return metricas;
+}
+
+async function irParaPedidosDoCliente(clienteId, clienteNome) {
+    pedidoClienteFiltro = {
+        id: clienteId,
+        nome: clienteNome || "Cliente #" + clienteId
+    };
+    pedidoFiltrosForm.reset();
+    trocarView("pedidos");
+    await carregarView();
+}
+
+function criarCabecalhoHistoricoCliente(clienteId, clienteNome, totalPedidos) {
+    const cabecalho = document.createElement("div");
+    cabecalho.className = "cliente-historico-cabecalho";
+
+    const titulo = document.createElement("h3");
+    titulo.textContent = "Historico do cliente";
+
+    cabecalho.append(titulo);
+
+    if (totalPedidos > 0) {
+        const botao = criarBotao("Ver todos os pedidos");
+        botao.addEventListener("click", async () => {
+            fecharModalCliente();
+            await irParaPedidosDoCliente(clienteId, clienteNome);
+        });
+        cabecalho.append(botao);
+    }
+
+    return cabecalho;
+}
+
+function renderizarResumoCliente(clienteId, clienteNome, pedidos, solicitacoes) {
+    const cabecalho = criarCabecalhoHistoricoCliente(clienteId, clienteNome, pedidos.length);
+
+    const pedidosRecentes = pedidos
+        .slice()
+        .sort((pedidoA, pedidoB) => new Date(pedidoB.criadoEm) - new Date(pedidoA.criadoEm))
+        .slice(0, 5);
+
+    const solicitacoesRecentes = solicitacoes
+        .slice()
+        .sort((solicitacaoA, solicitacaoB) => new Date(solicitacaoB.criadoEm) - new Date(solicitacaoA.criadoEm))
+        .slice(0, 5);
+
+    const grupos = document.createElement("div");
+    grupos.className = "cliente-resumo-grid";
+    grupos.append(
+        criarGrupoResumoCliente("Pedidos recentes", "Nenhum pedido encontrado para este cliente.", pedidosRecentes, criarCardPedidoCliente),
+        criarGrupoResumoCliente(
+            "Solicitacoes recentes",
+            "Nenhuma solicitacao encontrada para este cliente.",
+            solicitacoesRecentes,
+            (solicitacao) => criarCardSolicitacaoCliente(solicitacao, clienteId, clienteNome),
+            {
+                textoAcao: "Ver todas",
+                acao: async () => {
+                    fecharModalCliente();
+                    await irParaSolicitacoesDoCliente(clienteId, clienteNome);
+                }
+            }
+        )
+    );
+
+    clienteHistoricoResumo.replaceChildren(cabecalho, criarMetricasCliente(pedidos, solicitacoes), grupos);
+}
+
+async function carregarHistoricoCliente(clienteId, clienteNome) {
+    const consulta = ++consultaClienteResumoAtual;
+    clienteHistoricoResumo.classList.remove("hidden");
+    clienteHistoricoResumo.replaceChildren();
+
+    const carregando = document.createElement("p");
+    carregando.className = "muted-cell";
+    carregando.textContent = "Carregando historico do cliente...";
+    clienteHistoricoResumo.append(carregando);
+
+    try {
+        const [pedidosResposta, solicitacoesResposta] = await Promise.all([
+            apiFetch("/pedidos/cliente/" + clienteId + "?limite=50"),
+            apiFetch("/solicitacoes/cliente/" + clienteId + "?limite=50")
+        ]);
+
+        if (consulta !== consultaClienteResumoAtual) {
+            return;
+        }
+
+        renderizarResumoCliente(
+            clienteId,
+            clienteNome,
+            obterListaPaginada(pedidosResposta),
+            obterListaPaginada(solicitacoesResposta)
+        );
+    } catch (erro) {
+        if (consulta !== consultaClienteResumoAtual) {
+            return;
+        }
+
+        const mensagem = document.createElement("p");
+        mensagem.className = "feedback error";
+        mensagem.textContent = "Nao foi possivel carregar o historico: " + erro.message;
+        clienteHistoricoResumo.replaceChildren(mensagem);
+    }
+}
+
 function abrirModalCliente(cliente) {
     clienteOrigemSolicitacaoId = null;
     clienteModalTitulo.textContent = "Editar cliente";
@@ -1209,7 +1764,10 @@ function abrirModalCliente(cliente) {
     clienteEditReferencia.value = cliente.referencia ?? "";
     clienteCepAtual = clienteEditCep.value.replace(/\D/g, "");
     mostrarFeedbackCepCliente("Altere o CEP ou clique em Buscar CEP.");
+    travarScrollPagina();
     clienteModal.classList.remove("hidden");
+    atualizarLinkWhatsAppCliente();
+    void carregarHistoricoCliente(cliente.id, cliente.nome);
     clienteEditNome.focus();
 }
 
@@ -1230,17 +1788,24 @@ function abrirModalClienteParaCadastro(dados = {}) {
     clienteEditReferencia.value = "";
     clienteCepAtual = "";
     mostrarFeedbackCepCliente("Informe o CEP para buscar o endereco.");
+    esconderHistoricoCliente();
+    travarScrollPagina();
     clienteModal.classList.remove("hidden");
+    atualizarLinkWhatsAppCliente();
     (clienteEditNome.value && clienteEditTelefone.value ? clienteEditCep : clienteEditNome).focus();
 }
 
 function fecharModalCliente() {
     cancelarBuscaCepCliente();
+    esconderHistoricoCliente();
     clienteCepAtual = "";
     clienteOrigemSolicitacaoId = null;
     mostrarFeedbackCepCliente("");
     clienteEditForm.reset();
+    clienteWhatsAppLink.classList.add("hidden");
+    clienteWhatsAppLink.removeAttribute("href");
     clienteModal.classList.add("hidden");
+    liberarScrollPagina();
 }
 
 async function editarCliente(cliente) {
@@ -1248,19 +1813,30 @@ async function editarCliente(cliente) {
 }
 
 async function excluirCliente(cliente) {
-    const confirmou = window.confirm(`Excluir ${cliente.nome}?`);
+    const confirmou = window.confirm(
+        "Excluir " + cliente.nome + "?\n\n" +
+        "Se este cliente ja tiver pedidos ou solicitacoes vinculadas, o sistema vai bloquear a exclusao para preservar o historico."
+    );
 
     if (!confirmou) {
         return;
     }
 
-    await apiFetch(`/clientes/${cliente.id}`, {
-        method: "DELETE"
-    });
+    try {
+        await apiFetch(`/clientes/${cliente.id}`, {
+            method: "DELETE"
+        });
 
-    setFeedback(appFeedback, "Cliente removido", "success");
-    invalidarDadosFormularioPedido();
-    await carregarClientes();
+        setFeedback(appFeedback, "Cliente removido", "success");
+        invalidarDadosFormularioPedido();
+        await carregarClientes();
+    } catch (erro) {
+        const mensagem = erro.status === 409
+            ? erro.message + " O cadastro pode continuar ativo para consulta."
+            : erro.message;
+
+        setFeedback(appFeedback, mensagem, "error");
+    }
 }
 
 function criarDetalhePedido(rotulo, valor) {
@@ -1431,6 +2007,29 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
         entrega.append(criarDetalhePedido('Endereco atual do cliente', formatarEnderecoCliente(cliente)));
     }
 
+    const acompanhamentoActions = document.createElement("div");
+    acompanhamentoActions.className = "actions";
+
+    const linkAcompanhamento = document.createElement("a");
+    linkAcompanhamento.className = "small-button";
+    linkAcompanhamento.href = montarLinkAcompanhamentoPedido(pedido.id);
+    linkAcompanhamento.target = "_blank";
+    linkAcompanhamento.rel = "noopener noreferrer";
+    linkAcompanhamento.textContent = "Abrir acompanhamento";
+
+    const copiarLink = criarBotao("Copiar link");
+    copiarLink.addEventListener("click", async () => {
+        try {
+            await copiarTexto(montarLinkAcompanhamentoPedido(pedido.id));
+            setFeedback(pedidoFeedback, "Link de acompanhamento copiado.", "success");
+        } catch (erro) {
+            setFeedback(pedidoFeedback, "Nao foi possivel copiar o link.", "error");
+        }
+    });
+
+    acompanhamentoActions.append(linkAcompanhamento, copiarLink);
+    entrega.append(acompanhamentoActions);
+
     const whatsappPedido = criarLinkWhatsApp(
         obterTelefoneContatoPedido({
             ...pedido,
@@ -1488,6 +2087,7 @@ async function abrirModalPedido(pedidoId) {
     pedidoConteudo.replaceChildren();
     setFeedback(pedidoFeedback, 'Carregando detalhes...');
     pedidoConteudo.setAttribute('aria-busy', 'true');
+    travarScrollPagina();
     pedidoModal.showModal();
     pedidoFechar.focus();
 
@@ -1522,6 +2122,7 @@ pedidoModal.addEventListener('close', () => {
     consultaPedidoAtual++;
     pedidoConteudo.replaceChildren();
     pedidoConteudo.setAttribute('aria-busy', 'false');
+    liberarScrollPagina();
 });
 
 function criarCelulaClientePedido(pedido) {
@@ -1592,7 +2193,7 @@ function criarLinhaPedido(pedido) {
         criarCelula(pedido.id),
         criarCelulaClientePedido(pedido),
         criarCelula(formatarMoeda(pedido.total)),
-        criarCelula(pedido.status),
+        criarCelulaComConteudo(criarStatusBadge(pedido.status)),
         criarCelula(pedido.observacao ?? "-"),
         criarCelula(formatarData(pedido.criadoEm)),
         tdActions
@@ -1608,20 +2209,35 @@ async function carregarPedidos() {
     const status = pedidoStatusFiltro.value;
     const busca = pedidoBuscaFiltro.value.trim();
 
-    if (status) {
+    if (!pedidoClienteFiltro && status) {
         parametros.set("status", status);
     }
 
-    if (busca) {
+    if (!pedidoClienteFiltro && busca) {
         parametros.set("busca", busca);
     }
 
-    const resposta = await apiFetch("/pedidos?" + parametros.toString());
-    const pedidos = obterListaPaginada(resposta);
+    const caminho = pedidoClienteFiltro
+        ? "/pedidos/cliente/" + pedidoClienteFiltro.id + "?" + parametros.toString()
+        : "/pedidos?" + parametros.toString();
+
+    const resposta = await apiFetch(caminho);
+    let pedidos = obterListaPaginada(resposta);
+
+    if (pedidoClienteFiltro && status) {
+        pedidos = pedidos.filter((pedido) => pedido.status === status);
+    }
+
+    if (pedidoClienteFiltro && busca) {
+        pedidos = pedidos.filter((pedido) => pedidoConfereBuscaLocal(pedido, busca));
+    }
 
     pedidosTbody.replaceChildren(
         ...(pedidos.length > 0 ? pedidos.map(criarLinhaPedido) : [criarLinhaVazia(7, "Nenhum pedido encontrado")])
     );
+
+    atualizarContextoFiltroPedidos();
+    atualizarResumoListaPedidos(pedidos);
 }
 
 async function carregarDadosFormularioPedido(forcar = false) {
@@ -1743,7 +2359,7 @@ function criarLinhaPagamento(pagamento) {
         })(),
         criarCelula(formatarMoeda(pagamento.valor)),
         criarCelula(pagamento.metodo),
-        criarCelula(pagamento.status),
+        criarCelulaComConteudo(criarStatusBadge(pagamento.status)),
         criarCelula(formatarData(pagamento.criadoEm))
     );
 
@@ -1756,15 +2372,20 @@ async function carregarPagamentos() {
     pagamentosTbody.replaceChildren(
         ...(pagamentos.length > 0 ? pagamentos.map(criarLinhaPagamento) : [criarLinhaVazia(6, "Nenhum pagamento encontrado")])
     );
+
+    atualizarResumoListaPagamentos(pagamentos);
 }
 
 function criarCelulaContatoSolicitacao(solicitacao) {
     const td = criarCelula("");
+    td.className = "solicitacao-contato-cell";
 
     if (solicitacao.contato) {
         const nome = document.createElement("p");
+        nome.className = "cell-title";
         nome.textContent = solicitacao.contato.nome;
         const telefone = document.createElement("p");
+        telefone.className = "muted-cell";
         telefone.textContent = solicitacao.contato.telefone;
         td.append(nome, telefone);
 
@@ -1801,13 +2422,25 @@ function criarCelulaContatoSolicitacao(solicitacao) {
 }
 
 function criarCelulaProdutoSolicitado(solicitacao) {
-    const td = criarCelula(solicitacao.nomeProduto);
+    const td = criarCelula("");
+    td.className = "solicitacao-produto-cell";
+
+    const tituloProduto = document.createElement("p");
+    tituloProduto.className = "cell-title";
+    tituloProduto.textContent = solicitacao.nomeProduto;
+    td.append(tituloProduto);
+
     const detalhes = document.createElement("details");
+    detalhes.className = "solicitacao-detalhes";
     const resumo = document.createElement("summary");
+    const detalhesGrid = document.createElement("div");
+    detalhesGrid.className = "solicitacao-detalhes-grid";
     resumo.textContent = "Ver descrição";
     const descricao = document.createElement("p");
+    descricao.className = "solicitacao-info-box";
     descricao.textContent = solicitacao.descricao;
-    detalhes.append(resumo, descricao);
+    detalhes.append(resumo, detalhesGrid);
+    detalhesGrid.append(descricao);
     if (solicitacao.linkReferencia) {
         try {
             const url = new URL(solicitacao.linkReferencia);
@@ -1817,39 +2450,44 @@ function criarCelulaProdutoSolicitado(solicitacao) {
                 link.target = "_blank";
                 link.rel = "noopener noreferrer";
                 link.textContent = "Abrir referência do produto";
-                detalhes.append(link);
+                link.className = "solicitacao-info-box";
+                detalhesGrid.append(link);
             }
         } catch { /* Referências antigas podem não ser URLs. */ }
     }
     const cotacaoAtual = document.createElement("p");
+    cotacaoAtual.className = "solicitacao-info-box";
     cotacaoAtual.textContent = solicitacao.valorCotado
         ? "Cotacao atual: " + formatarMoeda(solicitacao.valorCotado)
         : "Cotacao ainda nao informada.";
-    detalhes.append(cotacaoAtual);
+    detalhesGrid.append(cotacaoAtual);
 
     if (solicitacao.produto) {
         const produtoVinculado = document.createElement("p");
+        produtoVinculado.className = "solicitacao-info-box";
         produtoVinculado.textContent = "Produto cadastrado: #" + solicitacao.produto.id + " - " +
             solicitacao.produto.nome + " - estoque " + solicitacao.produto.estoque;
-        detalhes.append(produtoVinculado);
+        detalhesGrid.append(produtoVinculado);
     }
 
     if (solicitacao.pedidoId) {
         const pedidoVinculado = document.createElement("p");
+        pedidoVinculado.className = "solicitacao-info-box";
         const abrirPedido = criarBotao("Pedido #" + solicitacao.pedidoId);
         abrirPedido.addEventListener("click", () => irParaPedido(solicitacao.pedidoId));
         pedidoVinculado.append("Pedido criado: ", abrirPedido);
-        detalhes.append(pedidoVinculado);
+        detalhesGrid.append(pedidoVinculado);
     }
 
     if (solicitacao.observacaoAdmin) {
         const observacao = document.createElement("p");
+        observacao.className = "solicitacao-info-box";
         observacao.textContent = "Observacao interna: " + solicitacao.observacaoAdmin;
-        detalhes.append(observacao);
+        detalhesGrid.append(observacao);
     }
 
     const proximoPasso = document.createElement("p");
-    proximoPasso.className = "muted-cell";
+    proximoPasso.className = "solicitacao-info-box muted-cell";
 
     if (solicitacao.pedidoId) {
         proximoPasso.textContent = "Concluido: solicitacao vinculada ao pedido #" + solicitacao.pedidoId + ".";
@@ -1867,13 +2505,24 @@ function criarCelulaProdutoSolicitado(solicitacao) {
         proximoPasso.textContent = "Pronto: depois da confirmacao do cliente, prepare o pedido.";
     }
 
-    detalhes.append(proximoPasso);
+    detalhesGrid.append(proximoPasso);
 
     const acoesSolicitacao = document.createElement("div");
     acoesSolicitacao.className = "actions";
 
+    const copiarMensagem = criarBotao(solicitacao.valorCotado ? "Copiar cotacao" : "Copiar mensagem");
+    copiarMensagem.addEventListener("click", async () => {
+        try {
+            await copiarTexto(montarMensagemWhatsAppSolicitacao(solicitacao));
+            setFeedback(appFeedback, "Mensagem da solicitacao copiada.", "success");
+        } catch (erro) {
+            setFeedback(appFeedback, "Nao foi possivel copiar a mensagem.", "error");
+        }
+    });
+    acoesSolicitacao.append(copiarMensagem);
+
     if (solicitacao.valorCotado && !solicitacao.produtoId) {
-        const criarProduto = criarBotao("Cadastrar produto interno");
+        const criarProduto = criarBotao("Produto interno");
         criarProduto.addEventListener("click", () => preencherProdutoPorSolicitacao(solicitacao));
         acoesSolicitacao.append(criarProduto);
     }
@@ -1891,7 +2540,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
         solicitacao.produtoId &&
         !solicitacao.pedidoId
     ) {
-        const prepararPedido = criarBotao("Preparar pedido confirmado");
+        const prepararPedido = criarBotao("Preparar pedido");
         prepararPedido.addEventListener("click", () => preencherPedidoPorSolicitacao(solicitacao));
         acoesSolicitacao.append(prepararPedido);
     }
@@ -1982,7 +2631,7 @@ function criarLinhaSolicitacao(solicitacao) {
         criarCelula(solicitacao.id),
         criarCelulaContatoSolicitacao(solicitacao),
         criarCelulaProdutoSolicitado(solicitacao),
-        criarCelula(solicitacao.status),
+        criarCelulaComConteudo(criarStatusBadge(solicitacao.status)),
         criarCelula(formatarData(solicitacao.criadoEm)),
         tdActions
     );
@@ -1992,13 +2641,38 @@ function criarLinhaSolicitacao(solicitacao) {
 
 async function carregarSolicitacoes() {
     const status = solicitacaoStatusFiltro.value;
-    const filtroStatus = status ? "&status=" + encodeURIComponent(status) : "";
-    const resposta = await apiFetch("/solicitacoes?limite=50" + filtroStatus);
-    const solicitacoes = obterListaPaginada(resposta);
+    const busca = solicitacaoBuscaFiltro.value.trim();
+    const parametros = new URLSearchParams({ limite: "50" });
+
+    if (busca) {
+        parametros.set("busca", busca);
+    }
+
+    if (!solicitacaoClienteFiltro && status) {
+        parametros.set("status", status);
+    }
+
+    const caminho = solicitacaoClienteFiltro
+        ? "/solicitacoes/cliente/" + solicitacaoClienteFiltro.id + "?" + parametros.toString()
+        : "/solicitacoes?" + parametros.toString();
+
+    const resposta = await apiFetch(caminho);
+    let solicitacoes = obterListaPaginada(resposta);
+
+    if (solicitacaoClienteFiltro && status) {
+        solicitacoes = solicitacoes.filter((solicitacao) => solicitacao.status === status);
+    }
+
+    if (busca) {
+        solicitacoes = solicitacoes.filter((solicitacao) => solicitacaoConfereBuscaLocal(solicitacao, busca));
+    }
 
     solicitacoesTbody.replaceChildren(
         ...(solicitacoes.length > 0 ? solicitacoes.map(criarLinhaSolicitacao) : [criarLinhaVazia(6, "Nenhuma solicitacao encontrada")])
     );
+
+    atualizarContextoFiltroSolicitacoes();
+    atualizarResumoListaSolicitacoes(solicitacoes);
 }
 
 async function atualizarStatusSolicitacao(solicitacaoId, status) {
@@ -2142,6 +2816,11 @@ produtoFiltrosLimpar.addEventListener("click", async () => {
 });
 
 produtoNomeFiltro.addEventListener("input", agendarBuscaProdutos);
+produtoPublicadoFiltro.addEventListener("change", async () => {
+    if (activeView === "produtos") {
+        await carregarProdutos();
+    }
+});
 produtoEstoqueBaixoFiltro.addEventListener("change", async () => {
     if (activeView === "produtos") {
         await carregarProdutos();
@@ -2171,7 +2850,8 @@ produtoEditCancelar.addEventListener("click", fecharModalProduto);
 
 produtoModal.addEventListener("click", (evento) => {
     if (evento.target === produtoModal) {
-        fecharModalProduto();
+        evento.preventDefault();
+        evento.stopPropagation();
     }
 });
 
@@ -2215,6 +2895,8 @@ produtoEditForm.addEventListener("submit", async (evento) => {
 
 clienteEditCancelar.addEventListener("click", fecharModalCliente);
 
+clienteEditNome.addEventListener("input", atualizarLinkWhatsAppCliente);
+clienteEditTelefone.addEventListener("input", atualizarLinkWhatsAppCliente);
 clienteEditCep.addEventListener("input", buscarEnderecoClientePorCep);
 clienteEditCep.addEventListener("change", buscarEnderecoClientePorCep);
 clienteEditCepBuscar.addEventListener("click", () => buscarEnderecoClientePorCep({ forcar: true }));
@@ -2318,6 +3000,7 @@ pedidoFiltrosForm.addEventListener("submit", async (evento) => {
 
 pedidoFiltrosLimpar.addEventListener("click", async () => {
     pedidoFiltrosForm.reset();
+    pedidoClienteFiltro = null;
     window.clearTimeout(pedidoFiltroTimer);
 
     if (activeView === "pedidos") {
@@ -2337,6 +3020,19 @@ pedidoCliente.addEventListener("change", limparOrigemPedidoSolicitacao);
 pedidoProduto.addEventListener("change", limparOrigemPedidoSolicitacao);
 
 solicitacaoStatusFiltro.addEventListener("change", async () => {
+    if (activeView === "solicitacoes") {
+        await carregarSolicitacoes();
+    }
+});
+
+solicitacaoBuscaFiltro.addEventListener("input", agendarBuscaSolicitacoes);
+
+solicitacaoFiltrosLimpar.addEventListener("click", async () => {
+    solicitacaoClienteFiltro = null;
+    solicitacaoBuscaFiltro.value = "";
+    solicitacaoStatusFiltro.value = "";
+    window.clearTimeout(solicitacaoFiltroTimer);
+
     if (activeView === "solicitacoes") {
         await carregarSolicitacoes();
     }

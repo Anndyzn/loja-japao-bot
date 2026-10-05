@@ -9,6 +9,7 @@
     "start": "node dist/src/server.js",
     "check": "tsc --noEmit",
     "gerar:segredo": "node scripts/gerar-segredo.mjs",
+    "verificar:build": "node scripts/verificar-build.mjs",
     "verificar:deploy": "node scripts/verificar-deploy.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",

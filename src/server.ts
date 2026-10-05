@@ -17,6 +17,11 @@ import { produtosRoutes } from "./routes/produtos.routes.js";
 import { solicitacoesRoutes } from "./routes/solicitacoes.routes.js";
 
 const app = express();
+const opcoesEstaticosSemCache = {
+    setHeaders(res: express.Response) {
+        res.setHeader("Cache-Control", "no-store");
+    }
+};
 
 app.disable("x-powered-by");
 
@@ -32,21 +37,24 @@ app.use(aplicarHeadersSeguranca);
 app.use(express.json({
     limit: "8mb"
 }));
-app.use("/admin", express.static("public/admin"));
-app.use("/loja", express.static("public/loja"));
+app.use("/admin", express.static("public/admin", opcoesEstaticosSemCache));
+app.use("/loja", express.static("public/loja", opcoesEstaticosSemCache));
 app.use("/uploads", express.static(env.UPLOADS_DIR));
 app.get("/loja/carrinho", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile("carrinho.html", {
         root: "public/loja"
     });
 });
 app.get("/loja/acompanhamento", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile("acompanhamento.html", {
         root: "public/loja"
     });
 });
 
 app.get("/loja/solicitacao", (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     res.sendFile("solicitacao.html", { root: "public/loja" });
 });
 

@@ -23,6 +23,10 @@ body {
     font-family: Arial, Helvetica, sans-serif;
 }
 
+body.modal-open {
+    overflow: hidden;
+}
+
 button,
 input,
 select,
@@ -192,6 +196,7 @@ p {
     display: grid;
     align-content: start;
     gap: 20px;
+    overflow-x: hidden;
     padding: 24px;
 }
 
@@ -310,7 +315,7 @@ p {
 .product-form,
 .order-form {
     display: grid;
-    grid-template-columns: minmax(220px, 1fr) 140px 120px 170px 110px auto;
+    grid-template-columns: minmax(220px, 1fr) minmax(120px, 140px) minmax(100px, 120px) minmax(150px, 170px) minmax(90px, 110px) auto;
     align-items: end;
     gap: 12px;
     background: var(--panel);
@@ -320,7 +325,7 @@ p {
 }
 
 .order-form {
-    grid-template-columns: minmax(220px, 1.4fr) minmax(220px, 1.4fr) 130px minmax(220px, 1fr) auto;
+    grid-template-columns: minmax(220px, 1.4fr) minmax(220px, 1.4fr) minmax(110px, 130px) minmax(220px, 1fr) auto;
     margin-bottom: 12px;
 }
 
@@ -350,12 +355,15 @@ p {
     display: flex;
     align-items: end;
     justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 12px;
     margin-bottom: 12px;
 }
 
 .filters-bar label {
-    min-width: 180px;
+    flex: 1 1 180px;
+    min-width: 0;
+    max-width: 360px;
 }
 
 .checkbox-control {
@@ -390,10 +398,13 @@ p {
 }
 
 .table-shell {
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 8px;
+    overscroll-behavior-x: contain;
 }
 
 .product-thumb {
@@ -421,12 +432,62 @@ table {
     min-width: 860px;
 }
 
+.pedidos-table {
+    table-layout: fixed;
+}
+
+.solicitacoes-table {
+    table-layout: fixed;
+}
+
 th,
 td {
     border-bottom: 1px solid var(--line);
     padding: 12px;
     text-align: left;
     vertical-align: middle;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+.col-id {
+    width: 44px;
+}
+
+.col-cliente {
+    width: 150px;
+}
+
+.col-total {
+    width: 110px;
+}
+
+.col-status {
+    width: 110px;
+}
+
+.col-data {
+    width: 110px;
+}
+
+.col-acoes {
+    width: 112px;
+}
+
+.col-observacao {
+    width: auto;
+}
+
+.col-solicitacao-cliente {
+    width: 180px;
+}
+
+.col-solicitacao-produto {
+    width: auto;
+}
+
+.col-solicitacao-acoes {
+    width: 210px;
 }
 
 th {
@@ -446,11 +507,27 @@ tr:last-child td {
     align-items: center;
 }
 
+.pedidos-table td:last-child .actions {
+    align-items: stretch;
+}
+
+.pedidos-table td:last-child .actions button,
+.pedidos-table td:last-child .actions a {
+    width: 100%;
+    justify-content: center;
+}
+
 .small-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     min-height: 34px;
     background: #ece7df;
     color: var(--text);
     border: 1px solid #d9d0c4;
+    border-radius: 6px;
+    padding: 0 12px;
+    text-decoration: none;
 }
 
 .small-button:hover {
@@ -477,12 +554,122 @@ tr:last-child td {
     min-height: 34px;
 }
 
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border: 1px solid #d9d0c4;
+    border-radius: 999px;
+    background: #f3eee7;
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.status-pendente,
+.status-recebida,
+.status-em-analise,
+.status-cotada {
+    border-color: #dec77a;
+    background: #fff5cf;
+    color: #715a11;
+}
+
+.status-pago,
+.status-enviado,
+.status-aprovada,
+.status-aprovado,
+.status-publicado {
+    border-color: #9acdbb;
+    background: #e6f5ef;
+    color: #1f6f53;
+}
+
+.status-enviado {
+    border-color: #9fbfdf;
+    background: #e9f1fb;
+    color: #255780;
+}
+
+.status-cancelado,
+.status-cancelada,
+.status-recusada,
+.status-interno {
+    border-color: #d6b7b9;
+    background: #f8e7e8;
+    color: #7c272d;
+}
+
+.cell-title {
+    margin: 0 0 4px;
+    font-weight: 800;
+}
+
+.solicitacao-contato-cell {
+    vertical-align: top;
+}
+
+.solicitacao-contato-cell .small-button,
+.solicitacao-contato-cell a {
+    margin-top: 6px;
+}
+
+.solicitacao-produto-cell {
+    vertical-align: top;
+}
+
+.solicitacao-detalhes {
+    margin-top: 6px;
+}
+
+.solicitacao-detalhes summary {
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.solicitacao-detalhes-grid {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.solicitacao-info-box {
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fbfaf7;
+}
+
+.solicitacoes-table td:last-child .actions {
+    align-items: stretch;
+}
+
+.solicitacoes-table td:last-child .actions button,
+.solicitacoes-table td:last-child .actions select {
+    width: 100%;
+}
+
 .quote-form {
     display: grid;
     gap: 10px;
     margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--line);
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: white;
+}
+
+.quote-form label {
+    display: grid;
+    gap: 6px;
+}
+
+.quote-form button,
+.quote-form .feedback {
+    width: 100%;
 }
 
 .muted-cell {
@@ -503,6 +690,22 @@ tr:last-child td {
     color: var(--accent-dark);
 }
 
+.filtro-contexto {
+    margin: -4px 0 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfaf7;
+    color: var(--muted);
+}
+
+.lista-resumo {
+    margin: -2px 0 12px;
+    color: var(--muted);
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -510,28 +713,132 @@ tr:last-child td {
     display: grid;
     place-items: center;
     background: rgba(31, 28, 24, 0.38);
+    overflow: hidden;
+    overscroll-behavior: contain;
     padding: 20px;
 }
 
 .modal-panel {
     width: min(460px, 100%);
+    max-height: calc(100dvh - 40px);
     display: grid;
     gap: 16px;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 8px;
     box-shadow: 0 24px 70px rgba(29, 27, 23, 0.22);
+    overflow-y: auto;
     padding: 22px;
+    scrollbar-gutter: stable;
 }
 
 .modal-panel-wide {
     width: min(760px, 100%);
 }
 
+.modal-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 .modal-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+}
+
+.cliente-historico-resumo {
+    display: grid;
+    gap: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.cliente-historico-resumo h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.cliente-historico-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.cliente-metricas-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.cliente-metrica-card {
+    display: grid;
+    gap: 4px;
+    min-height: 68px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfaf7;
+}
+
+.cliente-metrica-card span {
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.cliente-metrica-card strong {
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.cliente-resumo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.cliente-resumo-grupo {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+}
+
+.cliente-resumo-grupo-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cliente-resumo-grupo h4 {
+    margin: 0;
+    font-size: 0.92rem;
+}
+
+.cliente-pedidos-lista {
+    display: grid;
+    gap: 8px;
+}
+
+.cliente-pedido-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfaf7;
+}
+
+.cliente-pedido-card p {
+    margin-top: 4px;
 }
 
 .field-wide {
@@ -548,6 +855,11 @@ tr:last-child td {
 @media (max-width: 860px) {
     .app-view {
         grid-template-columns: 1fr;
+    }
+
+    .content,
+    .sidebar {
+        padding: 16px;
     }
 
     .sidebar {
@@ -570,12 +882,34 @@ tr:last-child td {
     .dashboard-actions,
     .product-form,
     .order-form,
-    .modal-grid {
+    .modal-grid,
+    .cliente-metricas-grid,
+    .cliente-resumo-grid {
         grid-template-columns: 1fr;
     }
 
     .field-wide {
         grid-column: auto;
+    }
+
+    .modal-heading-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cliente-pedido-card {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cliente-historico-cabecalho {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .cliente-resumo-grupo-cabecalho {
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .dashboard-list-item {
@@ -586,6 +920,25 @@ tr:last-child td {
     .dashboard-list-item button {
         width: 100%;
         justify-content: center;
+    }
+
+    table {
+        min-width: 680px;
+    }
+}
+
+@media (min-width: 861px) and (max-width: 1180px) {
+    .product-form {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .order-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .product-form button,
+    .order-form button {
+        width: 100%;
     }
 }
 

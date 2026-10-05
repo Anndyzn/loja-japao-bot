@@ -117,7 +117,7 @@ export async function atualizarProdutoPorId(
     nome: string | undefined,
     preco: number | undefined,
     estoque: number | undefined,
-    imagemUrl: string | undefined,
+    imagemUrl: string | null | undefined,
     publicadoNaLoja: boolean | undefined
 ) {
     const produtoExiste = await prisma.produto.findUnique({
@@ -134,6 +134,7 @@ export async function atualizarProdutoPorId(
         nome?: string;
         preco?: number;
         estoque?: number;
+        imagemUrl?: string | null;
         publicadoNaLoja?: boolean;
     } = {};
 
@@ -153,6 +154,10 @@ export async function atualizarProdutoPorId(
         dadosAtualizacao.publicadoNaLoja = publicadoNaLoja;
     }
 
+    if (imagemUrl !== undefined) {
+        dadosAtualizacao.imagemUrl = imagemUrl;
+    }
+
     if (Object.keys(dadosAtualizacao).length > 0) {
         await prisma.produto.update({
             where: {
@@ -160,14 +165,6 @@ export async function atualizarProdutoPorId(
             },
             data: dadosAtualizacao
         });
-    }
-
-    if (imagemUrl !== undefined) {
-        await prisma.$executeRaw`
-            UPDATE "Produto"
-            SET "imagemUrl" = ${imagemUrl}
-            WHERE "id" = ${id}
-        `;
     }
 
     return await obterProdutoPorId(id);
@@ -184,11 +181,19 @@ export async function removerProdutoPorId(id: number) {
         return false;
     }
 
-    await prisma.produto.delete({
-        where: {
-            id
+    try {
+        await prisma.produto.delete({
+            where: {
+                id
+            }
+        });
+    } catch (erro) {
+        if (typeof erro === "object" && erro !== null && "code" in erro && erro.code === "P2003") {
+            return "emUso";
         }
-    });
+
+        throw erro;
+    }
 
     return true;
 }

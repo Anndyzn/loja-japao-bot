@@ -218,11 +218,19 @@ export async function removerClientePorId(id: number) {
         return false;
     }
 
-    await prisma.cliente.delete({
-        where: {
-            id
+    try {
+        await prisma.cliente.delete({
+            where: {
+                id
+            }
+        });
+    } catch (erro) {
+        if (typeof erro === "object" && erro !== null && "code" in erro && erro.code === "P2003") {
+            return "emUso";
         }
-    });
+
+        throw erro;
+    }
 
     return true;
 }

@@ -38,6 +38,9 @@ ADMIN_PASSWORD="admin123"
 
 Esses dados sao usados pelo `npm run db:seed`.
 
+Em producao, o `db:seed` nao aceita criar admin com senha padrao. Configure
+`ADMIN_EMAIL` e `ADMIN_PASSWORD` fortes antes de executar seed no servidor.
+
 As variaveis principais sao:
 
 ```txt
@@ -252,13 +255,56 @@ O acompanhamento publico de pedido tambem tem limite por IP. Por padrao, sao 60
 consultas a cada 10 minutos.
 
 A API tambem envia headers basicos de seguranca nas respostas, como bloqueio de
-iframe, protecao contra MIME sniffing e politica simples de permissao de
-recursos do navegador.
+iframe, protecao contra MIME sniffing, politica simples de permissao de
+recursos do navegador e `Content-Security-Policy`. A CSP permite recursos do
+proprio sistema e conexao com `https://viacep.com.br`, usada na busca de CEP do
+checkout.
 
 Toda resposta tambem recebe `X-Request-Id`. Esse identificador ajuda a ligar um
 erro visto no navegador ou cliente HTTP com o log correspondente no servidor.
 Quando `LOG_REQUESTS=true`, cada requisicao registra metodo, caminho, status,
 tempo de resposta e `requestId` no terminal.
+
+## Checklist Antes de Publicar
+
+Use este checklist para saber se o projeto ja esta pronto para uma primeira
+versao online:
+
+### Obrigatorio para colocar no ar
+
+- Configurar `.env` de producao com `NODE_ENV=production`.
+- Gerar um `AUTH_TOKEN_SECRET` forte com `npm run gerar:segredo`.
+- Usar senha admin forte, diferente de `admin123`.
+- Configurar `ADMIN_EMAIL` e `ADMIN_PASSWORD` fortes antes de usar `db:seed`.
+- Configurar `DATABASE_URL` apontando para o PostgreSQL de producao.
+- Garantir que `UPLOADS_DIR` seja uma pasta persistente para fotos dos produtos.
+- Rodar `npm run verificar:deploy`.
+- Rodar `npm run check` e `npm run build`.
+- Aplicar migrations com `npm run db:deploy`.
+- Confirmar `/health` retornando banco `ok`.
+- Testar login admin.
+- Fazer um pedido completo pela loja publica.
+- Conferir pedido no admin, pagamento, rastreio e acompanhamento publico.
+- Testar uma solicitacao publica de produto.
+- Publicar com HTTPS.
+- Ter rotina de backup do banco.
+
+### Pode melhorar depois da primeira versao
+
+- Integracao real de pagamento.
+- Integracao automatica com WhatsApp.
+- Rastreio automatico por transportadora.
+- Storage externo para imagens, como S3 ou similar.
+- Relatorios financeiros mais completos.
+- Permissoes diferentes para mais de um usuario admin.
+- Testes automatizados de ponta a ponta.
+- Melhorias visuais finas no admin e na loja publica.
+
+### Decisao pratica
+
+Se todos os itens obrigatorios passarem, o sistema ja pode ir para uma primeira
+versao controlada. Os itens da segunda lista melhoram o produto, mas nao precisam
+bloquear o primeiro deploy.
 
 ## Scripts
 
@@ -268,6 +314,7 @@ npm run build        compila o TypeScript para a pasta dist
 npm start            inicia a API compilada em dist/src/server.js
 npm run check        valida o TypeScript sem gerar arquivos
 npm run gerar:segredo gera um AUTH_TOKEN_SECRET forte
+npm run verificar:build confere arquivos essenciais da versao compilada
 npm run verificar:deploy verifica configuracoes antes de publicar
 npm run db:up        sobe o PostgreSQL com Docker
 npm run db:down      derruba o PostgreSQL
@@ -293,28 +340,29 @@ alteracao importante ou antes de publicar:
 
 1. Rodar `npm run check` para validar o TypeScript.
 2. Rodar `npm run build` para confirmar que a versao compilada gera sem erro.
-3. Rodar `npm run verificar:deploy` para revisar variaveis de ambiente.
-4. Subir o banco com `npm run db:up`.
-5. Aplicar migrations com `npm run db:migrate` em desenvolvimento ou
+3. Rodar `npm run verificar:build` para conferir os arquivos compilados.
+4. Rodar `npm run verificar:deploy` para revisar variaveis de ambiente.
+5. Subir o banco com `npm run db:up`.
+6. Aplicar migrations com `npm run db:migrate` em desenvolvimento ou
    `npm run db:deploy` em producao.
-6. Rodar `npm run db:generate` se o Prisma Client precisar ser atualizado.
-7. Iniciar a API com `npm run dev`.
-8. Abrir `http://localhost:3000/info` e confirmar as informacoes publicas.
-9. Abrir `http://localhost:3000/health` e confirmar que o banco esta `ok`.
-10. Entrar no admin em `http://localhost:3000/admin`.
-11. Cadastrar ou editar um produto, incluindo imagem, preco, estoque e
+7. Rodar `npm run db:generate` se o Prisma Client precisar ser atualizado.
+8. Iniciar a API com `npm run dev`.
+9. Abrir `http://localhost:3000/info` e confirmar as informacoes publicas.
+10. Abrir `http://localhost:3000/health` e confirmar que o banco esta `ok`.
+11. Entrar no admin em `http://localhost:3000/admin`.
+12. Cadastrar ou editar um produto, incluindo imagem, preco, estoque e
     visibilidade na loja.
-12. Abrir `http://localhost:3000/loja` e confirmar que o produto publicado
+13. Abrir `http://localhost:3000/loja` e confirmar que o produto publicado
     aparece para o cliente.
-13. Fazer um pedido publico pelo carrinho, preenchendo CEP, numero,
+14. Fazer um pedido publico pelo carrinho, preenchendo CEP, numero,
     complemento e telefone.
-14. No admin, conferir detalhes do pedido, endereco do pedido, endereco atual
+15. No admin, conferir detalhes do pedido, endereco do pedido, endereco atual
     do cliente, itens, total e historico.
-15. Registrar pagamento ou marcar como pago, depois salvar rastreio e marcar
+16. Registrar pagamento ou marcar como pago, depois salvar rastreio e marcar
     como enviado.
-16. Abrir o acompanhamento publico e consultar usando numero do pedido e
+17. Abrir o acompanhamento publico e consultar usando numero do pedido e
     telefone do cliente.
-17. Criar uma solicitacao publica de produto e conferir no admin se contato,
+18. Criar uma solicitacao publica de produto e conferir no admin se contato,
     descricao e link aparecem corretamente.
 
 Esse teste e manual de proposito: ele imita o caminho real do cliente e do
@@ -431,6 +479,19 @@ Formatos aceitos:
 JPG, PNG, WEBP ate 3MB
 ```
 
+A API tambem confere a assinatura interna do arquivo para rejeitar conteudo que
+nao seja realmente JPG, PNG ou WEBP.
+
+Remover foto de um produto:
+
+Requer token admin.
+
+```http
+DELETE /produtos/1/imagem
+```
+
+O produto continua cadastrado, mas volta a ficar sem imagem.
+
 Remover produto:
 
 Requer token admin.
@@ -438,6 +499,10 @@ Requer token admin.
 ```http
 DELETE /produtos/1
 ```
+
+Se o produto ja estiver vinculado a pedidos, a API retorna `409` e bloqueia a
+exclusao para preservar o historico. Nesse caso, edite o produto e desmarque
+`Publicado na loja`.
 
 ### Clientes
 
@@ -524,6 +589,9 @@ Requer token admin.
 ```http
 DELETE /clientes/1
 ```
+
+Se o cliente ja tiver pedidos ou solicitacoes vinculadas, a API retorna `409` e
+bloqueia a exclusao para preservar o historico.
 
 ### Pedidos
 

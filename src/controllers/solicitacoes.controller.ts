@@ -6,7 +6,7 @@ import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { validarSolicitacaoPublica, idEhInvalido, validarAtualizacaoCotacaoSolicitacao, validarAtualizacaoStatusSolicitacao, validarCriacaoSolicitacao } from "../utils/validacoes.js";
 
 export async function listarSolicitacoes(req: Request, res: Response) {
-    const { status, pagina, limite } = req.query;
+    const { status, busca, pagina, limite } = req.query;
 
     if (status !== undefined) {
         const erroValidacao = validarAtualizacaoStatusSolicitacao(status);
@@ -18,8 +18,15 @@ export async function listarSolicitacoes(req: Request, res: Response) {
         }
     }
 
+    if (busca !== undefined && typeof busca !== "string") {
+        return res.status(400).json({
+            mensagem: "Filtro busca deve ser texto"
+        });
+    }
+
     const solicitacoesFiltradas = await obterSolicitacoesFiltradas({
-        status: status as StatusSolicitacao | undefined
+        status: status as StatusSolicitacao | undefined,
+        busca: typeof busca === "string" && busca.trim() !== "" ? busca.trim() : undefined
     });
 
     const paginacao = obterParametrosPaginacao(pagina, limite);
@@ -70,9 +77,13 @@ export async function listarSolicitacoesPorCliente(req: Request, res: Response) 
         });
     }
 
-    const solicitacoesDoCliente = await obterSolicitacoesPorClienteId(clienteId);
+    const { busca, pagina, limite } = req.query;
 
-    const { pagina, limite } = req.query;
+    if (busca !== undefined && typeof busca !== "string") {
+        return res.status(400).json({
+            mensagem: "Filtro busca deve ser texto"
+        });
+    }
 
     const paginacao = obterParametrosPaginacao(pagina, limite);
 
@@ -82,7 +93,12 @@ export async function listarSolicitacoesPorCliente(req: Request, res: Response) 
         });
     }
 
-    return res.json(paginarLista(solicitacoesDoCliente, paginacao.pagina!, paginacao.limite!));
+    const solicitacoesDoClienteFiltradas = await obterSolicitacoesPorClienteId(
+        clienteId,
+        typeof busca === "string" && busca.trim() !== "" ? busca.trim() : undefined
+    );
+
+    return res.json(paginarLista(solicitacoesDoClienteFiltradas, paginacao.pagina!, paginacao.limite!));
 }
 
 export async function cadastrarSolicitacao(req: Request, res: Response) {

@@ -101,6 +101,15 @@
                             <input id="produto-nome-filtro" type="search" placeholder="Buscar produto">
                         </label>
 
+                        <label>
+                            Loja
+                            <select id="produto-publicado-filtro">
+                                <option value="">Todos</option>
+                                <option value="true">Publicados</option>
+                                <option value="false">Internos</option>
+                            </select>
+                        </label>
+
                         <label class="checkbox-control">
                             <input id="produto-estoque-baixo-filtro" type="checkbox">
                             Estoque baixo
@@ -109,6 +118,8 @@
                         <button type="submit">Buscar</button>
                         <button id="produto-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
+
+                    <p id="produto-lista-resumo" class="lista-resumo"></p>
 
                     <div class="table-shell">
                         <table>
@@ -143,6 +154,8 @@
                         <button type="submit">Buscar</button>
                         <button id="cliente-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
+
+                    <p id="cliente-lista-resumo" class="lista-resumo"></p>
 
                     <div class="table-shell">
                         <table>
@@ -206,8 +219,20 @@
                         <button id="pedido-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
 
+                    <p id="pedido-filtro-contexto" class="filtro-contexto hidden"></p>
+                    <p id="pedido-lista-resumo" class="lista-resumo"></p>
+
                     <div class="table-shell">
-                        <table>
+                        <table class="pedidos-table">
+                            <colgroup>
+                                <col class="col-id">
+                                <col class="col-cliente">
+                                <col class="col-total">
+                                <col class="col-status">
+                                <col class="col-observacao">
+                                <col class="col-data">
+                                <col class="col-acoes">
+                            </colgroup>
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -225,8 +250,18 @@
                 </section>
 
                 <section id="pagamentos-view" class="view-section hidden">
+                    <p id="pagamento-lista-resumo" class="lista-resumo"></p>
+
                     <div class="table-shell">
-                        <table>
+                        <table class="solicitacoes-table">
+                            <colgroup>
+                                <col class="col-id">
+                                <col class="col-solicitacao-cliente">
+                                <col class="col-solicitacao-produto">
+                                <col class="col-status">
+                                <col class="col-data">
+                                <col class="col-solicitacao-acoes">
+                            </colgroup>
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -245,6 +280,11 @@
                 <section id="solicitacoes-view" class="view-section hidden">
                     <div class="filters-bar">
                         <label>
+                            Buscar
+                            <input id="solicitacao-busca-filtro" type="search" placeholder="cliente, telefone ou produto">
+                        </label>
+
+                        <label>
                             Status
                             <select id="solicitacao-status-filtro">
                                 <option value="">Todas</option>
@@ -256,7 +296,12 @@
                                 <option value="cancelada">Cancelada</option>
                             </select>
                         </label>
+
+                        <button id="solicitacao-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </div>
+
+                    <p id="solicitacao-filtro-contexto" class="filtro-contexto hidden"></p>
+                    <p id="solicitacao-lista-resumo" class="lista-resumo"></p>
 
                     <div class="table-shell">
                         <table>
@@ -344,9 +389,13 @@
 
         <section id="cliente-modal" class="modal-backdrop hidden">
             <form id="cliente-edit-form" class="modal-panel modal-panel-wide">
-                <div>
-                    <p class="eyebrow">Cliente</p>
-                    <h2 id="cliente-modal-titulo">Editar cliente</h2>
+                <div class="modal-heading-row">
+                    <div>
+                        <p class="eyebrow">Cliente</p>
+                        <h2 id="cliente-modal-titulo">Editar cliente</h2>
+                    </div>
+
+                    <a id="cliente-whatsapp-link" class="small-button whatsapp-button hidden" target="_blank" rel="noopener noreferrer">WhatsApp</a>
                 </div>
 
                 <input id="cliente-edit-id" name="id" type="hidden">
@@ -411,6 +460,8 @@
                         <input id="cliente-edit-referencia" name="referencia" type="text">
                     </label>
                 </div>
+
+                <section id="cliente-historico-resumo" class="cliente-historico-resumo hidden" aria-live="polite"></section>
 
                 <div class="modal-actions">
                     <button id="cliente-edit-cancelar" class="small-button" type="button">Cancelar</button>
