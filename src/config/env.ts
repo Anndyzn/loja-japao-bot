@@ -120,6 +120,8 @@ export const env = {
     DATABASE_URL: obterTextoObrigatorio("DATABASE_URL"),
     AUTH_TOKEN_SECRET: obterSegredoToken(producao),
     UPLOADS_DIR: obterTextoOpcional("UPLOADS_DIR", "public/uploads"),
+    PIX_CHAVE: obterTextoOpcional("PIX_CHAVE", ""),
+    PIX_RECEBEDOR: obterTextoOpcional("PIX_RECEBEDOR", ""),
     TRUST_PROXY: obterBooleanoOpcional("TRUST_PROXY", false),
     LOG_REQUESTS: obterBooleanoOpcional("LOG_REQUESTS", true),
     PUBLIC_WRITE_MAX_REQUISICOES: obterInteiroPositivoOpcional("PUBLIC_WRITE_MAX_REQUISICOES", 30),

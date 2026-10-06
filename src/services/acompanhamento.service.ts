@@ -1,5 +1,6 @@
 import type { StatusPedido } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { obterPixManual } from "./pix.service.js";
 
 function obterMensagemAcompanhamento(status: StatusPedido) {
     if (status === "pendente") {
@@ -94,6 +95,7 @@ export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInform
         pedidoId: pedido.id,
         status: pedido.status,
         mensagem: obterMensagemAcompanhamento(pedido.status),
+        pix: obterPixManual(pagamentoAprovado ? undefined : pedido.status),
         rastreio: pedido.status === "enviado" && pedido.transportadora && pedido.codigoRastreio
             ? { transportadora: pedido.transportadora, codigo: pedido.codigoRastreio }
             : null,

@@ -1,3 +1,5 @@
+import { criarQuadroPix } from "./pix.js";
+
 const checkoutForm = document.querySelector("#checkout-form");
 const cartItems = document.querySelector("#cart-items");
 const cartTotal = document.querySelector("#cart-total");
@@ -379,7 +381,10 @@ function renderizarPedidoCriado(pedido) {
     checkoutTotal.textContent = formatarMoeda(pedido.total);
     paymentTotal.textContent = formatarMoeda(pedido.total);
     orderNumber.textContent = `Pedido #${pedido.id}`;
-    orderStatus.textContent = `Status ${pedido.status} - total ${formatarMoeda(pedido.total)}`;
+    const status = pedido.status === "pendente" ? "Aguardando pagamento" : pedido.status;
+    orderStatus.textContent = `${status} - total ${formatarMoeda(pedido.total)}`;
+    const quadroPix = criarQuadroPix(pedido);
+    document.querySelector("#order-pix").replaceChildren(...(quadroPix ? [quadroPix] : []));
     trackingLink.href = `/loja/acompanhamento?pedido=${pedido.id}`;
     trackingLink.textContent = `Acompanhar pedido #${pedido.id}`;
 }
@@ -443,14 +448,6 @@ async function finalizarPedido(evento) {
             })
         });
 
-        await apiFetch("/pagamentos", {
-            method: "POST",
-            body: JSON.stringify({
-                pedidoId: pedido.id,
-                metodo: obterTexto(formData, "metodo")
-            })
-        });
-
         pedidoCriado = pedido;
         sessionStorage.setItem(CHAVE_TELEFONE_ACOMPANHAMENTO, telefonePedido);
         carrinho.clear();
@@ -459,7 +456,7 @@ async function finalizarPedido(evento) {
         checkoutForm.reset();
         renderizarPedidoCriado(pedido);
         definirEtapa("acompanhamento");
-        setFeedback(`Pedido ${pedido.id} criado com sucesso.`, "success");
+        setFeedback(`Pedido ${pedido.id} criado. Aguardando pagamento e confirmacao da loja.`, "success");
     } catch (erro) {
         setFeedback(erro.message, "error");
     }

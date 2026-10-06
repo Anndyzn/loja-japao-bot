@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { obterPixManual } from "../services/pix.service.js";
 import { obterAcompanhamentoPedido } from "../services/acompanhamento.service.js";
 import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusPedido } from "../services/pedidos.service.js";
@@ -189,7 +190,10 @@ export async function cadastrarPedido(req: Request, res: Response) {
         });
     }
 
-    return res.status(201).json(resultado.pedido);
+    return res.status(201).json({
+        ...resultado.pedido,
+        pix: obterPixManual(resultado.pedido?.status)
+    });
 }
 
 export async function atualizarStatusPedido(req: Request, res: Response) {

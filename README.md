@@ -67,7 +67,7 @@ URL publica `/uploads/...`.
 confiavel. Isso ajuda o Express a identificar corretamente o IP real do cliente.
 `LOG_REQUESTS` controla os logs simples de requisicao no terminal.
 `PUBLIC_WRITE_MAX_REQUISICOES` e `PUBLIC_WRITE_JANELA_MINUTOS` limitam criacoes
-publicas, como cliente, pedido, pagamento e solicitacao, para reduzir spam.
+publicas, como cliente, pedido e solicitacao, para reduzir spam.
 `PUBLIC_TRACKING_MAX_CONSULTAS` e `PUBLIC_TRACKING_JANELA_MINUTOS` limitam a
 consulta publica de acompanhamento de pedidos.
 `ADMIN_LOGIN_MAX_TENTATIVAS` e `ADMIN_LOGIN_BLOQUEIO_MINUTOS` controlam a
@@ -249,7 +249,7 @@ minutos. Em uma estrutura com varios servidores, essa contagem deve evoluir
 para banco ou cache compartilhado.
 
 Rotas publicas que criam dados possuem limite simples por IP. Por padrao, sao
-30 envios a cada 10 minutos para cliente, pedido, pagamento e solicitacao. Se a
+30 envios a cada 10 minutos para cliente, pedido e solicitacao. Se a
 chamada tiver token admin valido, esse limite publico nao e aplicado.
 O acompanhamento publico de pedido tambem tem limite por IP. Por padrao, sao 60
 consultas a cada 10 minutos.
@@ -330,7 +330,7 @@ npm run db:studio    abre o Prisma Studio
 1. Criar ou usar um cliente existente.
 2. Listar produtos disponiveis.
 3. Criar um pedido com `clienteId` e itens.
-4. Criar um pagamento para o pedido.
+4. Admin confirma o recebimento do Pix para registrar o pagamento e marcar o pedido como pago.
 5. Acompanhar o pedido informando numero do pedido e telefone.
 
 ## Roteiro de Teste Manual
@@ -358,7 +358,7 @@ alteracao importante ou antes de publicar:
     complemento e telefone.
 15. No admin, conferir detalhes do pedido, endereco do pedido, endereco atual
     do cliente, itens, total e historico.
-16. Registrar pagamento ou marcar como pago, depois salvar rastreio e marcar
+16. Confirmar recebimento do Pix no pedido de teste, depois salvar rastreio e marcar
     como enviado.
 17. Abrir o acompanhamento publico e consultar usando numero do pedido e
     telefone do cliente.
@@ -408,7 +408,7 @@ GET /auth/me
 Retorna os dados basicos do admin logado quando o token ainda e valido.
 
 Na primeira versao, o login e apenas para admin. O cliente comum ainda pode
-criar cliente, pedido, pagamento e solicitacao sem login. Por isso o checkout
+criar cliente, pedido e solicitacao sem login. Por isso o checkout
 publico pede mais dados de entrega, como CEP, numero, complemento, bairro,
 cidade, estado e ponto de referencia.
 
@@ -738,10 +738,11 @@ Requer token admin.
 GET /pagamentos/pedido/1
 ```
 
-Criar pagamento:
+Confirmar manualmente o recebimento do Pix (requer token admin):
 
 ```http
 POST /pagamentos
+Authorization: Bearer SEU_TOKEN_ADMIN
 Content-Type: application/json
 ```
 
@@ -752,11 +753,51 @@ Content-Type: application/json
 }
 ```
 
-Metodos de pagamento:
+O checkout oferece somente Pix. Finalizar a compra cria um pedido pendente,
+sem registrar pagamento. O acompanhamento mostra que esta aguardando pagamento.
 
-```txt
-pix, cartao, boleto
+Apos conferir o recebimento do valor total na conta bancaria, o admin usa
+Confirmar recebimento do Pix. Essa acao registra o pagamento e marca o pedido
+como pago. O historico identifica a confirmacao manual. Nao ha consulta ao banco
+nem transferencia de dinheiro feita pelo sistema.
+
+POST /pagamentos exige token admin valido (401 sem autenticacao) e aceita somente
+`pix` (400 para outros metodos). Registros antigos de cartao e boleto continuam
+disponiveis para consulta e nos filtros do admin.
+
+Configure no seu `.env` local a chave que voce ja cadastrou no banco e o nome
+exato do recebedor. Preencha as duas variaveis:
+
+```env
+PIX_CHAVE=""
+PIX_RECEBEDOR=""
 ```
+
+Reinicie a API depois de alterar o `.env`. Nao sobrescreva o arquivo existente
+com o `.env.example`. Em outro computador, configure esses dados novamente.
+A chave e o nome sao exibidos aos clientes; nao coloque senhas ou tokens nesses campos.
+
+A tela de pedido criado e o acompanhamento mostram chave, recebedor, valor e
+botao Copiar chave Pix apenas enquanto o pedido esta pendente. Sem os dois dados
+configurados, mostram uma orientacao para contatar a loja. O acompanhamento
+continua exigindo o numero e o telefone do pedido.
+
+O cliente usa Pix por chave no aplicativo do banco e informa o valor exibido.
+Nao e um codigo Pix Copia e Cola nem um QR Code. Copiar a chave nao confirma o
+pagamento. Se ja pagou, deve aguardar a conferencia manual sem pagar novamente.
+A tela usa a configuracao atual da loja, inclusive para pedidos pendentes antigos.
+
+Teste manual desta etapa (use pedidos de teste, sem transferencia real):
+
+1. Finalize um pedido na loja e confira que aparece Aguardando pagamento.
+2. No admin, confira o pedido pendente e sem registro de pagamento.
+3. Clique em Confirmar recebimento do Pix e cancele a confirmacao: deve continuar pendente.
+4. Confirme no pedido de teste: deve ficar pago, com um pagamento Pix e historico de confirmacao manual.
+5. Atualize o acompanhamento publico e confira o pagamento aprovado.
+6. Confira que o botao de confirmar recebimento desaparece depois de pago.
+7. Com os dados Pix configurados, confira o valor, o recebedor e a copia da chave nas duas telas publicas.
+8. Depois de pago ou cancelado, atualize o acompanhamento e confira que o quadro Pix desaparece.
+9. Com uma das variaveis Pix vazia, reinicie a API e confira a orientacao de contato.
 
 ### Solicitacoes de Produto
 

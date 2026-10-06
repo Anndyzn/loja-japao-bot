@@ -309,14 +309,12 @@ export function validarAtualizacaoCotacaoSolicitacao(valorCotado: unknown, obser
 }
 
 export function validarCriacaoPagamento(pedidoId: unknown, metodo: unknown) {
-    const metodosValidos = ["pix", "cartao", "boleto"];
-
     if (typeof pedidoId !== "number" || idEhInvalido(pedidoId)) {
         return "Pedido ID deve ser um numero inteiro positivo";
     }
 
-    if (typeof metodo !== "string" || !metodosValidos.includes(metodo)) {
-        return "Metodo de pagamento deve ser pix, cartao ou boleto";
+    if (metodo !== "pix") {
+        return "Novos pagamentos aceitam somente Pix (metodo: pix)";
     }
 
     return undefined;

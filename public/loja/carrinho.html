@@ -149,8 +149,6 @@
                             Forma de pagamento
                             <select name="metodo" required>
                                 <option value="pix">Pix</option>
-                                <option value="cartao">Cartao</option>
-                                <option value="boleto">Boleto</option>
                             </select>
                         </label>
 
@@ -159,6 +157,8 @@
                             <textarea name="observacao" rows="4"></textarea>
                         </label>
                     </div>
+
+                    <p class="result-text">Ao finalizar, seu pedido ficara aguardando pagamento. A loja confirmara o recebimento do Pix manualmente.</p>
 
                     <div class="payment-summary">
                         <span>Total do pedido</span>
@@ -176,6 +176,7 @@
                         <p class="eyebrow">Pedido criado</p>
                         <h2 id="order-number">Pedido</h2>
                         <p id="order-status" class="result-text"></p>
+                        <div id="order-pix"></div>
                         <a id="tracking-link" class="hero-button" href="/loja">Ver acompanhamento</a>
                     </div>
 

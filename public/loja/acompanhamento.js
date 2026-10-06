@@ -1,3 +1,5 @@
+import { criarQuadroPix } from "./pix.js";
+
 const trackingForm = document.querySelector("#tracking-form");
 const pedidoIdInput = document.querySelector("#pedido-id");
 const telefoneInput = document.querySelector("#pedido-telefone");
@@ -195,6 +197,8 @@ function renderizarPedido(pedido) {
 
     itens.append(itensTitulo, itensLista);
     detalhes.append(pagamento, itens);
+    const quadroPix = criarQuadroPix(pedido);
+    if (quadroPix) detalhes.append(quadroPix);
 
     if (pedido.status === "enviado") {
         const envio = document.createElement("article");

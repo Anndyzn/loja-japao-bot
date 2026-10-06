@@ -124,7 +124,7 @@ export async function criarPagamento(
             data: {
                 pedidoId,
                 status: "pago",
-                descricao: "Pagamento aprovado via " + metodo + "."
+                descricao: "Recebimento de pagamento via " + metodo + " confirmado manualmente pelo admin."
             }
         });
 

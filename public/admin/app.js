@@ -2264,7 +2264,7 @@ function criarLinhaPedido(pedido) {
     }
 
     if (pedido.status === "pendente") {
-        const registrarPagamento = criarBotao("Registrar pagamento");
+        const registrarPagamento = criarBotao("Confirmar recebimento do Pix");
         registrarPagamento.addEventListener("click", () => registrarPagamentoPedido(pedido.id, actions));
         actions.append(registrarPagamento);
     }
@@ -2364,17 +2364,16 @@ async function carregarDadosFormularioPedido(forcar = false) {
 async function registrarPagamentoPedido(pedidoId, actions) {
     if (actions.dataset.atualizando === "true") return;
 
-    const metodo = window.prompt("Metodo do pagamento: pix, cartao ou boleto", "pix")?.trim().toLowerCase();
-    const metodosValidos = ["pix", "cartao", "boleto"];
+    const confirmou = window.confirm(
+        "Voce conferiu na sua conta o recebimento do valor total do pedido #" + pedidoId + "? " +
+        "Confirme somente apos verificar o dinheiro recebido. O pedido sera marcado como pago."
+    );
 
-    if (!metodo) {
+    if (!confirmou) {
         return;
     }
 
-    if (!metodosValidos.includes(metodo)) {
-        setFeedback(appFeedback, "Metodo deve ser pix, cartao ou boleto.", "error");
-        return;
-    }
+    const metodo = "pix";
 
     actions.dataset.atualizando = "true";
     const botoes = actions.querySelectorAll("button, a");
@@ -2395,7 +2394,7 @@ async function registrarPagamentoPedido(pedidoId, actions) {
             await carregarPagamentos();
         }
 
-        setFeedback(appFeedback, "Pagamento registrado e pedido #" + pedidoId + " marcado como pago.", "success");
+        setFeedback(appFeedback, "Recebimento do Pix confirmado e pedido #" + pedidoId + " marcado como pago.", "success");
     } catch (erro) {
         setFeedback(appFeedback, erro.message, "error");
         actions.dataset.atualizando = "false";
