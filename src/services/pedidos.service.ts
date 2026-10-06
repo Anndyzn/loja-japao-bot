@@ -162,6 +162,37 @@ function formatarEnderecoEntrega(pedido: PedidoComItens) {
     return endereco;
 }
 
+function filtrarHistoricoDuplicado<T extends { descricao: string }>(historico: T[]) {
+    const descricoes = new Set<string>();
+
+    return historico.filter((item) => {
+        if (descricoes.has(item.descricao)) {
+            return false;
+        }
+
+        descricoes.add(item.descricao);
+        return true;
+    });
+}
+
+function clienteTemEnderecoCompleto(cliente: {
+    cep: string | null;
+    endereco: string | null;
+    numero: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    estado: string | null;
+}) {
+    return Boolean(
+        cliente.cep &&
+        cliente.endereco &&
+        cliente.numero &&
+        cliente.bairro &&
+        cliente.cidade &&
+        cliente.estado
+    );
+}
+
 function formatarPedido(pedido: PedidoComItens): PedidoResposta {
     const resposta: PedidoResposta = {
         id: pedido.id,
@@ -197,7 +228,7 @@ function formatarPedido(pedido: PedidoComItens): PedidoResposta {
     }
 
     if (pedido.historico !== undefined) {
-        resposta.historico = pedido.historico.map((item) => {
+        resposta.historico = filtrarHistoricoDuplicado(pedido.historico).map((item) => {
             return {
                 id: item.id,
                 status: item.status,
@@ -414,6 +445,12 @@ export async function criarPedido(
         };
     }
 
+    if (!clienteTemEnderecoCompleto(cliente)) {
+        return {
+            mensagemErro: "Complete o endereco do cliente antes de criar o pedido"
+        };
+    }
+
     const itensAgrupados = agruparItensPorProduto(itensEntrada);
 
     return await prisma.$transaction(async (tx) => {
@@ -620,25 +657,29 @@ export async function atualizarRastreioPedidoPorId(
 ): Promise<ResultadoAtualizacaoStatusPedido> {
     return await prisma.$transaction(async (tx) => {
         // A condição também impede editar o rastreio de um pedido cancelado.
-        const resultado = await tx.pedido.updateMany({
-            where: { id, status: { in: ["pago", "enviado"] } },
-            data: { transportadora, codigoRastreio }
-        });
         const pedido = await tx.pedido.findUnique({
             where: { id },
             include: includeItensPedido
         });
         if (!pedido) return { mensagemErro: "Pedido nao encontrado" };
-        if (resultado.count === 0) {
+        if (pedido.status !== "pago" && pedido.status !== "enviado") {
             return { mensagemErro: "Rastreio so pode ser informado para pedidos pagos ou enviados" };
         }
+        if (pedido.transportadora === transportadora && pedido.codigoRastreio === codigoRastreio) {
+            return { pedido: formatarPedido(pedido) };
+        }
+        const pedidoAtualizado = await tx.pedido.update({
+            where: { id },
+            data: { transportadora, codigoRastreio },
+            include: includeItensPedido
+        });
         await tx.historicoPedido.create({
             data: {
                 pedidoId: id,
-                status: pedido.status,
+                status: pedidoAtualizado.status,
                 descricao: "Rastreio informado: " + transportadora + " - " + codigoRastreio + "."
             }
         });
-        return { pedido: formatarPedido(pedido) };
+        return { pedido: formatarPedido(pedidoAtualizado) };
     });
 }

@@ -151,6 +151,11 @@
                             <input id="cliente-telefone-filtro" type="search" placeholder="Buscar por telefone">
                         </label>
 
+                        <label class="checkbox-control">
+                            <input id="cliente-endereco-incompleto-filtro" type="checkbox">
+                            Endereco incompleto
+                        </label>
+
                         <button type="submit">Buscar</button>
                         <button id="cliente-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
@@ -215,6 +220,21 @@
                             </select>
                         </label>
 
+                        <label class="checkbox-control">
+                            <input id="pedido-precisa-acao-filtro" type="checkbox">
+                            Somente precisam acao
+                        </label>
+
+                        <label>
+                            Tipo de acao
+                            <select id="pedido-acao-filtro">
+                                <option value="">Todas</option>
+                                <option value="pix">Pix</option>
+                                <option value="rastreio">Rastreio</option>
+                                <option value="envio">Envio</option>
+                            </select>
+                        </label>
+
                         <button type="submit">Buscar</button>
                         <button id="pedido-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
@@ -229,6 +249,7 @@
                                 <col class="col-cliente">
                                 <col class="col-total">
                                 <col class="col-status">
+                                <col class="col-proxima-acao">
                                 <col class="col-observacao">
                                 <col class="col-data">
                                 <col class="col-acoes">
@@ -239,6 +260,7 @@
                                     <th>Cliente</th>
                                     <th>Total</th>
                                     <th>Status</th>
+                                    <th>Proxima acao</th>
                                     <th>Observacao</th>
                                     <th>Criado em</th>
                                     <th>Acoes</th>
@@ -349,34 +371,47 @@
                 </section>
 
                 <section id="seguranca-view" class="view-section hidden">
-                    <form id="senha-form" class="security-form">
-                        <div>
-                            <p class="eyebrow">Conta admin</p>
-                            <h3>Alterar senha</h3>
-                            <p id="admin-logado-info" class="form-hint">Sessao nao validada.</p>
-                        </div>
+                    <div class="security-layout">
+                        <form id="senha-form" class="security-form">
+                            <div>
+                                <p class="eyebrow">Conta admin</p>
+                                <h3>Alterar senha</h3>
+                                <p id="admin-logado-info" class="form-hint">Sessao nao validada.</p>
+                            </div>
 
-                        <label>
-                            Senha atual
-                            <input id="senha-atual" type="password" autocomplete="current-password" required>
-                        </label>
+                            <label>
+                                Senha atual
+                                <input id="senha-atual" type="password" autocomplete="current-password" required>
+                            </label>
 
-                        <label>
-                            Nova senha
-                            <input id="nova-senha" type="password" autocomplete="new-password" minlength="10" required>
-                            <span class="form-hint">Use pelo menos 10 caracteres.</span>
-                        </label>
+                            <label>
+                                Nova senha
+                                <input id="nova-senha" type="password" autocomplete="new-password" minlength="10" required>
+                                <span class="form-hint">Use pelo menos 10 caracteres.</span>
+                            </label>
 
-                        <label>
-                            Confirmar nova senha
-                            <input id="confirmar-senha" type="password" autocomplete="new-password" minlength="10" required>
-                        </label>
+                            <label>
+                                Confirmar nova senha
+                                <input id="confirmar-senha" type="password" autocomplete="new-password" minlength="10" required>
+                            </label>
 
-                        <p class="form-hint">Depois de alterar a senha, sera necessario entrar novamente.</p>
+                            <p class="form-hint">Depois de alterar a senha, sera necessario entrar novamente.</p>
 
-                        <button type="submit">Alterar senha</button>
-                        <p id="senha-feedback" class="feedback" role="status"></p>
-                    </form>
+                            <button type="submit">Alterar senha</button>
+                            <p id="senha-feedback" class="feedback" role="status"></p>
+                        </form>
+
+                        <section class="security-panel" aria-labelledby="sistema-status-titulo">
+                            <div>
+                                <p class="eyebrow">Sistema</p>
+                                <h3 id="sistema-status-titulo">Status do sistema</h3>
+                            </div>
+
+                            <div id="sistema-status" class="security-status" aria-live="polite">
+                                Carregando status...
+                            </div>
+                        </section>
+                    </div>
                 </section>
 
                 <p id="app-feedback" class="feedback" role="status"></p>
@@ -501,6 +536,30 @@
                 </div>
             </form>
         </section>
+
+        <dialog id="pix-modal" class="pedido-dialog" aria-labelledby="pix-modal-titulo">
+            <form id="pix-confirmacao-form" class="modal-panel" method="dialog">
+                <div>
+                    <p class="eyebrow">Pix manual</p>
+                    <h2 id="pix-modal-titulo">Confirmar recebimento</h2>
+                </div>
+
+                <div id="pix-confirmacao-dados" class="pix-confirmacao-grid"></div>
+
+                <p class="solicitacao-info-box">
+                    Confirme somente depois de conferir na sua conta se o valor do Pix foi recebido.
+                    Esta acao vai registrar o pagamento e marcar o pedido como pago.
+                </p>
+
+                <p id="pix-confirmacao-feedback" class="feedback" role="status"></p>
+
+                <div class="modal-actions">
+                    <button id="pix-confirmacao-cancelar" class="small-button" type="button">Cancelar</button>
+                    <button id="pix-confirmacao-confirmar" type="submit">Confirmar recebimento</button>
+                </div>
+            </form>
+        </dialog>
+
         <dialog id="pedido-modal" class="pedido-dialog" aria-labelledby="pedido-titulo">
             <div class="modal-panel modal-panel-wide">
                 <div class="pedido-cabecalho">

@@ -56,6 +56,8 @@ PUBLIC_TRACKING_MAX_CONSULTAS=60
 PUBLIC_TRACKING_JANELA_MINUTOS=10
 ADMIN_LOGIN_MAX_TENTATIVAS=5
 ADMIN_LOGIN_BLOQUEIO_MINUTOS=15
+PIX_CHAVE=""
+PIX_RECEBEDOR=""
 AUTH_TOKEN_SECRET="troque-este-segredo-em-producao"
 ```
 
@@ -72,6 +74,8 @@ publicas, como cliente, pedido e solicitacao, para reduzir spam.
 consulta publica de acompanhamento de pedidos.
 `ADMIN_LOGIN_MAX_TENTATIVAS` e `ADMIN_LOGIN_BLOQUEIO_MINUTOS` controlam a
 protecao contra muitas tentativas de login incorretas no admin.
+`PIX_CHAVE` e `PIX_RECEBEDOR` aparecem para o cliente no checkout e no
+acompanhamento enquanto o pedido esta aguardando pagamento.
 `AUTH_TOKEN_SECRET` assina o login do admin. Em desenvolvimento o sistema aceita
 o valor do exemplo, mas em producao ele deve ser trocado por um texto forte,
 com pelo menos 32 caracteres.
@@ -202,6 +206,8 @@ PUBLIC_TRACKING_MAX_CONSULTAS=60
 PUBLIC_TRACKING_JANELA_MINUTOS=10
 ADMIN_LOGIN_MAX_TENTATIVAS=5
 ADMIN_LOGIN_BLOQUEIO_MINUTOS=15
+PIX_CHAVE="sua-chave-pix"
+PIX_RECEBEDOR="Nome que recebe o Pix"
 AUTH_TOKEN_SECRET="gere-um-segredo-forte-com-mais-de-32-caracteres"
 ```
 
@@ -221,8 +227,9 @@ Antes de publicar, rode uma verificacao basica do ambiente:
 npm.cmd run verificar:deploy
 ```
 
-Esse comando confere variaveis obrigatorias, segredo do admin, valores booleanos
-e se `UPLOADS_DIR` pode ser criado/escrito. Ele nao imprime valores sensiveis.
+Esse comando confere variaveis obrigatorias, segredo do admin, dados Pix,
+valores booleanos e se `UPLOADS_DIR` pode ser criado/escrito. Ele nao imprime
+valores sensiveis.
 
 Depois de configurar o banco no servidor, aplique as migrations e inicie a API:
 
@@ -278,6 +285,7 @@ versao online:
 - Configurar `ADMIN_EMAIL` e `ADMIN_PASSWORD` fortes antes de usar `db:seed`.
 - Configurar `DATABASE_URL` apontando para o PostgreSQL de producao.
 - Garantir que `UPLOADS_DIR` seja uma pasta persistente para fotos dos produtos.
+- Configurar `PIX_CHAVE` e `PIX_RECEBEDOR` para o checkout Pix.
 - Rodar `npm run verificar:deploy`.
 - Rodar `npm run check` e `npm run build`.
 - Aplicar migrations com `npm run db:deploy`.
@@ -798,6 +806,9 @@ Teste manual desta etapa (use pedidos de teste, sem transferencia real):
 7. Com os dados Pix configurados, confira o valor, o recebedor e a copia da chave nas duas telas publicas.
 8. Depois de pago ou cancelado, atualize o acompanhamento e confira que o quadro Pix desaparece.
 9. Com uma das variaveis Pix vazia, reinicie a API e confira a orientacao de contato.
+10. Em Pedidos > Ver detalhes, confirme o Pix pela secao Pagamentos e confira que o modal atualiza para pago.
+11. Salve um rastreio duas vezes com os mesmos dados e confira que o historico nao duplica a etapa.
+12. Confira os botoes de WhatsApp do pedido para dados Pix, pagamento aprovado, rastreio e status atual.
 
 ### Solicitacoes de Produto
 
@@ -880,8 +891,22 @@ GET /dashboard/resumo
 
 ## WhatsApp
 
-O WhatsApp ainda nao foi implementado. A ideia e criar uma camada de bot que
-usa esta API.
+Ainda nao existe bot integrado nem envio automatico de mensagens. O admin usa
+links do WhatsApp e mensagens prontas para agilizar o atendimento manual.
+
+Em Solicitacoes, o admin pode enviar ou copiar mensagens de recebimento e
+cotacao. Em Pedidos > Ver detalhes, a secao WhatsApp mostra acoes conforme a
+etapa do pedido:
+
+- dados Pix, enquanto o pedido esta pendente e as variaveis Pix estao configuradas;
+- pagamento aprovado, depois da confirmacao manual do Pix;
+- rastreio, quando transportadora e codigo ja foram salvos;
+- status atual do pedido.
+
+Cada mensagem pode ser aberta no WhatsApp ou copiada. O sistema nao envia
+mensagens sozinho; o admin ainda precisa conferir e enviar pelo WhatsApp.
+
+A ideia futura e criar uma camada de bot que usa esta API.
 
 Exemplo de fluxo futuro:
 
@@ -921,9 +946,13 @@ na primeira versao.
 No admin, abra Pedidos > Ver detalhes e informe transportadora e codigo de
 rastreio. Os campos podem ser cadastrados ou corrigidos em pedidos pagos ou
 enviados. Salvar o rastreio nao muda o status; apos a postagem, use Marcar como
-enviado. O cliente vera os dados na pagina de acompanhamento depois de informar
-o telefone do pedido. Para Correios, o sistema mostra um botao para abrir o
-rastreamento no site da transportadora. Ainda nao ha sincronizacao de eventos de entrega.
+enviado, que aparece no proprio modal quando o pedido esta pago e ja tem
+rastreio salvo. O cliente vera os dados na pagina de acompanhamento depois de
+informar o telefone do pedido. Para Correios, o sistema mostra um botao para
+abrir o rastreamento no site da transportadora. Ainda nao ha sincronizacao de
+eventos de entrega.
+
+Salvar o mesmo rastreio novamente nao cria uma nova etapa duplicada no historico.
 
 A rota administrativa e PATCH /pedidos/:id/rastreio, com os campos
 transportadora e codigoRastreio (textos de 1 a 100 caracteres).

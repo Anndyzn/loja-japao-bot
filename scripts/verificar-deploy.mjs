@@ -182,6 +182,26 @@ function validarAdminInicial() {
     }
 }
 
+function validarPixManual() {
+    const nodeEnv = obterVariavel("NODE_ENV") || "development";
+    const chave = obterVariavel("PIX_CHAVE");
+    const recebedor = obterVariavel("PIX_RECEBEDOR");
+
+    if (chave && recebedor) {
+        oks.push("PIX_CHAVE e PIX_RECEBEDOR configurados");
+        return;
+    }
+
+    const mensagem = "PIX_CHAVE e PIX_RECEBEDOR devem ser configurados para o checkout Pix";
+
+    if (nodeEnv === "production") {
+        erros.push(mensagem);
+        return;
+    }
+
+    avisos.push(mensagem + " antes de publicar.");
+}
+
 function imprimirResultado() {
     console.log("Verificacao de deploy");
     console.log("");
@@ -219,6 +239,7 @@ validarAmbiente();
 validarDatabaseUrl();
 validarSegredo();
 validarAdminInicial();
+validarPixManual();
 validarBooleano("TRUST_PROXY");
 validarBooleano("LOG_REQUESTS");
 validarInteiroPositivo("PORT");

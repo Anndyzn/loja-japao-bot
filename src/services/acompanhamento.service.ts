@@ -48,6 +48,19 @@ function telefoneConfere(telefoneInformado: string, telefonesDoPedido: Array<str
     });
 }
 
+function filtrarHistoricoDuplicado<T extends { descricao: string }>(historico: T[]) {
+    const descricoes = new Set<string>();
+
+    return historico.filter((item) => {
+        if (descricoes.has(item.descricao)) {
+            return false;
+        }
+
+        descricoes.add(item.descricao);
+        return true;
+    });
+}
+
 export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInformado: string) {
     const pedido = await prisma.pedido.findUnique({
         where: {
@@ -125,7 +138,7 @@ export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInform
                 subtotal: Number(item.subtotal)
             };
         }),
-        historico: pedido.historico.map((item) => {
+        historico: filtrarHistoricoDuplicado(pedido.historico).map((item) => {
             return {
                 status: item.status,
                 descricao: item.descricao,

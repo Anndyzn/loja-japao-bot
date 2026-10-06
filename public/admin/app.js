@@ -17,6 +17,7 @@ const novaSenha = document.querySelector("#nova-senha");
 const confirmarSenha = document.querySelector("#confirmar-senha");
 const senhaFeedback = document.querySelector("#senha-feedback");
 const adminLogadoInfo = document.querySelector("#admin-logado-info");
+const sistemaStatus = document.querySelector("#sistema-status");
 const produtoForm = document.querySelector("#produto-form");
 const produtoNome = document.querySelector("#produto-nome");
 const produtoPreco = document.querySelector("#produto-preco");
@@ -36,6 +37,7 @@ const clienteListaResumo = document.querySelector("#cliente-lista-resumo");
 const clienteFiltrosForm = document.querySelector("#cliente-filtros-form");
 const clienteNomeFiltro = document.querySelector("#cliente-nome-filtro");
 const clienteTelefoneFiltro = document.querySelector("#cliente-telefone-filtro");
+const clienteEnderecoIncompletoFiltro = document.querySelector("#cliente-endereco-incompleto-filtro");
 const clienteFiltrosLimpar = document.querySelector("#cliente-filtros-limpar");
 const pedidosTbody = document.querySelector("#pedidos-tbody");
 const pedidoForm = document.querySelector("#pedido-form");
@@ -46,6 +48,8 @@ const pedidoObservacao = document.querySelector("#pedido-observacao");
 const pedidoFiltrosForm = document.querySelector("#pedido-filtros-form");
 const pedidoBuscaFiltro = document.querySelector("#pedido-busca-filtro");
 const pedidoStatusFiltro = document.querySelector("#pedido-status-filtro");
+const pedidoPrecisaAcaoFiltro = document.querySelector("#pedido-precisa-acao-filtro");
+const pedidoAcaoFiltro = document.querySelector("#pedido-acao-filtro");
 const pedidoFiltrosLimpar = document.querySelector("#pedido-filtros-limpar");
 const pedidoFiltroContexto = document.querySelector("#pedido-filtro-contexto");
 const pedidoListaResumo = document.querySelector("#pedido-lista-resumo");
@@ -98,6 +102,13 @@ const pedidoConteudo = document.querySelector('#pedido-conteudo');
 const pedidoFechar = document.querySelector('#pedido-fechar');
 let consultaPedidoAtual = 0;
 
+const pixModal = document.querySelector("#pix-modal");
+const pixConfirmacaoForm = document.querySelector("#pix-confirmacao-form");
+const pixConfirmacaoDados = document.querySelector("#pix-confirmacao-dados");
+const pixConfirmacaoFeedback = document.querySelector("#pix-confirmacao-feedback");
+const pixConfirmacaoCancelar = document.querySelector("#pix-confirmacao-cancelar");
+const pixConfirmacaoConfirmar = document.querySelector("#pix-confirmacao-confirmar");
+
 const viewTitles = {
     dashboard: "Dashboard",
     produtos: "Produtos",
@@ -134,10 +145,14 @@ let clienteOrigemSolicitacaoId = null;
 let produtoOrigemSolicitacao = null;
 let pedidoOrigemSolicitacaoId = null;
 let pedidoFormDadosCarregados = false;
+let pedidoClientesDisponiveis = [];
 let pedidoProdutosDisponiveis = [];
 let pedidoClienteFiltro = null;
 let solicitacaoClienteFiltro = null;
 let consultaClienteResumoAtual = 0;
+let pixConfirmacaoPedido = null;
+let pixConfirmacaoActions = null;
+let pixConfirmacaoPedidoDetalheId = null;
 
 function travarScrollPagina() {
     document.body.classList.add("modal-open");
@@ -149,6 +164,7 @@ function liberarScrollPagina() {
 
 function invalidarDadosFormularioPedido() {
     pedidoFormDadosCarregados = false;
+    pedidoClientesDisponiveis = [];
     pedidoProdutosDisponiveis = [];
 }
 
@@ -171,6 +187,28 @@ function formatarData(valor) {
     return new Date(valor).toLocaleString("pt-BR");
 }
 
+function formatarDuracao(segundos) {
+    const total = Number(segundos);
+
+    if (!Number.isFinite(total) || total < 0) {
+        return "-";
+    }
+
+    const horas = Math.floor(total / 3600);
+    const minutos = Math.floor((total % 3600) / 60);
+    const restoSegundos = Math.floor(total % 60);
+
+    if (horas > 0) {
+        return horas + "h " + minutos + "min";
+    }
+
+    if (minutos > 0) {
+        return minutos + "min " + restoSegundos + "s";
+    }
+
+    return restoSegundos + "s";
+}
+
 function formatarEnderecoCliente(cliente) {
     const partes = [
         cliente.endereco,
@@ -183,6 +221,32 @@ function formatarEnderecoCliente(cliente) {
     ].filter(Boolean);
 
     return partes.join(", ");
+}
+
+function clienteTemEnderecoCompleto(cliente) {
+    return Boolean(
+        cliente.cep &&
+        cliente.endereco &&
+        cliente.numero &&
+        cliente.bairro &&
+        cliente.cidade &&
+        cliente.estado
+    );
+}
+
+function obterCamposEnderecoFaltando(cliente) {
+    const campos = [
+        ["cep", "CEP"],
+        ["endereco", "rua"],
+        ["numero", "numero"],
+        ["bairro", "bairro"],
+        ["cidade", "cidade"],
+        ["estado", "estado"]
+    ];
+
+    return campos
+        .filter(([campo]) => !cliente[campo])
+        .map(([, rotulo]) => rotulo);
 }
 
 function formatarEnderecoEntrega(endereco) {
@@ -292,6 +356,35 @@ function montarMensagemWhatsAppPedido(pedido) {
     }
 
     return partes.join(" ");
+}
+
+function montarMensagemWhatsAppPedidoEtapa(pedido, etapa) {
+    const nome = obterNomeContatoPedido(pedido);
+    const saudacao = nome ? "Ola, " + nome + "." : "Ola.";
+    const linkAcompanhamento = montarLinkAcompanhamentoPedido(pedido.id);
+
+    if (etapa === "pix") {
+        return saudacao + " Seguem os dados para pagamento do pedido #" + pedido.id +
+            " na Loja Japao. Valor: " + formatarMoeda(pedido.total) +
+            ". Recebedor: " + pedido.pix.recebedor +
+            ". Chave Pix: " + pedido.pix.chave +
+            ". Depois de pagar, envie o comprovante por aqui. Acompanhe seu pedido: " +
+            linkAcompanhamento;
+    }
+
+    if (etapa === "pagamento") {
+        return saudacao + " O pagamento do pedido #" + pedido.id +
+            " foi confirmado. Agora vamos preparar o envio. Acompanhe por aqui: " +
+            linkAcompanhamento;
+    }
+
+    if (etapa === "rastreio") {
+        return saudacao + " Seu pedido #" + pedido.id + " foi enviado. Transportadora: " +
+            pedido.transportadora + ". Codigo de rastreio: " + pedido.codigoRastreio +
+            ". Acompanhe por aqui: " + linkAcompanhamento;
+    }
+
+    return montarMensagemWhatsAppPedido(pedido);
 }
 
 function formatarErroLogin(erro) {
@@ -467,31 +560,126 @@ function atualizarContextoFiltroSolicitacoes() {
         ". Use Limpar para voltar a todas as solicitacoes.";
 }
 
+function pedidoPrecisaAcao(pedido) {
+    return pedido.status === "pendente" || pedido.status === "pago";
+}
+
+function obterTipoAcaoPedido(pedido) {
+    if (pedido.status === "pendente") {
+        return "pix";
+    }
+
+    if (pedido.status === "pago" && (!pedido.transportadora || !pedido.codigoRastreio)) {
+        return "rastreio";
+    }
+
+    if (pedido.status === "pago") {
+        return "envio";
+    }
+
+    return "";
+}
+
+function obterPrioridadeAcaoPedido(pedido) {
+    if (pedido.status === "pendente") {
+        return 1;
+    }
+
+    if (pedido.status === "pago" && (!pedido.transportadora || !pedido.codigoRastreio)) {
+        return 2;
+    }
+
+    if (pedido.status === "pago") {
+        return 3;
+    }
+
+    return 4;
+}
+
+function ordenarPedidosPorAcao(pedidos) {
+    return [...pedidos].sort((pedidoA, pedidoB) => {
+        const prioridadeA = obterPrioridadeAcaoPedido(pedidoA);
+        const prioridadeB = obterPrioridadeAcaoPedido(pedidoB);
+
+        if (prioridadeA !== prioridadeB) {
+            return prioridadeA - prioridadeB;
+        }
+
+        return new Date(pedidoB.criadoEm).getTime() - new Date(pedidoA.criadoEm).getTime();
+    });
+}
+
+function contarAcoesPedidos(pedidos) {
+    return pedidos.reduce((contadores, pedido) => {
+        if (pedido.status === "pendente") {
+            contadores.pix++;
+            return contadores;
+        }
+
+        if (pedido.status === "pago" && (!pedido.transportadora || !pedido.codigoRastreio)) {
+            contadores.rastreio++;
+            return contadores;
+        }
+
+        if (pedido.status === "pago") {
+            contadores.envio++;
+        }
+
+        return contadores;
+    }, {
+        pix: 0,
+        rastreio: 0,
+        envio: 0
+    });
+}
+
 function atualizarResumoListaPedidos(pedidos) {
     const quantidade = pedidos.length;
     const total = pedidos.reduce((soma, pedido) => soma + Number(pedido.total), 0);
+    const pendentes = pedidos.filter((pedido) => pedido.status === "pendente").length;
+    const pagos = pedidos.filter((pedido) => pedido.status === "pago").length;
+    const enviados = pedidos.filter((pedido) => pedido.status === "enviado").length;
+    const cancelados = pedidos.filter((pedido) => pedido.status === "cancelado").length;
+    const precisamAcao = pedidos.filter(pedidoPrecisaAcao).length;
+    const acoes = contarAcoesPedidos(pedidos);
     const textoQuantidade = quantidade === 1 ? "1 pedido listado" : quantidade + " pedidos listados";
 
-    pedidoListaResumo.textContent = textoQuantidade + " | Total " + formatarMoeda(total);
+    pedidoListaResumo.textContent = textoQuantidade + " | Total " + formatarMoeda(total) +
+        " | Pendentes " + pendentes + " | Pagos " + pagos +
+        " | Enviados " + enviados + " | Cancelados " + cancelados +
+        " | Precisam acao " + precisamAcao +
+        " | Pix " + acoes.pix + " | Rastreio " + acoes.rastreio + " | Envio " + acoes.envio;
 }
 
 function atualizarResumoListaSolicitacoes(solicitacoes) {
     const quantidade = solicitacoes.length;
+    const recebidas = solicitacoes.filter((solicitacao) => solicitacao.status === "recebida").length;
+    const emAnalise = solicitacoes.filter((solicitacao) => solicitacao.status === "em_analise").length;
     const abertas = solicitacoes.filter((solicitacao) => {
         return ["recebida", "em_analise", "cotada"].includes(solicitacao.status);
     }).length;
     const cotadas = solicitacoes.filter((solicitacao) => solicitacao.status === "cotada").length;
+    const aprovadas = solicitacoes.filter((solicitacao) => solicitacao.status === "aprovada").length;
+    const recusadas = solicitacoes.filter((solicitacao) => solicitacao.status === "recusada").length;
+    const canceladas = solicitacoes.filter((solicitacao) => solicitacao.status === "cancelada").length;
     const textoQuantidade = quantidade === 1 ? "1 solicitacao listada" : quantidade + " solicitacoes listadas";
 
-    solicitacaoListaResumo.textContent = textoQuantidade + " | Abertas " + abertas + " | Cotadas " + cotadas;
+    solicitacaoListaResumo.textContent = textoQuantidade + " | Abertas " + abertas +
+        " | Recebidas " + recebidas + " | Em analise " + emAnalise +
+        " | Cotadas " + cotadas + " | Aprovadas " + aprovadas +
+        " | Recusadas " + recusadas + " | Canceladas " + canceladas;
 }
 
 function atualizarResumoListaPagamentos(pagamentos) {
     const quantidade = pagamentos.length;
     const total = pagamentos.reduce((soma, pagamento) => soma + Number(pagamento.valor), 0);
+    const pix = pagamentos.filter((pagamento) => pagamento.metodo === "pix").length;
+    const cartao = pagamentos.filter((pagamento) => pagamento.metodo === "cartao").length;
+    const boleto = pagamentos.filter((pagamento) => pagamento.metodo === "boleto").length;
     const textoQuantidade = quantidade === 1 ? "1 pagamento listado" : quantidade + " pagamentos listados";
 
-    pagamentoListaResumo.textContent = textoQuantidade + " | Total aprovado " + formatarMoeda(total);
+    pagamentoListaResumo.textContent = textoQuantidade + " | Total aprovado " + formatarMoeda(total) +
+        " | Pix " + pix + " | Cartao " + cartao + " | Boleto " + boleto;
 }
 
 function atualizarResumoListaProdutos(produtos) {
@@ -499,18 +687,26 @@ function atualizarResumoListaProdutos(produtos) {
     const publicados = produtos.filter((produto) => produto.publicadoNaLoja).length;
     const internos = quantidade - publicados;
     const estoqueBaixo = produtos.filter((produto) => produto.estoque <= 5).length;
+    const estoqueTotal = produtos.reduce((soma, produto) => soma + Number(produto.estoque), 0);
+    const valorEstoque = produtos.reduce((soma, produto) => {
+        return soma + (Number(produto.preco) * Number(produto.estoque));
+    }, 0);
     const textoQuantidade = quantidade === 1 ? "1 produto listado" : quantidade + " produtos listados";
 
     produtoListaResumo.textContent = textoQuantidade + " | Loja " + publicados +
-        " | Internos " + internos + " | Estoque baixo " + estoqueBaixo;
+        " | Internos " + internos + " | Estoque baixo " + estoqueBaixo +
+        " | Itens em estoque " + estoqueTotal + " | Valor estoque " + formatarMoeda(valorEstoque);
 }
 
 function atualizarResumoListaClientes(clientes) {
     const quantidade = clientes.length;
     const comWhatsApp = clientes.filter((cliente) => normalizarDigitos(cliente.telefone).length >= 10).length;
+    const comEmail = clientes.filter((cliente) => cliente.email).length;
+    const enderecoCompleto = clientes.filter(clienteTemEnderecoCompleto).length;
     const textoQuantidade = quantidade === 1 ? "1 cliente listado" : quantidade + " clientes listados";
 
-    clienteListaResumo.textContent = textoQuantidade + " | Com WhatsApp " + comWhatsApp;
+    clienteListaResumo.textContent = textoQuantidade + " | Com WhatsApp " + comWhatsApp +
+        " | Com email " + comEmail + " | Endereco completo " + enderecoCompleto;
 }
 
 function criarLinkRastreio(transportadora, codigoRastreio) {
@@ -705,6 +901,37 @@ function criarBotao(texto, className = "small-button") {
     return botao;
 }
 
+function criarLinhaStatusSistema(rotulo, valor, destaque = undefined) {
+    const linha = document.createElement("div");
+    linha.className = "security-status-line";
+
+    const nome = document.createElement("span");
+    nome.textContent = rotulo;
+
+    const conteudo = destaque
+        ? criarStatusBadge(destaque, valor)
+        : document.createElement("strong");
+
+    if (!destaque) {
+        conteudo.textContent = valor;
+    }
+
+    linha.append(nome, conteudo);
+    return linha;
+}
+
+function criarItemConfirmacaoPix(rotulo, valor) {
+    const item = document.createElement("div");
+    const label = document.createElement("span");
+    const conteudo = document.createElement("strong");
+
+    label.textContent = rotulo;
+    conteudo.textContent = valor || "-";
+    item.append(label, conteudo);
+
+    return item;
+}
+
 function criarCelulaFotoProduto(produto) {
     const td = document.createElement("td");
 
@@ -809,6 +1036,26 @@ function atualizarAdminLogadoInfo() {
     adminLogadoInfo.textContent = adminLogado.nome + " | " + adminLogado.email;
 }
 
+async function carregarSeguranca() {
+    sistemaStatus.textContent = "Carregando status...";
+
+    const [saude, info] = await Promise.all([
+        apiFetch("/health"),
+        apiFetch("/info")
+    ]);
+
+    const statusBanco = saude.banco?.status === "ok" ? "ok" : "erro";
+
+    sistemaStatus.replaceChildren(
+        criarLinhaStatusSistema("API", saude.status === "ok" ? "online" : "erro", saude.status === "ok" ? "aprovado" : "cancelado"),
+        criarLinhaStatusSistema("Banco", statusBanco === "ok" ? "ok" : "erro", statusBanco === "ok" ? "aprovado" : "cancelado"),
+        criarLinhaStatusSistema("Latencia banco", String(saude.banco?.latenciaMs ?? "-") + " ms"),
+        criarLinhaStatusSistema("Ambiente", info.ambiente ?? saude.ambiente ?? "-"),
+        criarLinhaStatusSistema("Versao", info.versao ?? "-"),
+        criarLinhaStatusSistema("Tempo online", formatarDuracao(info.uptimeSegundos ?? saude.uptimeSegundos))
+    );
+}
+
 async function iniciarAdmin() {
     if (!token) {
         mostrarLogin();
@@ -869,6 +1116,10 @@ async function carregarView() {
         if (activeView === "solicitacoes") {
             await carregarSolicitacoes();
         }
+
+        if (activeView === "seguranca") {
+            await carregarSeguranca();
+        }
     } catch (erro) {
         if (erro.sessaoEncerrada) {
             return;
@@ -881,6 +1132,22 @@ async function carregarView() {
         }
 
         setFeedback(appFeedback, erro.message, "error");
+    }
+}
+
+async function recarregarTelaAposAlterarPedido() {
+    if (activeView === "dashboard") {
+        await carregarDashboard();
+        return;
+    }
+
+    if (activeView === "pedidos") {
+        await carregarPedidos();
+        return;
+    }
+
+    if (activeView === "pagamentos") {
+        await carregarPagamentos();
     }
 }
 
@@ -965,6 +1232,31 @@ function criarLinhaPedidoDashboard(pedido) {
     return linha;
 }
 
+function criarLinhaPedidoAcaoDashboard(pedido) {
+    const linha = document.createElement("article");
+    linha.className = "dashboard-list-item";
+
+    const info = document.createElement("div");
+    const proximaAcao = obterProximaAcaoPedido(pedido);
+
+    const titulo = document.createElement("strong");
+    titulo.textContent = "#" + pedido.id + " - " + pedido.cliente.nome;
+
+    const detalhe = document.createElement("p");
+    detalhe.className = "muted-cell";
+    detalhe.textContent = proximaAcao.texto + " - " + formatarMoeda(pedido.total) +
+        " - " + formatarData(pedido.criadoEm);
+
+    info.append(titulo, detalhe);
+
+    const botao = criarBotao("Abrir");
+    botao.addEventListener("click", () => abrirModalPedido(pedido.id));
+
+    linha.append(info, botao);
+
+    return linha;
+}
+
 function criarLinhaProdutoEstoqueDashboard(produto) {
     const linha = document.createElement("article");
     linha.className = "dashboard-list-item";
@@ -1008,6 +1300,28 @@ async function irParaPedidosDashboard(status = "") {
     pedidoFiltrosForm.reset();
     pedidoClienteFiltro = null;
     pedidoStatusFiltro.value = status;
+    pedidoPrecisaAcaoFiltro.checked = false;
+    pedidoAcaoFiltro.value = "";
+    await carregarView();
+}
+
+async function irParaPedidosComAcaoDashboard() {
+    trocarView("pedidos");
+    pedidoFiltrosForm.reset();
+    pedidoClienteFiltro = null;
+    pedidoStatusFiltro.value = "";
+    pedidoPrecisaAcaoFiltro.checked = true;
+    pedidoAcaoFiltro.value = "";
+    await carregarView();
+}
+
+async function irParaPedidosPorTipoAcaoDashboard(tipoAcao) {
+    trocarView("pedidos");
+    pedidoFiltrosForm.reset();
+    pedidoClienteFiltro = null;
+    pedidoStatusFiltro.value = "";
+    pedidoPrecisaAcaoFiltro.checked = true;
+    pedidoAcaoFiltro.value = tipoAcao;
     await carregarView();
 }
 
@@ -1089,6 +1403,36 @@ function criarPainelAtalhosDashboard() {
     return painel;
 }
 
+function criarPainelResumoAcoesDashboard(pedidos, totaisAcoes = undefined) {
+    const painel = document.createElement("section");
+    painel.className = "dashboard-panel";
+
+    const heading = document.createElement("h2");
+    heading.textContent = "Resumo da fila";
+
+    const acoes = totaisAcoes ?? contarAcoesPedidos(pedidos);
+    const total = acoes.total ?? (acoes.pix + acoes.rastreio + acoes.envio);
+    const lista = document.createElement("div");
+    lista.className = "dashboard-actions";
+
+    const atalhos = [
+        ["Pix " + acoes.pix, () => irParaPedidosPorTipoAcaoDashboard("pix")],
+        ["Rastreio " + acoes.rastreio, () => irParaPedidosPorTipoAcaoDashboard("rastreio")],
+        ["Envio " + acoes.envio, () => irParaPedidosPorTipoAcaoDashboard("envio")],
+        ["Todos " + total, irParaPedidosComAcaoDashboard]
+    ];
+
+    for (const [texto, acao] of atalhos) {
+        const botao = criarBotao(texto);
+        botao.addEventListener("click", acao);
+        lista.append(botao);
+    }
+
+    painel.append(heading, lista);
+
+    return painel;
+}
+
 async function mostrarPedidosDashboard(titulo, status, opcoes = {}) {
     setFeedback(appFeedback, "Carregando " + titulo.toLowerCase() + "...");
 
@@ -1144,13 +1488,16 @@ function mostrarEstoqueDashboard(produtos) {
 }
 
 function renderizarPaineisDashboardPadrao(resumo) {
+    const pedidosComAcao = ordenarPedidosPorAcao(resumo.pedidosComAcao ?? []);
+
     dashboardAlerts.replaceChildren(
         criarPainelDashboard(
-            "Pedidos recentes",
-            resumo.pedidosRecentes ?? [],
-            criarLinhaPedidoDashboard,
-            "Nenhum pedido criado ainda."
+            "Fila de acoes",
+            pedidosComAcao,
+            criarLinhaPedidoAcaoDashboard,
+            "Nenhum pedido precisando de acao."
         ),
+        criarPainelResumoAcoesDashboard(pedidosComAcao, resumo.pedidos.acoes),
         criarPainelDashboard(
             "Estoque baixo",
             resumo.produtosEstoqueBaixo ?? [],
@@ -1171,9 +1518,9 @@ async function carregarDashboard() {
                 textoAcao: "Ver pedidos"
             })
         }),
-        criarStat("Em aberto", resumo.pedidos.pendentes, {
-            textoAcao: "Ver abertos",
-            acao: () => mostrarPedidosDashboard("Pedidos em aberto", "pendente")
+        criarStat("Precisam acao", resumo.pedidos.acoes?.total ?? (resumo.pedidos.pendentes + resumo.pedidos.pagos), {
+            textoAcao: "Abrir fila",
+            acao: irParaPedidosComAcaoDashboard
         }),
         criarStat("Estoque baixo", resumo.produtos.estoqueBaixo, {
             textoAcao: "Ver itens",
@@ -1509,12 +1856,37 @@ async function excluirProduto(produto) {
     }
 }
 
+function criarCelulaEnderecoCliente(cliente) {
+    const endereco = formatarEnderecoCliente(cliente);
+    const faltando = obterCamposEnderecoFaltando(cliente);
+    const wrapper = document.createElement("div");
+    wrapper.className = "cliente-endereco";
+
+    const texto = document.createElement("span");
+    texto.textContent = endereco || "Endereco nao informado";
+    wrapper.append(texto);
+
+    if (faltando.length > 0) {
+        const aviso = criarStatusBadge("incompleto", "Endereco incompleto");
+        const detalhe = document.createElement("small");
+        detalhe.textContent = "Falta: " + faltando.join(", ");
+        wrapper.append(aviso, detalhe);
+    }
+
+    return criarCelulaComConteudo(wrapper);
+}
+
 function criarLinhaCliente(cliente) {
     const tr = document.createElement("tr");
+    const enderecoIncompleto = !clienteTemEnderecoCompleto(cliente);
     const actions = document.createElement("div");
     actions.className = "actions";
 
-    const editar = criarBotao("Editar");
+    if (enderecoIncompleto) {
+        tr.classList.add("linha-alerta");
+    }
+
+    const editar = criarBotao(enderecoIncompleto ? "Completar endereco" : "Editar");
     const excluir = criarBotao("Excluir", "small-button danger-button");
     const whatsapp = criarLinkWhatsApp(cliente.telefone, "Ola, " + cliente.nome + ". Aqui e da Loja Japao.");
 
@@ -1533,7 +1905,7 @@ function criarLinhaCliente(cliente) {
         criarCelula(cliente.id),
         criarCelula(cliente.nome),
         criarCelula(cliente.telefone),
-        criarCelula(formatarEnderecoCliente(cliente)),
+        criarCelulaEnderecoCliente(cliente),
         tdActions
     );
 
@@ -1554,7 +1926,11 @@ async function carregarClientes() {
     }
 
     const resposta = await apiFetch("/clientes?" + parametros.toString());
-    const clientes = obterListaPaginada(resposta);
+    let clientes = obterListaPaginada(resposta);
+
+    if (clienteEnderecoIncompletoFiltro.checked) {
+        clientes = clientes.filter((cliente) => !clienteTemEnderecoCompleto(cliente));
+    }
 
     clientesTbody.replaceChildren(
         ...(clientes.length > 0 ? clientes.map(criarLinhaCliente) : [criarLinhaVazia(5, "Nenhum cliente encontrado")])
@@ -1962,6 +2338,79 @@ function criarSecaoPedido(titulo) {
     return secao;
 }
 
+function criarWhatsAppPedido(pedido, cliente) {
+    const secao = criarSecaoPedido("WhatsApp");
+    const pedidoComCliente = {
+        ...pedido,
+        cliente
+    };
+    const telefone = obterTelefoneContatoPedido(pedidoComCliente);
+
+    if (!telefone) {
+        const aviso = document.createElement("p");
+        aviso.textContent = "Telefone do pedido nao disponivel.";
+        secao.append(aviso);
+        return secao;
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "pedido-whatsapp-actions";
+
+    function adicionarMensagem(texto, etapa) {
+        const mensagem = montarMensagemWhatsAppPedidoEtapa(pedidoComCliente, etapa);
+        const grupo = document.createElement("div");
+        grupo.className = "message-action";
+        const link = criarLinkWhatsApp(
+            telefone,
+            mensagem
+        );
+
+        if (link) {
+            link.textContent = texto;
+            grupo.append(link);
+        }
+
+        const copiar = criarBotao("Copiar");
+        copiar.addEventListener("click", async () => {
+            try {
+                await copiarTexto(mensagem);
+                setFeedback(pedidoFeedback, "Mensagem copiada.", "success");
+            } catch {
+                setFeedback(pedidoFeedback, "Nao foi possivel copiar a mensagem.", "error");
+            }
+        });
+        grupo.append(copiar);
+
+        if (grupo.children.length > 0) {
+            actions.append(grupo);
+        }
+    }
+
+    if (pedido.status === "pendente" && pedido.pix?.chave && pedido.pix?.recebedor) {
+        adicionarMensagem("Enviar dados Pix", "pix");
+    }
+
+    if (pedido.status === "pago" || pedido.status === "enviado") {
+        adicionarMensagem("Enviar pagamento aprovado", "pagamento");
+    }
+
+    if (pedido.transportadora && pedido.codigoRastreio) {
+        adicionarMensagem("Enviar rastreio", "rastreio");
+    }
+
+    adicionarMensagem("Enviar status atual", "status");
+
+    if (actions.children.length === 0) {
+        const aviso = document.createElement("p");
+        aviso.textContent = "Telefone invalido para WhatsApp.";
+        secao.append(aviso);
+        return secao;
+    }
+
+    secao.append(actions);
+    return secao;
+}
+
 function criarRastreioPedido(pedido) {
     const secao = criarSecaoPedido("Rastreio do envio");
     if (pedido.status !== "pago" && pedido.status !== "enviado") {
@@ -2014,8 +2463,56 @@ function criarRastreioPedido(pedido) {
     mensagem.setAttribute("role", "status");
     const salvar = criarBotao("Salvar rastreio");
     salvar.type = "submit";
+    const acoesEnvio = document.createElement("div");
+    acoesEnvio.className = "actions field-wide";
     atualizarLinkRastreio();
-    form.append(aviso, links, salvar, mensagem);
+
+    if (pedido.status === "pago" && pedido.transportadora && pedido.codigoRastreio) {
+        const marcarEnviado = criarBotao("Marcar como enviado");
+        marcarEnviado.addEventListener("click", async () => {
+            if (marcarEnviado.disabled) return;
+
+            const confirmou = window.confirm(
+                "Marcar o pedido #" + pedido.id + " como enviado? " +
+                "Confira se o rastreio salvo esta correto antes de continuar."
+            );
+
+            if (!confirmou) return;
+
+            marcarEnviado.disabled = true;
+            salvar.disabled = true;
+            transportadora.disabled = true;
+            codigo.disabled = true;
+            setFeedback(mensagem, "Marcando pedido como enviado...");
+
+            try {
+                await apiFetch("/pedidos/" + pedido.id + "/status", {
+                    method: "PATCH",
+                    body: JSON.stringify({ status: "enviado" })
+                });
+
+                await recarregarTelaAposAlterarPedido();
+
+                await carregarDetalhesPedidoNoModal(pedido.id, consultaPedidoAtual);
+                setFeedback(appFeedback, "Pedido #" + pedido.id + " marcado como enviado.", "success");
+            } catch (erro) {
+                setFeedback(mensagem, erro.message, "error");
+                marcarEnviado.disabled = false;
+                salvar.disabled = false;
+                transportadora.disabled = false;
+                codigo.disabled = false;
+            }
+        });
+        acoesEnvio.append(marcarEnviado);
+    }
+
+    form.append(
+        aviso,
+        links,
+        salvar,
+        ...(acoesEnvio.children.length > 0 ? [acoesEnvio] : []),
+        mensagem
+    );
     form.addEventListener("submit", async (evento) => {
         evento.preventDefault();
         if (salvar.disabled) return;
@@ -2040,9 +2537,9 @@ function criarRastreioPedido(pedido) {
             atualizarLinkRastreio();
             setFeedback(mensagem, "Rastreio salvo.", "success");
 
-            if (activeView === "pedidos") {
-                await carregarPedidos();
-            }
+            await recarregarTelaAposAlterarPedido();
+
+            await carregarDetalhesPedidoNoModal(pedido.id, consultaPedidoAtual);
         } catch (erro) {
             setFeedback(mensagem, erro.message, "error");
         } finally {
@@ -2125,22 +2622,6 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     acompanhamentoActions.append(linkAcompanhamento, copiarLink);
     entrega.append(acompanhamentoActions);
 
-    const whatsappPedido = criarLinkWhatsApp(
-        obterTelefoneContatoPedido({
-            ...pedido,
-            cliente
-        }),
-        montarMensagemWhatsAppPedido({
-            ...pedido,
-            cliente
-        })
-    );
-
-    if (whatsappPedido) {
-        whatsappPedido.textContent = "Enviar status por WhatsApp";
-        entrega.append(whatsappPedido);
-    }
-
     const itens = criarSecaoPedido('Itens');
     for (const item of pedido.itens) {
         const linha = document.createElement('p');
@@ -2161,6 +2642,11 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
             formatarData(pagamento.criadoEm);
         financeiro.append(linha);
     }
+    if (pedido.status === "pendente") {
+        const confirmarPix = criarBotao("Confirmar recebimento do Pix");
+        confirmarPix.addEventListener("click", () => abrirModalConfirmacaoPix(pedido, null, pedido.id));
+        financeiro.append(confirmarPix);
+    }
     const observacao = criarSecaoPedido('Observação');
     const texto = document.createElement('p');
     texto.textContent = pedido.observacao || 'Nenhuma observação.';
@@ -2168,6 +2654,7 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     pedidoConteudo.replaceChildren(
         resumo,
         entrega,
+        criarWhatsAppPedido(pedido, cliente),
         criarRastreioPedido(pedido),
         criarHistoricoPedido(pedido),
         itens,
@@ -2176,15 +2663,9 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     );
 }
 
-async function abrirModalPedido(pedidoId) {
-    const consulta = ++consultaPedidoAtual;
-    pedidoTitulo.textContent = 'Pedido #' + pedidoId;
-    pedidoConteudo.replaceChildren();
+async function carregarDetalhesPedidoNoModal(pedidoId, consulta) {
     setFeedback(pedidoFeedback, 'Carregando detalhes...');
     pedidoConteudo.setAttribute('aria-busy', 'true');
-    travarScrollPagina();
-    pedidoModal.showModal();
-    pedidoFechar.focus();
 
     try {
         const pedido = await apiFetch('/pedidos/' + pedidoId);
@@ -2205,6 +2686,16 @@ async function abrirModalPedido(pedidoId) {
     }
 }
 
+async function abrirModalPedido(pedidoId) {
+    const consulta = ++consultaPedidoAtual;
+    pedidoTitulo.textContent = 'Pedido #' + pedidoId;
+    pedidoConteudo.replaceChildren();
+    travarScrollPagina();
+    pedidoModal.showModal();
+    pedidoFechar.focus();
+    await carregarDetalhesPedidoNoModal(pedidoId, consulta);
+}
+
 async function irParaPedido(pedidoId) {
     trocarView("pedidos");
     await carregarView();
@@ -2218,6 +2709,29 @@ pedidoModal.addEventListener('close', () => {
     pedidoConteudo.replaceChildren();
     pedidoConteudo.setAttribute('aria-busy', 'false');
     liberarScrollPagina();
+});
+
+pixConfirmacaoCancelar.addEventListener("click", () => pixModal.close());
+pixConfirmacaoForm.addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    await registrarPagamentoPedido();
+});
+pixModal.addEventListener("cancel", (evento) => {
+    if (pixConfirmacaoConfirmar.disabled) {
+        evento.preventDefault();
+    }
+});
+pixModal.addEventListener("close", () => {
+    pixConfirmacaoPedido = null;
+    pixConfirmacaoActions = null;
+    pixConfirmacaoPedidoDetalheId = null;
+    pixConfirmacaoDados.replaceChildren();
+    pixConfirmacaoConfirmar.disabled = false;
+    pixConfirmacaoCancelar.disabled = false;
+    setFeedback(pixConfirmacaoFeedback, "");
+    if (!pedidoModal.open) {
+        liberarScrollPagina();
+    }
 });
 
 function criarCelulaClientePedido(pedido) {
@@ -2248,10 +2762,73 @@ function criarCelulaClientePedido(pedido) {
     return td;
 }
 
+function obterProximaAcaoPedido(pedido) {
+    if (pedido.status === "pendente") {
+        return {
+            texto: "Confirmar Pix",
+            detalhe: "Aguardando comprovante ou conferencia na conta.",
+            status: "pendente",
+            prioridade: "pix"
+        };
+    }
+
+    if (pedido.status === "pago") {
+        if (pedido.transportadora && pedido.codigoRastreio) {
+            return {
+                texto: "Marcar enviado",
+                detalhe: "Rastreio salvo. Falta atualizar o status.",
+                status: "pago",
+                prioridade: "envio"
+            };
+        }
+
+        return {
+            texto: "Informar rastreio",
+            detalhe: "Pagamento confirmado. Falta transportadora e codigo.",
+            status: "cotada",
+            prioridade: "rastreio"
+        };
+    }
+
+    if (pedido.status === "enviado") {
+        return {
+            texto: "Acompanhar entrega",
+            detalhe: pedido.codigoRastreio ? pedido.codigoRastreio : "Pedido ja saiu para envio.",
+            status: "enviado",
+            prioridade: "ok"
+        };
+    }
+
+    return {
+        texto: "Encerrado",
+        detalhe: "Pedido cancelado.",
+        status: "cancelado",
+        prioridade: "ok"
+    };
+}
+
+function criarCelulaProximaAcaoPedido(pedido) {
+    const proximaAcao = obterProximaAcaoPedido(pedido);
+    const wrapper = document.createElement("div");
+    wrapper.className = "pedido-proxima-acao";
+
+    const badge = criarStatusBadge(proximaAcao.status, proximaAcao.texto);
+    const detalhe = document.createElement("small");
+    detalhe.textContent = proximaAcao.detalhe;
+
+    wrapper.append(badge, detalhe);
+    return criarCelulaComConteudo(wrapper);
+}
+
 function criarLinhaPedido(pedido) {
     const tr = document.createElement("tr");
+    const proximaAcao = obterProximaAcaoPedido(pedido);
     const actions = document.createElement("div");
     actions.className = "actions";
+
+    if (pedidoPrecisaAcao(pedido)) {
+        tr.classList.add("pedido-linha-acao", "pedido-linha-" + proximaAcao.prioridade);
+    }
 
     const detalhes = criarBotao("Ver detalhes");
     detalhes.addEventListener("click", () => abrirModalPedido(pedido.id));
@@ -2265,7 +2842,7 @@ function criarLinhaPedido(pedido) {
 
     if (pedido.status === "pendente") {
         const registrarPagamento = criarBotao("Confirmar recebimento do Pix");
-        registrarPagamento.addEventListener("click", () => registrarPagamentoPedido(pedido.id, actions));
+        registrarPagamento.addEventListener("click", () => abrirModalConfirmacaoPix(pedido, actions));
         actions.append(registrarPagamento);
     }
     if (pedido.status === "pago") {
@@ -2289,6 +2866,7 @@ function criarLinhaPedido(pedido) {
         criarCelulaClientePedido(pedido),
         criarCelula(formatarMoeda(pedido.total)),
         criarCelulaComConteudo(criarStatusBadge(pedido.status)),
+        criarCelulaProximaAcaoPedido(pedido),
         criarCelula(pedido.observacao ?? "-"),
         criarCelula(formatarData(pedido.criadoEm)),
         tdActions
@@ -2303,6 +2881,7 @@ async function carregarPedidos() {
     const parametros = new URLSearchParams({ limite: "50" });
     const status = pedidoStatusFiltro.value;
     const busca = pedidoBuscaFiltro.value.trim();
+    const tipoAcao = pedidoAcaoFiltro.value;
 
     if (!pedidoClienteFiltro && status) {
         parametros.set("status", status);
@@ -2327,8 +2906,18 @@ async function carregarPedidos() {
         pedidos = pedidos.filter((pedido) => pedidoConfereBuscaLocal(pedido, busca));
     }
 
+    if (pedidoPrecisaAcaoFiltro.checked) {
+        pedidos = pedidos.filter(pedidoPrecisaAcao);
+        pedidos = ordenarPedidosPorAcao(pedidos);
+    }
+
+    if (tipoAcao) {
+        pedidos = pedidos.filter((pedido) => obterTipoAcaoPedido(pedido) === tipoAcao);
+        pedidos = ordenarPedidosPorAcao(pedidos);
+    }
+
     pedidosTbody.replaceChildren(
-        ...(pedidos.length > 0 ? pedidos.map(criarLinhaPedido) : [criarLinhaVazia(7, "Nenhum pedido encontrado")])
+        ...(pedidos.length > 0 ? pedidos.map(criarLinhaPedido) : [criarLinhaVazia(8, "Nenhum pedido encontrado")])
     );
 
     atualizarContextoFiltroPedidos();
@@ -2347,10 +2936,13 @@ async function carregarDadosFormularioPedido(forcar = false) {
 
     const clientes = obterListaPaginada(clientesResposta);
     const produtos = obterListaPaginada(produtosResposta);
+    pedidoClientesDisponiveis = clientes;
     pedidoProdutosDisponiveis = produtos;
 
     preencherSelect(pedidoCliente, clientes, (cliente) => {
-        return "#" + cliente.id + " - " + cliente.nome + " - " + cliente.telefone;
+        const endereco = clienteTemEnderecoCompleto(cliente) ? "" : " - endereco incompleto";
+
+        return "#" + cliente.id + " - " + cliente.nome + " - " + cliente.telefone + endereco;
     }, "Nenhum cliente cadastrado", "Selecione um cliente");
 
     preencherSelect(pedidoProduto, produtos, (produto) => {
@@ -2361,44 +2953,70 @@ async function carregarDadosFormularioPedido(forcar = false) {
     pedidoFormDadosCarregados = true;
 }
 
-async function registrarPagamentoPedido(pedidoId, actions) {
-    if (actions.dataset.atualizando === "true") return;
+function abrirModalConfirmacaoPix(pedido, actions = null, pedidoDetalheId = null) {
+    if (actions?.dataset.atualizando === "true") return;
 
-    const confirmou = window.confirm(
-        "Voce conferiu na sua conta o recebimento do valor total do pedido #" + pedidoId + "? " +
-        "Confirme somente apos verificar o dinheiro recebido. O pedido sera marcado como pago."
+    pixConfirmacaoPedido = pedido;
+    pixConfirmacaoActions = actions;
+    pixConfirmacaoPedidoDetalheId = pedidoDetalheId;
+    const nomeContato = obterNomeContatoPedido(pedido) || (pedido.cliente ? pedido.cliente.nome : "Cliente #" + pedido.clienteId);
+    const telefoneContato = obterTelefoneContatoPedido(pedido) || "-";
+
+    pixConfirmacaoDados.replaceChildren(
+        criarItemConfirmacaoPix("Pedido", "#" + pedido.id),
+        criarItemConfirmacaoPix("Cliente", nomeContato),
+        criarItemConfirmacaoPix("Telefone", telefoneContato),
+        criarItemConfirmacaoPix("Valor", formatarMoeda(pedido.total))
     );
+    setFeedback(pixConfirmacaoFeedback, "");
+    travarScrollPagina();
+    pixModal.showModal();
+    pixConfirmacaoCancelar.focus();
+}
 
-    if (!confirmou) {
-        return;
-    }
+async function registrarPagamentoPedido() {
+    const pedido = pixConfirmacaoPedido;
+    const actions = pixConfirmacaoActions;
+    const pedidoDetalheId = pixConfirmacaoPedidoDetalheId;
+
+    if (!pedido || actions?.dataset.atualizando === "true") return;
 
     const metodo = "pix";
 
-    actions.dataset.atualizando = "true";
-    const botoes = actions.querySelectorAll("button, a");
+    if (actions) {
+        actions.dataset.atualizando = "true";
+    }
+    const botoes = actions ? actions.querySelectorAll("button, a") : [];
     botoes.forEach(botao => { botao.disabled = true; });
+    pixConfirmacaoConfirmar.disabled = true;
+    pixConfirmacaoCancelar.disabled = true;
+    setFeedback(pixConfirmacaoFeedback, "Confirmando recebimento...");
 
     try {
         await apiFetch("/pagamentos", {
             method: "POST",
             body: JSON.stringify({
-                pedidoId,
+                pedidoId: pedido.id,
                 metodo
             })
         });
 
-        await carregarPedidos();
+        pixModal.close();
+        await recarregarTelaAposAlterarPedido();
 
-        if (activeView === "pagamentos") {
-            await carregarPagamentos();
+        if (pedidoDetalheId && pedidoModal.open) {
+            await carregarDetalhesPedidoNoModal(pedidoDetalheId, consultaPedidoAtual);
         }
 
-        setFeedback(appFeedback, "Recebimento do Pix confirmado e pedido #" + pedidoId + " marcado como pago.", "success");
+        setFeedback(appFeedback, "Recebimento do Pix confirmado e pedido #" + pedido.id + " marcado como pago.", "success");
     } catch (erro) {
-        setFeedback(appFeedback, erro.message, "error");
-        actions.dataset.atualizando = "false";
+        setFeedback(pixConfirmacaoFeedback, erro.message, "error");
+        if (actions) {
+            actions.dataset.atualizando = "false";
+        }
         botoes.forEach(botao => { botao.disabled = false; });
+        pixConfirmacaoConfirmar.disabled = false;
+        pixConfirmacaoCancelar.disabled = false;
     }
 }
 
@@ -2431,7 +3049,7 @@ async function atualizarStatusPedido(pedidoId, status, actions) {
     }
 
     try {
-        await carregarPedidos();
+        await recarregarTelaAposAlterarPedido();
         setFeedback(appFeedback, "Pedido #" + pedidoId + " atualizado para " + status + ".", "success");
     } catch {
         // O status foi salvo: mantém as ações antigas bloqueadas até recarregar.
@@ -2955,6 +3573,11 @@ clienteFiltrosLimpar.addEventListener("click", async () => {
 });
 clienteNomeFiltro.addEventListener("input", agendarBuscaClientes);
 clienteTelefoneFiltro.addEventListener("input", agendarBuscaClientes);
+clienteEnderecoIncompletoFiltro.addEventListener("change", async () => {
+    if (activeView === "clientes") {
+        await carregarClientes();
+    }
+});
 
 produtoEditCancelar.addEventListener("click", fecharModalProduto);
 
@@ -3020,6 +3643,14 @@ pedidoForm.addEventListener("submit", async (evento) => {
 
     if (!Number.isInteger(clienteId) || clienteId <= 0 || !Number.isInteger(produtoId) || produtoId <= 0) {
         setFeedback(appFeedback, "Selecione cliente e produto", "error");
+        return;
+    }
+
+    const clienteSelecionado = pedidoClientesDisponiveis.find((cliente) => cliente.id === clienteId);
+
+    if (clienteSelecionado && !clienteTemEnderecoCompleto(clienteSelecionado)) {
+        setFeedback(appFeedback, "Complete o endereco do cliente antes de criar o pedido.", "error");
+        abrirModalCliente(clienteSelecionado);
         return;
     }
 
@@ -3094,7 +3725,11 @@ pedidoForm.addEventListener("submit", async (evento) => {
         );
         await abrirModalPedido(pedido.id);
     } catch (erro) {
-        setFeedback(appFeedback, "Nao foi possivel criar o pedido: " + erro.message, "error");
+        const mensagem = erro.message.includes("endereco do cliente")
+            ? erro.message + ". Abra o cliente selecionado e preencha CEP, rua, numero, bairro, cidade e estado."
+            : erro.message;
+
+        setFeedback(appFeedback, "Nao foi possivel criar o pedido: " + mensagem, "error");
     } finally {
         pedidoForm.dataset.enviando = "false";
     }
@@ -3121,6 +3756,34 @@ pedidoFiltrosLimpar.addEventListener("click", async () => {
 pedidoBuscaFiltro.addEventListener("input", agendarBuscaPedidos);
 
 pedidoStatusFiltro.addEventListener("change", async () => {
+    if (pedidoStatusFiltro.value) {
+        pedidoPrecisaAcaoFiltro.checked = false;
+        pedidoAcaoFiltro.value = "";
+    }
+
+    if (activeView === "pedidos") {
+        await carregarPedidos();
+    }
+});
+
+pedidoPrecisaAcaoFiltro.addEventListener("change", async () => {
+    if (pedidoPrecisaAcaoFiltro.checked) {
+        pedidoStatusFiltro.value = "";
+    } else {
+        pedidoAcaoFiltro.value = "";
+    }
+
+    if (activeView === "pedidos") {
+        await carregarPedidos();
+    }
+});
+
+pedidoAcaoFiltro.addEventListener("change", async () => {
+    if (pedidoAcaoFiltro.value) {
+        pedidoPrecisaAcaoFiltro.checked = true;
+        pedidoStatusFiltro.value = "";
+    }
+
     if (activeView === "pedidos") {
         await carregarPedidos();
     }

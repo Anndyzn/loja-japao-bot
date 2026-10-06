@@ -9,12 +9,15 @@ export async function obterResumoDashboard() {
         pedidosPendentes,
         pedidosPagos,
         pedidosEnviados,
+        pedidosAguardandoRastreio,
+        pedidosProntosParaEnvio,
         faturamentoConfirmado,
         totalPagamentos,
         pagamentosAprovados,
         totalSolicitacoes,
         solicitacoesAbertas,
         pedidosRecentes,
+        pedidosComAcao,
         produtosEstoqueBaixoLista
     ] = await Promise.all([
         prisma.produto.count(),
@@ -40,6 +43,30 @@ export async function obterResumoDashboard() {
         prisma.pedido.count({
             where: {
                 status: "enviado"
+            }
+        }),
+        prisma.pedido.count({
+            where: {
+                status: "pago",
+                OR: [
+                    {
+                        transportadora: null
+                    },
+                    {
+                        codigoRastreio: null
+                    }
+                ]
+            }
+        }),
+        prisma.pedido.count({
+            where: {
+                status: "pago",
+                transportadora: {
+                    not: null
+                },
+                codigoRastreio: {
+                    not: null
+                }
             }
         }),
         prisma.pedido.aggregate({
@@ -68,6 +95,26 @@ export async function obterResumoDashboard() {
         }),
         prisma.pedido.findMany({
             take: 5,
+            include: {
+                cliente: {
+                    select: {
+                        id: true,
+                        nome: true,
+                        telefone: true
+                    }
+                }
+            },
+            orderBy: {
+                criadoEm: "desc"
+            }
+        }),
+        prisma.pedido.findMany({
+            take: 10,
+            where: {
+                status: {
+                    in: ["pendente", "pago"]
+                }
+            },
             include: {
                 cliente: {
                     select: {
@@ -119,6 +166,12 @@ export async function obterResumoDashboard() {
             pendentes: pedidosPendentes,
             pagos: pedidosPagos,
             enviados: pedidosEnviados,
+            acoes: {
+                total: pedidosPendentes + pedidosAguardandoRastreio + pedidosProntosParaEnvio,
+                pix: pedidosPendentes,
+                rastreio: pedidosAguardandoRastreio,
+                envio: pedidosProntosParaEnvio
+            },
             faturamentoConfirmado: Number(faturamentoConfirmado._sum.total ?? 0)
         },
         pagamentos: {
@@ -139,6 +192,21 @@ export async function obterResumoDashboard() {
                 },
                 total: Number(pedido.total),
                 status: pedido.status,
+                criadoEm: pedido.criadoEm.toISOString()
+            };
+        }),
+        pedidosComAcao: pedidosComAcao.map((pedido) => {
+            return {
+                id: pedido.id,
+                cliente: {
+                    id: pedido.cliente.id,
+                    nome: pedido.cliente.nome,
+                    telefone: pedido.cliente.telefone
+                },
+                total: Number(pedido.total),
+                status: pedido.status,
+                transportadora: pedido.transportadora,
+                codigoRastreio: pedido.codigoRastreio,
                 criadoEm: pedido.criadoEm.toISOString()
             };
         }),

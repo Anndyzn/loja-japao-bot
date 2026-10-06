@@ -329,8 +329,15 @@ p {
     margin-bottom: 12px;
 }
 
-.security-form {
-    width: min(520px, 100%);
+.security-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 520px) minmax(280px, 420px);
+    gap: 16px;
+    align-items: start;
+}
+
+.security-form,
+.security-panel {
     display: grid;
     gap: 14px;
     background: var(--panel);
@@ -343,12 +350,40 @@ p {
     font-size: 1.2rem;
 }
 
+.security-panel h3 {
+    font-size: 1.2rem;
+}
+
 .security-form button {
     justify-content: center;
 }
 
 .security-form .feedback {
     margin-top: 0;
+}
+
+.security-status {
+    display: grid;
+    gap: 10px;
+}
+
+.security-status-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+}
+
+.security-status-line:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.security-status-line span:first-child {
+    color: var(--muted);
+    font-weight: 800;
 }
 
 .form-hint {
@@ -435,7 +470,7 @@ p {
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 860px;
+    min-width: 920px;
 }
 
 .pedidos-table {
@@ -472,6 +507,10 @@ td {
     width: 110px;
 }
 
+.col-proxima-acao {
+    width: 150px;
+}
+
 .col-data {
     width: 110px;
 }
@@ -504,6 +543,38 @@ th {
 
 tr:last-child td {
     border-bottom: 0;
+}
+
+.linha-alerta td {
+    background: #fffaf0;
+}
+
+.pedido-linha-acao td:first-child {
+    border-left: 4px solid #dec77a;
+}
+
+.pedido-linha-pix td {
+    background: #fffaf0;
+}
+
+.pedido-linha-rastreio td {
+    background: #f6fbf8;
+}
+
+.pedido-linha-envio td {
+    background: #f5f8fc;
+}
+
+.pedido-linha-pix td:first-child {
+    border-left-color: #dec77a;
+}
+
+.pedido-linha-rastreio td:first-child {
+    border-left-color: #9acdbb;
+}
+
+.pedido-linha-envio td:first-child {
+    border-left-color: #9fbfdf;
 }
 
 .actions {
@@ -607,6 +678,36 @@ tr:last-child td {
     color: #7c272d;
 }
 
+.status-incompleto {
+    border-color: #e1be73;
+    background: #fff4d8;
+    color: #705413;
+}
+
+.cliente-endereco {
+    display: grid;
+    gap: 6px;
+    align-items: start;
+}
+
+.cliente-endereco small {
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.pedido-proxima-acao {
+    display: grid;
+    gap: 6px;
+    align-items: start;
+}
+
+.pedido-proxima-acao small {
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
 .cell-title {
     margin: 0 0 4px;
     font-weight: 800;
@@ -655,6 +756,21 @@ tr:last-child td {
 
 .solicitacoes-table td:last-child .actions button,
 .solicitacoes-table td:last-child .actions select {
+    width: 100%;
+}
+
+.pedido-whatsapp-actions {
+    display: grid;
+    gap: 8px;
+}
+
+.message-action {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.message-action .small-button {
     width: 100%;
 }
 
@@ -754,6 +870,33 @@ tr:last-child td {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
+}
+
+.pix-confirmacao-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.pix-confirmacao-grid div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fbfaf7;
+}
+
+.pix-confirmacao-grid span {
+    color: var(--muted);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.pix-confirmacao-grid strong {
+    text-align: right;
+    overflow-wrap: anywhere;
 }
 
 .cliente-historico-resumo {
@@ -889,6 +1032,7 @@ tr:last-child td {
     .product-form,
     .order-form,
     .modal-grid,
+    .security-layout,
     .cliente-metricas-grid,
     .cliente-resumo-grid {
         grid-template-columns: 1fr;

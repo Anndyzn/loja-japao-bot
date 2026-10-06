@@ -98,7 +98,10 @@ export async function buscarPedidoPorId(req: Request, res: Response) {
         });
     }
 
-    return res.json(pedido);
+    return res.json({
+        ...pedido,
+        pix: obterPixManual(pedido.status)
+    });
 }
 
 export async function acompanharPedido(req: Request, res: Response) {
