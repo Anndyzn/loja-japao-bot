@@ -15,7 +15,8 @@ export function validarCriacaoProduto(
     preco: unknown,
     estoque: unknown,
     imagemUrl: unknown,
-    publicadoNaLoja: unknown
+    publicadoNaLoja: unknown,
+    tipoEnvio: unknown
 ) {
     if (campoTextoObrigatorioEhInvalido(nome)) {
         return "Nome deve ser um texto nao vazio";
@@ -37,6 +38,10 @@ export function validarCriacaoProduto(
         return "Publicado na loja deve ser verdadeiro ou falso";
     }
 
+    if (tipoEnvio !== undefined && tipoEnvio !== "nacional" && tipoEnvio !== "internacional_direto") {
+        return "Tipo de envio do produto invalido";
+    }
+
     return undefined;
 }
 
@@ -45,14 +50,16 @@ export function validarAtualizacaoProduto(
     preco: unknown,
     estoque: unknown,
     imagemUrl: unknown,
-    publicadoNaLoja: unknown
+    publicadoNaLoja: unknown,
+    tipoEnvio: unknown
 ) {
     if (
         nome === undefined &&
         preco === undefined &&
         estoque === undefined &&
         imagemUrl === undefined &&
-        publicadoNaLoja === undefined
+        publicadoNaLoja === undefined &&
+        tipoEnvio === undefined
     ) {
         return "Informe ao menos um campo para atualizar";
     }
@@ -75,6 +82,10 @@ export function validarAtualizacaoProduto(
 
     if (publicadoNaLoja !== undefined && typeof publicadoNaLoja !== "boolean") {
         return "Publicado na loja deve ser verdadeiro ou falso";
+    }
+
+    if (tipoEnvio !== undefined && tipoEnvio !== "nacional" && tipoEnvio !== "internacional_direto") {
+        return "Tipo de envio do produto invalido";
     }
 
     return undefined;
@@ -296,9 +307,24 @@ export function validarAtualizacaoStatusSolicitacao(status: unknown) {
     return undefined;
 }
 
-export function validarAtualizacaoCotacaoSolicitacao(valorCotado: unknown, observacaoAdmin: unknown) {
+export function validarAtualizacaoCotacaoSolicitacao(
+    valorCotado: unknown,
+    observacaoAdmin: unknown,
+    freteInternacionalCotado?: unknown
+) {
     if (typeof valorCotado !== "number" || !Number.isFinite(valorCotado) || valorCotado <= 0) {
         return "Valor cotado deve ser um numero maior que zero";
+    }
+
+    if (
+        freteInternacionalCotado !== undefined &&
+        (
+            typeof freteInternacionalCotado !== "number" ||
+            !Number.isFinite(freteInternacionalCotado) ||
+            freteInternacionalCotado < 0
+        )
+    ) {
+        return "Frete internacional deve ser um numero maior ou igual a zero";
     }
 
     if (campoTextoOpcionalEhInvalido(observacaoAdmin)) {

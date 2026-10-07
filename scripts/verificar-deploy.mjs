@@ -4,14 +4,25 @@ import { resolve } from "node:path";
 
 const SEGREDOS_PROIBIDOS = new Set([
     "segredo-local-de-desenvolvimento",
-    "troque-este-segredo-em-producao"
+    "troque-este-segredo-em-producao",
+    "gere-um-segredo-com-npm-run-gerar-segredo"
 ]);
 const SENHAS_ADMIN_PROIBIDAS = new Set([
     "admin123",
     "123456",
     "12345678",
     "password",
-    "senha123"
+    "senha123",
+    "troque-esta-senha"
+]);
+const EMAILS_ADMIN_PROIBIDOS = new Set([
+    "admin@example.com",
+    "seu-email-admin"
+]);
+const PLACEHOLDERS_FRETE = new Set([
+    "cole-seu-token-sandbox-aqui",
+    "seu-email@example.com",
+    "00000000"
 ]);
 
 const erros = [];
@@ -156,6 +167,8 @@ function validarAdminInicial() {
         erros.push("ADMIN_EMAIL nao configurado");
     } else if (!email.includes("@")) {
         erros.push("ADMIN_EMAIL parece invalido");
+    } else if (EMAILS_ADMIN_PROIBIDOS.has(email.toLowerCase())) {
+        erros.push("ADMIN_EMAIL nao pode usar valor de exemplo");
     } else {
         oks.push("ADMIN_EMAIL configurado");
     }
@@ -206,9 +219,13 @@ function validarFrete() {
     const producao = obterVariavel("NODE_ENV") === "production";
     const problemas = producao ? erros : avisos;
     const ambiente = obterVariavel("MELHOR_ENVIO_AMBIENTE") || "sandbox";
-    if (!/^\d{8}$/.test(obterVariavel("FRETE_CEP_ORIGEM").replace(/\D/g, ""))) problemas.push("FRETE_CEP_ORIGEM deve conter os 8 digitos do CEP de postagem");
-    if (!obterVariavel("MELHOR_ENVIO_TOKEN")) problemas.push("MELHOR_ENVIO_TOKEN nao configurado; cotacao de frete indisponivel");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(obterVariavel("MELHOR_ENVIO_CONTATO"))) problemas.push("MELHOR_ENVIO_CONTATO deve ser um email valido");
+    const cepOrigem = obterVariavel("FRETE_CEP_ORIGEM").replace(/\D/g, "");
+    const token = obterVariavel("MELHOR_ENVIO_TOKEN");
+    const contato = obterVariavel("MELHOR_ENVIO_CONTATO");
+
+    if (!/^\d{8}$/.test(cepOrigem) || PLACEHOLDERS_FRETE.has(cepOrigem)) problemas.push("FRETE_CEP_ORIGEM deve conter os 8 digitos reais do CEP de postagem");
+    if (!token || PLACEHOLDERS_FRETE.has(token)) problemas.push("MELHOR_ENVIO_TOKEN nao configurado; cotacao de frete indisponivel");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contato) || PLACEHOLDERS_FRETE.has(contato)) problemas.push("MELHOR_ENVIO_CONTATO deve ser um email valido e real");
     if (!["sandbox", "production"].includes(ambiente)) erros.push("MELHOR_ENVIO_AMBIENTE deve ser sandbox ou production");
     else if (ambiente === "sandbox") problemas.push("Frete em sandbox: apenas simulacao. Para publicar, configure production e o token de producao");
     else oks.push("Frete configurado para consultar o ambiente de producao");

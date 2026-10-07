@@ -341,6 +341,17 @@ p {
     padding: 5px 9px;
 }
 
+.product-badge-international {
+    background: #e9f1fb;
+    color: var(--blue);
+}
+
+.product-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
 .floating-cart-button {
     position: fixed;
     right: 18px;
@@ -473,6 +484,10 @@ p {
     display: grid;
     grid-template-columns: 82px 1fr;
     gap: 8px;
+}
+
+.product-actions-single {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .checkout-page {

@@ -168,9 +168,33 @@ export async function listarPedidosPorCliente(req: Request, res: Response) {
 }
 
 export async function cadastrarPedido(req: Request, res: Response) {
-    const { clienteId, itens, observacao, freteToken } = req.body;
-    if (typeof freteToken !== "string" || !freteToken || freteToken.length > 8000) {
+    const {
+        clienteId,
+        itens,
+        observacao,
+        freteToken,
+        tipoEnvio,
+        clienteCienteTaxasImportacao,
+        freteInternacionalValor
+    } = req.body;
+    const tipoEnvioTratado = tipoEnvio === "internacional_direto" ? "internacional_direto" : "nacional";
+
+    if (tipoEnvio !== undefined && tipoEnvio !== "nacional" && tipoEnvio !== "internacional_direto") {
+        return res.status(400).json({ mensagem: "Tipo de envio invalido" });
+    }
+
+    if (tipoEnvioTratado === "nacional" && (typeof freteToken !== "string" || !freteToken || freteToken.length > 8000)) {
         return res.status(400).json({ mensagem: "Calcule e selecione o frete antes de criar o pedido" });
+    }
+
+    if (
+        tipoEnvioTratado === "internacional_direto" &&
+        freteInternacionalValor !== undefined &&
+        (typeof freteInternacionalValor !== "number" || !Number.isFinite(freteInternacionalValor) || freteInternacionalValor < 0)
+    ) {
+        return res.status(400).json({
+            mensagem: "Frete internacional deve ser um numero maior ou igual a zero"
+        });
     }
 
     const erroValidacao = validarCriacaoPedido(clienteId, itens, observacao);
@@ -190,9 +214,20 @@ export async function cadastrarPedido(req: Request, res: Response) {
         });
     }
 
+    if (tipoEnvioTratado === "internacional_direto" && !permissaoProdutoInterno.permitir) {
+        return res.status(401).json({
+            mensagem: "Envio internacional direto so pode ser criado pelo admin"
+        });
+    }
+
     const resultado = await criarPedido(clienteId, itens, observacaoTratada, {
         permitirProdutoInterno: permissaoProdutoInterno.permitir,
-        freteToken
+        freteToken,
+        freteInternacionalValor: tipoEnvioTratado === "internacional_direto" && typeof freteInternacionalValor === "number"
+            ? freteInternacionalValor
+            : undefined,
+        tipoEnvio: tipoEnvioTratado,
+        clienteCienteTaxasImportacao: clienteCienteTaxasImportacao === true
     });
 
     if (resultado.mensagemErro) {

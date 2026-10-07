@@ -1,5 +1,6 @@
 const loginView = document.querySelector("#login-view");
 const appView = document.querySelector("#app-view");
+let appNome = "Loja Japao";
 const loginForm = document.querySelector("#login-form");
 const loginEmail = document.querySelector("#login-email");
 const loginSenha = document.querySelector("#login-senha");
@@ -23,9 +24,11 @@ const produtoNome = document.querySelector("#produto-nome");
 const produtoPreco = document.querySelector("#produto-preco");
 const produtoEstoque = document.querySelector("#produto-estoque");
 const produtoPublicadoNaLoja = document.querySelector("#produto-publicado-na-loja");
+const produtoTipoEnvio = document.querySelector("#produto-tipo-envio");
 const produtoFiltrosForm = document.querySelector("#produto-filtros-form");
 const produtoNomeFiltro = document.querySelector("#produto-nome-filtro");
 const produtoPublicadoFiltro = document.querySelector("#produto-publicado-filtro");
+const produtoTipoEnvioFiltro = document.querySelector("#produto-tipo-envio-filtro");
 const produtoEstoqueBaixoFiltro = document.querySelector("#produto-estoque-baixo-filtro");
 const produtoFiltrosLimpar = document.querySelector("#produto-filtros-limpar");
 const produtoMedidasIncompletasFiltro = document.querySelector("#produto-medidas-incompletas-filtro");
@@ -52,7 +55,12 @@ let pedidoFreteSubtotal = 0;
 const pedidoCliente = document.querySelector("#pedido-cliente");
 const pedidoProduto = document.querySelector("#pedido-produto");
 const pedidoQuantidade = document.querySelector("#pedido-quantidade");
+const pedidoTipoEnvio = document.querySelector("#pedido-tipo-envio");
 const pedidoObservacao = document.querySelector("#pedido-observacao");
+const pedidoTaxasImportacaoGrupo = document.querySelector("#pedido-taxas-importacao-grupo");
+const pedidoClienteCienteTaxas = document.querySelector("#pedido-cliente-ciente-taxas");
+const pedidoFreteInternacionalGrupo = document.querySelector("#pedido-frete-internacional-grupo");
+const pedidoFreteInternacional = document.querySelector("#pedido-frete-internacional");
 const pedidoFiltrosForm = document.querySelector("#pedido-filtros-form");
 const pedidoBuscaFiltro = document.querySelector("#pedido-busca-filtro");
 const pedidoStatusFiltro = document.querySelector("#pedido-status-filtro");
@@ -89,6 +97,7 @@ const produtoEditNome = document.querySelector("#produto-edit-nome");
 const produtoEditPreco = document.querySelector("#produto-edit-preco");
 const produtoEditEstoque = document.querySelector("#produto-edit-estoque");
 const produtoEditPublicadoNaLoja = document.querySelector("#produto-edit-publicado-na-loja");
+const produtoEditTipoEnvio = document.querySelector("#produto-edit-tipo-envio");
 const produtoEditCancelar = document.querySelector("#produto-edit-cancelar");
 const clienteModal = document.querySelector("#cliente-modal");
 const clienteModalTitulo = document.querySelector("#cliente-modal-titulo");
@@ -191,6 +200,9 @@ function limparOrigemProdutoSolicitacao() {
 
 function limparOrigemPedidoSolicitacao() {
     pedidoOrigemSolicitacaoId = null;
+    if (pedidoFreteInternacional) {
+        pedidoFreteInternacional.value = "0";
+    }
 }
 
 function formatarMoeda(valor) {
@@ -202,6 +214,16 @@ function formatarMoeda(valor) {
 
 function formatarData(valor) {
     return new Date(valor).toLocaleString("pt-BR");
+}
+
+function formatarDataCurta(valor) {
+    return new Date(valor).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
 }
 
 function formatarDuracao(segundos) {
@@ -304,7 +326,7 @@ function atualizarLinkWhatsAppCliente() {
     const nome = clienteEditNome.value.trim();
     const link = criarLinkWhatsApp(
         clienteEditTelefone.value,
-        "Ola, " + (nome || "tudo bem") + ". Aqui e da Loja Japao."
+        "Ola, " + (nome || "tudo bem") + ". Aqui e da " + appNome + "."
     );
 
     if (!link) {
@@ -362,7 +384,7 @@ function montarMensagemWhatsAppPedido(pedido) {
     const saudacao = nome ? "Ola, " + nome + "." : "Ola.";
     const linkAcompanhamento = montarLinkAcompanhamentoPedido(pedido.id);
     const partes = [
-        saudacao + " Seu pedido #" + pedido.id + " na Loja Japao esta " +
+        saudacao + " Seu pedido #" + pedido.id + " na " + appNome + " esta " +
             obterDescricaoStatusPedido(pedido.status) + ".",
         "Acompanhe por aqui: " + linkAcompanhamento,
         "Por seguranca, informe o telefone usado no pedido ao abrir a pagina."
@@ -370,6 +392,10 @@ function montarMensagemWhatsAppPedido(pedido) {
 
     if (pedido.status === "enviado" && pedido.transportadora && pedido.codigoRastreio) {
         partes.push("Rastreio: " + pedido.transportadora + " - " + pedido.codigoRastreio + ".");
+    }
+
+    if (pedido.tipoEnvio === "internacional_direto") {
+        partes.push("Este e um envio internacional direto. Taxas de importacao, se cobradas, sao responsabilidade do cliente.");
     }
 
     return partes.join(" ");
@@ -381,10 +407,15 @@ function montarMensagemWhatsAppPedidoEtapa(pedido, etapa) {
     const linkAcompanhamento = montarLinkAcompanhamentoPedido(pedido.id);
 
     if (etapa === "pix") {
+        const avisoImportacao = pedido.tipoEnvio === "internacional_direto"
+            ? " Este e um envio internacional direto; taxas de importacao, se cobradas, sao responsabilidade do cliente."
+            : "";
+
         return saudacao + " Seguem os dados para pagamento do pedido #" + pedido.id +
-            " na Loja Japao. Valor: " + formatarMoeda(pedido.total) +
+            " na " + appNome + ". Valor: " + formatarMoeda(pedido.total) +
             ". Recebedor: " + pedido.pix.recebedor +
             ". Chave Pix: " + pedido.pix.chave +
+            "." + avisoImportacao +
             ". Depois de pagar, envie o comprovante por aqui. Acompanhe seu pedido: " +
             linkAcompanhamento;
     }
@@ -740,11 +771,22 @@ function criarLinkRastreio(transportadora, codigoRastreio) {
 function montarMensagemWhatsAppSolicitacao(solicitacao) {
     const nome = solicitacao.contato?.nome ?? "";
     const saudacao = nome ? "Ola, " + nome + "." : "Ola.";
+    const avisoImportacao = solicitacao.produto?.tipoEnvio === "internacional_direto"
+        ? " Como esse item vem direto do Japao, frete internacional e possiveis taxas de importacao ficam por conta do cliente."
+        : "";
 
     if (solicitacao.valorCotado) {
+        if (solicitacao.produto?.tipoEnvio === "internacional_direto" && solicitacao.freteInternacionalCotado != null) {
+            return saudacao + " Sua cotacao para " + solicitacao.nomeProduto +
+                " ficou assim: produto " + formatarMoeda(solicitacao.produto.preco) +
+                " + frete internacional " + formatarMoeda(solicitacao.freteInternacionalCotado) +
+                " = total " + formatarMoeda(solicitacao.valorCotado) +
+                "." + avisoImportacao + " Se estiver tudo certo, me confirme por aqui para eu gerar o pedido.";
+        }
+
         return saudacao + " Sua cotacao para " + solicitacao.nomeProduto +
             " ficou em " + formatarMoeda(solicitacao.valorCotado) +
-            ". Se estiver tudo certo, me confirme por aqui para eu gerar o pedido.";
+            "." + avisoImportacao + " Se estiver tudo certo, me confirme por aqui para eu gerar o pedido.";
     }
 
     return saudacao + " Recebemos sua solicitacao sobre " + solicitacao.nomeProduto +
@@ -1048,16 +1090,29 @@ function atualizarAdminLogadoInfo() {
 async function carregarSeguranca() {
     sistemaStatus.textContent = "Carregando status...";
 
-    const [saude, info] = await Promise.all([
+    const [saude, info, configuracaoResposta] = await Promise.all([
         apiFetch("/health"),
-        apiFetch("/info")
+        apiFetch("/info"),
+        apiFetch("/auth/configuracao")
     ]);
 
     const statusBanco = saude.banco?.status === "ok" ? "ok" : "erro";
+    const configuracao = configuracaoResposta.configuracao ?? {};
+    appNome = configuracao.app?.nome || appNome;
+    document.title = appNome + " Admin";
+    document.querySelectorAll("[data-app-name]").forEach((elemento) => {
+        elemento.textContent = appNome;
+    });
+    const pixConfigurado = configuracao.pix?.status === "configurado";
+    const freteConfigurado = configuracao.frete?.status === "configurado";
+    const ambienteFrete = configuracao.frete?.ambiente ? " (" + configuracao.frete.ambiente + ")" : "";
 
     sistemaStatus.replaceChildren(
         criarLinhaStatusSistema("API", saude.status === "ok" ? "online" : "erro", saude.status === "ok" ? "aprovado" : "cancelado"),
         criarLinhaStatusSistema("Banco", statusBanco === "ok" ? "ok" : "erro", statusBanco === "ok" ? "aprovado" : "cancelado"),
+        criarLinhaStatusSistema("Nome da loja", appNome),
+        criarLinhaStatusSistema("Pix manual", pixConfigurado ? "configurado" : "pendente", pixConfigurado ? "aprovado" : "pendente"),
+        criarLinhaStatusSistema("Frete", (freteConfigurado ? "configurado" : "pendente") + ambienteFrete, freteConfigurado ? "aprovado" : "pendente"),
         criarLinhaStatusSistema("Latencia banco", String(saude.banco?.latenciaMs ?? "-") + " ms"),
         criarLinhaStatusSistema("Ambiente", info.ambiente ?? saude.ambiente ?? "-"),
         criarLinhaStatusSistema("Versao", info.versao ?? "-"),
@@ -1294,6 +1349,7 @@ async function irParaProdutosDashboard(opcoes = {}) {
     trocarView("produtos");
     produtoFiltrosForm.reset();
     produtoPublicadoFiltro.value = opcoes.publicadoNaLoja ?? "";
+    produtoTipoEnvioFiltro.value = opcoes.tipoEnvio ?? "";
     produtoEstoqueBaixoFiltro.checked = opcoes.estoqueBaixo === true;
     await carregarView();
 }
@@ -1572,6 +1628,20 @@ function criarCelulaMedidasProduto(produto) {
     return criarCelulaComConteudo(wrapper);
 }
 
+function criarCelulaTipoEnvioProduto(produto) {
+    const internacional = produto.tipoEnvio === "internacional_direto";
+    const wrapper = document.createElement("div");
+    wrapper.append(criarStatusBadge(
+        internacional ? "interno" : "publicado",
+        internacional ? "Direto do Japao" : "Pronta entrega"
+    ));
+    const detalhe = document.createElement("p");
+    detalhe.className = "muted-cell";
+    detalhe.textContent = internacional ? "Solicitacao/cotacao" : "Carrinho com frete nacional";
+    wrapper.append(detalhe);
+    return criarCelulaComConteudo(wrapper);
+}
+
 function criarLinhaProduto(produto) {
     const tr = document.createElement("tr");
     const actions = document.createElement("div");
@@ -1609,6 +1679,7 @@ function criarLinhaProduto(produto) {
                 produto.publicadoNaLoja ? "Publicado" : "Interno"
             )
         ),
+        criarCelulaTipoEnvioProduto(produto),
         criarCelulaMedidasProduto(produto),
         tdActions
     );
@@ -1687,6 +1758,7 @@ function abrirModalProduto(produto) {
     }
     produtoEditEstoque.value = String(produto.estoque);
     produtoEditPublicadoNaLoja.checked = produto.publicadoNaLoja;
+    produtoEditTipoEnvio.value = produto.tipoEnvio ?? "nacional";
     travarScrollPagina();
     produtoModal.classList.remove("hidden");
     produtoEditNome.focus();
@@ -1702,6 +1774,7 @@ async function carregarProdutos() {
     const parametros = new URLSearchParams({ limite: "50" });
     const nome = produtoNomeFiltro.value.trim();
     const publicadoNaLoja = produtoPublicadoFiltro.value;
+    const tipoEnvio = produtoTipoEnvioFiltro.value;
 
     if (nome) {
         parametros.set("nome", nome);
@@ -1709,6 +1782,10 @@ async function carregarProdutos() {
 
     if (publicadoNaLoja) {
         parametros.set("publicadoNaLoja", publicadoNaLoja);
+    }
+
+    if (tipoEnvio) {
+        parametros.set("tipoEnvio", tipoEnvio);
     }
 
     if (produtoEstoqueBaixoFiltro.checked) {
@@ -1723,7 +1800,7 @@ async function carregarProdutos() {
     const produtos = obterListaPaginada(resposta);
 
     produtosTbody.replaceChildren(
-        ...(produtos.length > 0 ? produtos.map(criarLinhaProduto) : [criarLinhaVazia(8, "Nenhum produto encontrado")])
+        ...(produtos.length > 0 ? produtos.map(criarLinhaProduto) : [criarLinhaVazia(9, "Nenhum produto encontrado")])
     );
 
     atualizarResumoListaProdutos(produtos);
@@ -1737,6 +1814,7 @@ async function preencherProdutoPorSolicitacao(solicitacao) {
     produtoPreco.value = String(solicitacao.valorCotado ?? "");
     produtoEstoque.value = "";
     produtoPublicadoNaLoja.checked = false;
+    produtoTipoEnvio.value = "internacional_direto";
     produtoEstoque.focus();
     setFeedback(
         appFeedback,
@@ -1757,6 +1835,10 @@ function montarObservacaoPedidoSolicitacao(solicitacao) {
 
     if (solicitacao.valorCotado) {
         partes.push("Valor cotado: " + formatarMoeda(solicitacao.valorCotado));
+    }
+
+    if (solicitacao.freteInternacionalCotado != null) {
+        partes.push("Frete internacional: " + formatarMoeda(solicitacao.freteInternacionalCotado));
     }
 
     if (solicitacao.linkReferencia) {
@@ -1808,6 +1890,14 @@ async function preencherPedidoPorSolicitacao(solicitacao) {
     }
 
     pedidoProduto.value = String(produtoEncontrado.id);
+    pedidoTipoEnvio.value = produtoEncontrado.tipoEnvio === "internacional_direto" ? "internacional_direto" : "nacional";
+    pedidoFreteInternacional.value = String(
+        solicitacao.freteInternacionalCotado ??
+        (produtoEncontrado.tipoEnvio === "internacional_direto"
+            ? Math.max(Number(solicitacao.valorCotado) - Number(produtoEncontrado.preco), 0)
+            : 0)
+    );
+    atualizarTipoEnvioPedido();
     pedidoOrigemSolicitacaoId = solicitacao.id;
     pedidoQuantidade.focus();
     setFeedback(appFeedback, "Pedido preparado com cliente e produto. Confira a quantidade e clique em Criar pedido.", "success");
@@ -1933,7 +2023,7 @@ function criarLinhaCliente(cliente) {
 
     const editar = criarBotao(enderecoIncompleto ? "Completar endereco" : "Editar");
     const excluir = criarBotao("Excluir", "small-button danger-button");
-    const whatsapp = criarLinkWhatsApp(cliente.telefone, "Ola, " + cliente.nome + ". Aqui e da Loja Japao.");
+    const whatsapp = criarLinkWhatsApp(cliente.telefone, "Ola, " + cliente.nome + ". Aqui e da " + appNome + ".");
 
     editar.addEventListener("click", () => editarCliente(cliente));
     excluir.addEventListener("click", () => excluirCliente(cliente));
@@ -2658,9 +2748,11 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     const resumo = criarSecaoPedido('Resumo');
     resumo.append(
         criarDetalhePedido('Status', pedido.status),
+        criarDetalhePedido('Tipo de envio', pedido.tipoEnvio === 'internacional_direto' ? 'Envio internacional direto' : 'Pronta entrega Brasil'),
+        criarDetalhePedido('Taxas de importacao', pedido.tipoEnvio === 'internacional_direto' ? 'Responsabilidade do cliente' : '-'),
         criarDetalhePedido('Criado em', formatarData(pedido.criadoEm)),
         criarDetalhePedido('Produtos', formatarMoeda(pedido.subtotalProdutos)),
-        criarDetalhePedido('Frete', pedido.freteServico ? formatarMoeda(pedido.freteValor) + ' - ' + pedido.freteTransportadora + ' / ' + pedido.freteServico : 'Nao registrado (pedido anterior ao frete automatico)'),
+        criarDetalhePedido('Frete', pedido.tipoEnvio === 'internacional_direto' ? formatarMoeda(pedido.freteValor) + ' - frete internacional combinado' : (pedido.freteServico ? formatarMoeda(pedido.freteValor) + ' - ' + pedido.freteTransportadora + ' / ' + pedido.freteServico : 'Nao registrado (pedido anterior ao frete automatico)')),
         criarDetalhePedido('Prazo de transporte', pedido.fretePrazoDias == null ? '-' : pedido.fretePrazoDias + ' dias uteis apos postagem'),
         criarDetalhePedido('Cotacao', pedido.freteAmbiente === 'sandbox' ? 'Simulacao de frete' : 'Real / anterior'),
         criarDetalhePedido('Total', formatarMoeda(pedido.total))
@@ -2820,29 +2912,11 @@ pixModal.addEventListener("close", () => {
 });
 
 function criarCelulaClientePedido(pedido) {
-    const td = criarCelula("");
+    const td = criarCelula("", "pedido-cliente-cell");
     const botao = criarBotao(pedido.cliente ? pedido.cliente.nome : "Cliente #" + pedido.clienteId);
+    botao.classList.add("pedido-cliente-botao");
     botao.addEventListener("click", () => abrirClientePorId(pedido.clienteId));
     td.append(botao);
-
-    const telefoneContato = obterTelefoneContatoPedido(pedido);
-
-    if (telefoneContato) {
-        const telefone = document.createElement("p");
-        telefone.className = "muted-cell";
-        telefone.textContent = telefoneContato;
-        td.append(telefone);
-
-        const whatsapp = criarLinkWhatsApp(
-            telefoneContato,
-            montarMensagemWhatsAppPedido(pedido)
-        );
-
-        if (whatsapp) {
-            whatsapp.textContent = "Enviar status";
-            td.append(whatsapp);
-        }
-    }
 
     return td;
 }
@@ -2898,13 +2972,27 @@ function criarCelulaProximaAcaoPedido(pedido) {
     const proximaAcao = obterProximaAcaoPedido(pedido);
     const wrapper = document.createElement("div");
     wrapper.className = "pedido-proxima-acao";
+    wrapper.title = proximaAcao.detalhe;
 
     const badge = criarStatusBadge(proximaAcao.status, proximaAcao.texto);
-    const detalhe = document.createElement("small");
-    detalhe.textContent = proximaAcao.detalhe;
 
-    wrapper.append(badge, detalhe);
+    wrapper.append(badge);
     return criarCelulaComConteudo(wrapper);
+}
+
+function criarCelulaObservacaoPedido(pedido) {
+    const observacao = pedido.observacao ?? "";
+
+    if (!observacao.trim()) {
+        return criarCelula("-", "pedido-observacao-cell muted-cell");
+    }
+
+    const preview = document.createElement("p");
+    preview.className = "pedido-observacao-preview";
+    preview.textContent = observacao;
+    preview.title = observacao;
+
+    return criarCelulaComConteudo(preview, "pedido-observacao-cell");
 }
 
 function criarLinhaPedido(pedido) {
@@ -2917,7 +3005,7 @@ function criarLinhaPedido(pedido) {
         tr.classList.add("pedido-linha-acao", "pedido-linha-" + proximaAcao.prioridade);
     }
 
-    const detalhes = criarBotao("Ver detalhes");
+    const detalhes = criarBotao("Detalhes", "small-button");
     detalhes.addEventListener("click", () => abrirModalPedido(pedido.id));
     actions.append(detalhes);
 
@@ -2928,21 +3016,21 @@ function criarLinhaPedido(pedido) {
     }
 
     if (pedido.status === "pendente") {
-        const registrarPagamento = criarBotao("Confirmar recebimento do Pix");
+        const registrarPagamento = criarBotao("Confirmar Pix", "small-button");
         registrarPagamento.addEventListener("click", () => abrirModalConfirmacaoPix(pedido, actions));
         actions.append(registrarPagamento);
     }
     if (pedido.status === "pago") {
         if (pedido.transportadora && pedido.codigoRastreio) {
-            adicionarAcao("Marcar como enviado", "enviado");
+            adicionarAcao("Enviar", "enviado");
         } else {
-            const adicionarRastreio = criarBotao("Adicionar rastreio");
+            const adicionarRastreio = criarBotao("Rastreio", "small-button");
             adicionarRastreio.addEventListener("click", () => abrirModalPedido(pedido.id));
             actions.append(adicionarRastreio);
         }
     }
     if (pedido.status === "pendente" || pedido.status === "pago") {
-        adicionarAcao("Cancelar pedido", "cancelado", "danger-button");
+        adicionarAcao("Cancelar", "cancelado", "danger-button");
     }
 
     const tdActions = document.createElement("td");
@@ -2954,8 +3042,8 @@ function criarLinhaPedido(pedido) {
         criarCelula(formatarMoeda(pedido.total)),
         criarCelulaComConteudo(criarStatusBadge(pedido.status)),
         criarCelulaProximaAcaoPedido(pedido),
-        criarCelula(pedido.observacao ?? "-"),
-        criarCelula(formatarData(pedido.criadoEm)),
+        criarCelulaObservacaoPedido(pedido),
+        criarCelula(formatarDataCurta(pedido.criadoEm), "pedido-data-cell"),
         tdActions
     );
 
@@ -3033,11 +3121,13 @@ async function carregarDadosFormularioPedido(forcar = false) {
     }, "Nenhum cliente cadastrado", "Selecione um cliente");
 
     preencherSelect(pedidoProduto, produtos, (produto) => {
+        const tipo = produto.tipoEnvio === "internacional_direto" ? " - direto do Japao" : "";
         return "#" + produto.id + " - " + produto.nome + " - " +
-            formatarMoeda(produto.preco) + " - estoque " + produto.estoque;
+            formatarMoeda(produto.preco) + " - estoque " + produto.estoque + tipo;
     }, "Nenhum produto cadastrado", "Selecione um produto");
 
     pedidoFormDadosCarregados = true;
+    atualizarTipoEnvioPedidoPeloProduto();
 }
 
 function abrirModalConfirmacaoPix(pedido, actions = null, pedidoDetalheId = null) {
@@ -3271,16 +3361,25 @@ function criarCelulaProdutoSolicitado(solicitacao) {
     }
     const cotacaoAtual = document.createElement("p");
     cotacaoAtual.className = "solicitacao-info-box";
-    cotacaoAtual.textContent = solicitacao.valorCotado
-        ? "Cotacao atual: " + formatarMoeda(solicitacao.valorCotado)
-        : "Cotacao ainda nao informada.";
+    if (solicitacao.valorCotado && solicitacao.produto?.tipoEnvio === "internacional_direto" && solicitacao.freteInternacionalCotado != null) {
+        cotacaoAtual.textContent = "Cotacao atual: produto " + formatarMoeda(solicitacao.produto.preco) +
+            " + frete " + formatarMoeda(solicitacao.freteInternacionalCotado) +
+            " = " + formatarMoeda(solicitacao.valorCotado);
+    } else {
+        cotacaoAtual.textContent = solicitacao.valorCotado
+            ? "Cotacao atual: " + formatarMoeda(solicitacao.valorCotado)
+            : "Cotacao ainda nao informada.";
+    }
     detalhesGrid.append(cotacaoAtual);
 
     if (solicitacao.produto) {
         const produtoVinculado = document.createElement("p");
         produtoVinculado.className = "solicitacao-info-box";
+        const tipoProduto = solicitacao.produto.tipoEnvio === "internacional_direto"
+            ? "direto do Japao"
+            : "pronta entrega Brasil";
         produtoVinculado.textContent = "Produto cadastrado: #" + solicitacao.produto.id + " - " +
-            solicitacao.produto.nome + " - estoque " + solicitacao.produto.estoque;
+            solicitacao.produto.nome + " - " + tipoProduto + " - estoque " + solicitacao.produto.estoque;
         detalhesGrid.append(produtoVinculado);
     }
 
@@ -3365,16 +3464,58 @@ function criarCelulaProdutoSolicitado(solicitacao) {
 
     const form = document.createElement("form");
     form.className = "quote-form";
+    const cotacaoInternacional = solicitacao.produto?.tipoEnvio === "internacional_direto";
 
-    const valorLabel = document.createElement("label");
-    valorLabel.textContent = "Valor cotado";
-    const valorInput = document.createElement("input");
-    valorInput.type = "number";
-    valorInput.min = "0.01";
-    valorInput.step = "0.01";
-    valorInput.required = true;
-    valorInput.value = solicitacao.valorCotado ?? "";
-    valorLabel.append(valorInput);
+    let valorInput;
+    let valorProdutoResumo;
+
+    if (cotacaoInternacional) {
+        valorProdutoResumo = document.createElement("p");
+        valorProdutoResumo.className = "solicitacao-info-box cotacao-total-box";
+        valorProdutoResumo.textContent = "Produto: " + formatarMoeda(solicitacao.produto.preco);
+    } else {
+        const valorLabel = document.createElement("label");
+        valorLabel.textContent = "Valor cotado";
+        valorInput = document.createElement("input");
+        valorInput.type = "number";
+        valorInput.min = "0.01";
+        valorInput.step = "0.01";
+        valorInput.required = true;
+        valorInput.value = solicitacao.valorCotado ?? "";
+        valorLabel.append(valorInput);
+        form.append(valorLabel);
+    }
+
+    const freteInternacionalLabel = document.createElement("label");
+    freteInternacionalLabel.textContent = "Frete internacional";
+    const freteInternacionalInput = document.createElement("input");
+    freteInternacionalInput.type = "number";
+    freteInternacionalInput.min = "0";
+    freteInternacionalInput.step = "0.01";
+    freteInternacionalInput.value = String(
+        solicitacao.freteInternacionalCotado ??
+        (solicitacao.valorCotado ? Math.max(Number(solicitacao.valorCotado) - Number(solicitacao.produto?.preco ?? 0), 0) : 0)
+    );
+    freteInternacionalLabel.append(freteInternacionalInput);
+
+    const totalCotacao = document.createElement("p");
+    totalCotacao.className = "solicitacao-info-box cotacao-total-box";
+
+    function atualizarTotalCotacao() {
+        if (!cotacaoInternacional) {
+            return;
+        }
+
+        const valorProduto = Number(solicitacao.produto.preco);
+        const frete = Number(freteInternacionalInput.value || 0);
+        totalCotacao.textContent = "Total do Pix: " + formatarMoeda(valorProduto + (Number.isFinite(frete) ? frete : 0));
+    }
+
+    const ajudaCotacao = document.createElement("p");
+    ajudaCotacao.className = "muted-cell";
+    ajudaCotacao.textContent = cotacaoInternacional
+        ? "Digite apenas o frete internacional. O sistema soma com o valor do produto. Taxas de importacao ficam por conta do cliente se forem cobradas."
+        : "Use o valor combinado com o cliente para esta solicitacao.";
 
     const observacaoLabel = document.createElement("label");
     observacaoLabel.textContent = "Observacao interna";
@@ -3389,15 +3530,29 @@ function criarCelulaProdutoSolicitado(solicitacao) {
     mensagem.className = "feedback";
     mensagem.setAttribute("role", "status");
 
-    form.append(valorLabel, observacaoLabel, salvarCotacao, mensagem);
+    if (cotacaoInternacional) {
+        freteInternacionalInput.addEventListener("input", atualizarTotalCotacao);
+        atualizarTotalCotacao();
+        form.append(valorProdutoResumo, freteInternacionalLabel, totalCotacao, ajudaCotacao, observacaoLabel, salvarCotacao, mensagem);
+    } else {
+        form.append(ajudaCotacao, observacaoLabel, salvarCotacao, mensagem);
+    }
     form.addEventListener("submit", async (evento) => {
         evento.preventDefault();
 
-        const valorCotado = Number(valorInput.value);
+        const freteInternacionalCotado = cotacaoInternacional ? Number(freteInternacionalInput.value || 0) : undefined;
+        const valorCotado = cotacaoInternacional
+            ? Number((Number(solicitacao.produto.preco) + freteInternacionalCotado).toFixed(2))
+            : Number(valorInput.value);
         const observacaoAdmin = observacaoInput.value.trim();
 
         if (!Number.isFinite(valorCotado) || valorCotado <= 0) {
             setFeedback(mensagem, "Informe um valor maior que zero.", "error");
+            return;
+        }
+
+        if (cotacaoInternacional && (!Number.isFinite(freteInternacionalCotado) || freteInternacionalCotado < 0)) {
+            setFeedback(mensagem, "Informe um frete internacional maior ou igual a zero.", "error");
             return;
         }
 
@@ -3409,6 +3564,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
                 method: "PATCH",
                 body: JSON.stringify({
                     valorCotado,
+                    ...(cotacaoInternacional ? { freteInternacionalCotado } : {}),
                     observacaoAdmin: observacaoAdmin || undefined
                 })
             });
@@ -3446,7 +3602,7 @@ function criarLinhaSolicitacao(solicitacao) {
         criarCelulaContatoSolicitacao(solicitacao),
         criarCelulaProdutoSolicitado(solicitacao),
         criarCelulaComConteudo(criarStatusBadge(solicitacao.status)),
-        criarCelula(formatarData(solicitacao.criadoEm)),
+        criarCelula(formatarDataCurta(solicitacao.criadoEm), "pedido-data-cell"),
         tdActions
     );
 
@@ -3572,6 +3728,7 @@ produtoForm.addEventListener("submit", async (evento) => {
                 preco: Number(formData.get("preco")),
                 estoque: Number(formData.get("estoque")),
                 publicadoNaLoja: produtoPublicadoNaLoja.checked,
+                tipoEnvio: produtoTipoEnvio.value,
                 ...lerMedidasProduto(produtoForm)
             })
         });
@@ -3592,6 +3749,7 @@ produtoForm.addEventListener("submit", async (evento) => {
         }
 
         produtoForm.reset();
+        produtoTipoEnvio.value = "nacional";
         produtoImagemBotao.textContent = "Escolher arquivo";
         limparOrigemProdutoSolicitacao();
         invalidarDadosFormularioPedido();
@@ -3637,6 +3795,11 @@ produtoFiltrosLimpar.addEventListener("click", async () => {
 
 produtoNomeFiltro.addEventListener("input", agendarBuscaProdutos);
 produtoPublicadoFiltro.addEventListener("change", async () => {
+    if (activeView === "produtos") {
+        await carregarProdutos();
+    }
+});
+produtoTipoEnvioFiltro.addEventListener("change", async () => {
     if (activeView === "produtos") {
         await carregarProdutos();
     }
@@ -3707,6 +3870,7 @@ produtoEditForm.addEventListener("submit", async (evento) => {
                 preco,
                 estoque,
                 publicadoNaLoja: produtoEditPublicadoNaLoja.checked,
+                tipoEnvio: produtoEditTipoEnvio.value,
                 ...lerMedidasProduto(produtoEditForm)
             })
         });
@@ -3730,22 +3894,86 @@ clienteEditCepBuscar.addEventListener("click", () => buscarEnderecoClientePorCep
 function assinaturaFretePedido() {
     return JSON.stringify([pedidoCliente.value, pedidoProduto.value, pedidoQuantidade.value]);
 }
+function pedidoUsaEnvioInternacional() {
+    return pedidoTipoEnvio.value === "internacional_direto";
+}
+
+function calcularSubtotalPedidoAtual() {
+    const produto = pedidoProdutosDisponiveis.find((item) => item.id === Number(pedidoProduto.value));
+    const quantidade = Number(pedidoQuantidade.value);
+
+    if (!produto || !Number.isInteger(quantidade) || quantidade <= 0) {
+        return undefined;
+    }
+
+    return Number((Number(produto.preco) * quantidade).toFixed(2));
+}
+
+function atualizarResumoPedidoInternacional() {
+    const subtotal = calcularSubtotalPedidoAtual();
+    const frete = Number(pedidoFreteInternacional.value || 0);
+
+    if (subtotal === undefined || !Number.isFinite(frete) || frete < 0) {
+        pedidoFreteFeedback.textContent = "Informe produto, quantidade e frete internacional.";
+        return;
+    }
+
+    pedidoFreteFeedback.textContent = "Produtos " + formatarMoeda(subtotal) +
+        " + frete internacional " + formatarMoeda(frete) +
+        " = " + formatarMoeda(subtotal + frete) +
+        ". Taxas de importacao ficam por conta do cliente se forem cobradas.";
+}
+
+function atualizarTipoEnvioPedidoPeloProduto() {
+    const produto = pedidoProdutosDisponiveis.find((item) => item.id === Number(pedidoProduto.value));
+
+    if (produto) {
+        pedidoTipoEnvio.value = produto.tipoEnvio === "internacional_direto" ? "internacional_direto" : "nacional";
+    }
+
+    atualizarTipoEnvioPedido();
+}
 function invalidarFretePedido() {
     pedidoFreteConsulta++;
     pedidoFreteOpcoes = [];
     pedidoFreteAssinatura = "";
     pedidoFreteSelect.replaceChildren(new Option("Calcule o frete", ""));
     pedidoFreteSelect.disabled = true;
-    pedidoCalcularFrete.disabled = false;
-    pedidoFreteFeedback.textContent = "Selecione cliente, produto e quantidade para calcular.";
+    pedidoCalcularFrete.disabled = pedidoUsaEnvioInternacional();
+
+    if (pedidoUsaEnvioInternacional()) {
+        atualizarResumoPedidoInternacional();
+    } else {
+        pedidoFreteFeedback.textContent = "Selecione cliente, produto e quantidade para calcular.";
+    }
 }
-for (const campo of [pedidoCliente, pedidoProduto, pedidoQuantidade]) campo.addEventListener("input", invalidarFretePedido);
-pedidoForm.addEventListener("reset", invalidarFretePedido);
+function atualizarTipoEnvioPedido() {
+    const internacional = pedidoUsaEnvioInternacional();
+    pedidoTaxasImportacaoGrupo.classList.toggle("hidden", !internacional);
+    pedidoFreteInternacionalGrupo.classList.toggle("hidden", !internacional);
+
+    if (!internacional) {
+        pedidoClienteCienteTaxas.checked = false;
+        pedidoFreteInternacional.value = "0";
+    }
+
+    invalidarFretePedido();
+}
+for (const campo of [pedidoCliente, pedidoQuantidade]) campo.addEventListener("input", invalidarFretePedido);
+pedidoFreteInternacional.addEventListener("input", atualizarResumoPedidoInternacional);
+pedidoProduto.addEventListener("change", atualizarTipoEnvioPedidoPeloProduto);
+pedidoTipoEnvio.addEventListener("change", atualizarTipoEnvioPedido);
+pedidoForm.addEventListener("reset", () => setTimeout(atualizarTipoEnvioPedido, 0));
 pedidoFreteSelect.addEventListener("change", () => {
     const f = pedidoFreteOpcoes.find(f => f.token === pedidoFreteSelect.value);
     pedidoFreteFeedback.textContent = f ? "Produtos " + formatarMoeda(pedidoFreteSubtotal) + " + frete " + formatarMoeda(f.valor) + " = " + formatarMoeda(pedidoFreteSubtotal + f.valor) + (f.ambiente === "sandbox" ? " (SIMULACAO)" : "") : "Selecione uma entrega.";
 });
 pedidoCalcularFrete.addEventListener("click", async () => {
+    if (pedidoUsaEnvioInternacional()) {
+        setFeedback(pedidoFreteFeedback, "Envio internacional direto nao usa frete nacional automatico.", "error");
+        return;
+    }
+
     invalidarFretePedido();
     const consulta = pedidoFreteConsulta;
     const assinatura = assinaturaFretePedido();
@@ -3780,9 +4008,22 @@ pedidoForm.addEventListener("submit", async (evento) => {
     const produtoId = Number(pedidoProduto.value);
     const quantidade = Number(pedidoQuantidade.value);
     const solicitacaoOrigemId = pedidoOrigemSolicitacaoId;
+    const tipoEnvio = pedidoTipoEnvio.value === "internacional_direto" ? "internacional_direto" : "nacional";
+    const envioInternacional = tipoEnvio === "internacional_direto";
+    const freteInternacionalValor = Number(pedidoFreteInternacional.value || 0);
     const frete = pedidoFreteOpcoes.find(f => f.token === pedidoFreteSelect.value);
-    if (!frete || frete.expiraEm <= Date.now() || pedidoFreteAssinatura !== assinaturaFretePedido()) {
+    if (!envioInternacional && (!frete || frete.expiraEm <= Date.now() || pedidoFreteAssinatura !== assinaturaFretePedido())) {
         setFeedback(appFeedback, "Calcule e selecione um frete valido antes de criar o pedido.", "error"); return;
+    }
+
+    if (envioInternacional && !pedidoClienteCienteTaxas.checked) {
+        setFeedback(appFeedback, "Confirme que o cliente esta ciente das taxas de importacao.", "error");
+        return;
+    }
+
+    if (envioInternacional && (!Number.isFinite(freteInternacionalValor) || freteInternacionalValor < 0)) {
+        setFeedback(appFeedback, "Informe um frete internacional maior ou igual a zero.", "error");
+        return;
     }
 
     if (!Number.isInteger(clienteId) || clienteId <= 0 || !Number.isInteger(produtoId) || produtoId <= 0) {
@@ -3814,7 +4055,9 @@ pedidoForm.addEventListener("submit", async (evento) => {
             method: "POST",
             body: JSON.stringify({
                 clienteId,
-                freteToken: frete.token,
+                tipoEnvio,
+                clienteCienteTaxasImportacao: envioInternacional && pedidoClienteCienteTaxas.checked,
+                ...(envioInternacional ? { freteInternacionalValor } : { freteToken: frete.token }),
                 observacao: obterValorOpcionalDoInput(pedidoObservacao),
                 itens: [
                     {

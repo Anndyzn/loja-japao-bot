@@ -197,12 +197,24 @@ function renderizarPedido(pedido) {
 
     itens.append(itensTitulo, itensLista);
     detalhes.append(pagamento, itens);
+    if (pedido.tipoEnvio === "internacional_direto") {
+        const importacao = document.createElement("article");
+        importacao.className = "tracking-card";
+        const titulo = document.createElement("h3");
+        titulo.textContent = "Envio internacional direto";
+        const descricao = document.createElement("p");
+        descricao.textContent = "Este pedido sera enviado direto do Japao. Impostos, despacho postal ou taxas de importacao, se cobrados, sao responsabilidade do cliente.";
+        importacao.append(titulo, descricao);
+        detalhes.append(importacao);
+    }
+
     if (pedido.freteServico) {
         const frete = document.createElement("article");
         frete.className = "tracking-card";
         const titulo = document.createElement("h3"); titulo.textContent = "Entrega contratada";
         const descricao = document.createElement("p");
-        descricao.textContent = pedido.freteTransportadora + " / " + pedido.freteServico + " - " + formatarMoeda(pedido.freteValor) + " - " + pedido.fretePrazoDias + " dias uteis apos postagem" + (pedido.freteAmbiente === "sandbox" ? " (SIMULACAO)" : "");
+        const prazo = pedido.fretePrazoDias == null ? "" : " - " + pedido.fretePrazoDias + " dias uteis apos postagem";
+        descricao.textContent = pedido.freteTransportadora + " / " + pedido.freteServico + " - " + formatarMoeda(pedido.freteValor) + prazo + (pedido.freteAmbiente === "sandbox" ? " (SIMULACAO)" : "");
         const valores = document.createElement("p"); valores.textContent = "Produtos: " + formatarMoeda(pedido.subtotalProdutos) + " | Total com frete: " + formatarMoeda(pedido.total);
         frete.append(titulo, descricao, valores); detalhes.append(frete);
     }

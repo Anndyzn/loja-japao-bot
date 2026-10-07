@@ -204,7 +204,7 @@ function sincronizarCarrinhoComProdutos() {
     for (const [produtoId, item] of carrinho) {
         const produtoAtualizado = produtos.find((produto) => produto.id === produtoId);
 
-        if (!produtoAtualizado || produtoAtualizado.estoque <= 0) {
+        if (!produtoAtualizado || produtoAtualizado.estoque <= 0 || produtoAtualizado.tipoEnvio === "internacional_direto") {
             carrinho.delete(produtoId);
             mudou = true;
             continue;

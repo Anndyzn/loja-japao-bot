@@ -96,13 +96,17 @@ function obterQuantidadeNoCarrinho(produtoId) {
     return carrinho.get(produtoId)?.quantidade ?? 0;
 }
 
+function produtoEhInternacional(produto) {
+    return produto.tipoEnvio === "internacional_direto";
+}
+
 function sincronizarCarrinhoComProdutos() {
     let mudou = false;
 
     for (const [produtoId, item] of carrinho) {
         const produtoAtualizado = produtos.find((produto) => produto.id === produtoId);
 
-        if (!produtoAtualizado || produtoAtualizado.estoque <= 0) {
+        if (!produtoAtualizado || produtoAtualizado.estoque <= 0 || produtoEhInternacional(produtoAtualizado)) {
             carrinho.delete(produtoId);
             mudou = true;
             continue;
@@ -248,7 +252,8 @@ function criarCardProduto(produto) {
     card.className = "product-card";
 
     const quantidadeNoCarrinho = obterQuantidadeNoCarrinho(produto.id);
-    const estoqueDisponivel = produto.estoque - quantidadeNoCarrinho;
+    const internacional = produtoEhInternacional(produto);
+    const estoqueDisponivel = internacional ? 0 : produto.estoque - quantidadeNoCarrinho;
     const disabled = estoqueDisponivel <= 0;
 
     const info = document.createElement("div");
@@ -277,16 +282,37 @@ function criarCardProduto(produto) {
 
     const estoque = document.createElement("p");
     estoque.className = "product-stock";
-    estoque.textContent = disabled ? "Indisponivel" : `${estoqueDisponivel} disponiveis`;
+    estoque.textContent = internacional ? "Envio direto do Japao" : (disabled ? "Indisponivel" : `${estoqueDisponivel} disponiveis`);
 
     const badge = document.createElement("p");
-    badge.className = "cart-badge";
-    badge.textContent = quantidadeNoCarrinho > 0 ? `${quantidadeNoCarrinho} no carrinho` : "Pronto para escolher";
+    badge.className = internacional ? "cart-badge product-badge-international" : "cart-badge";
+    badge.textContent = internacional
+        ? "Cotacao antes do pedido"
+        : (quantidadeNoCarrinho > 0 ? `${quantidadeNoCarrinho} no carrinho` : "Pronto para escolher");
 
     info.append(nome, preco, estoque, badge);
 
     const actions = document.createElement("div");
     actions.className = "product-actions";
+
+    if (internacional) {
+        const aviso = document.createElement("p");
+        aviso.className = "product-note";
+        aviso.textContent = "Produto enviado direto do Japao. Frete internacional e taxas de importacao sao combinados antes do pedido.";
+
+        const solicitar = document.createElement("a");
+        solicitar.className = "hero-button";
+        solicitar.href = "/loja/solicitacao?produtoId=" + encodeURIComponent(String(produto.id)) +
+            "&produto=" + encodeURIComponent(produto.nome) +
+            "&descricao=" + encodeURIComponent("Tenho interesse neste produto com envio direto do Japao.");
+        solicitar.textContent = "Solicitar cotacao";
+
+        actions.classList.add("product-actions-single");
+        actions.append(solicitar);
+        card.append(media, info, aviso, actions);
+
+        return card;
+    }
 
     const input = document.createElement("input");
     input.type = "number";

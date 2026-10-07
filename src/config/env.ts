@@ -1,7 +1,8 @@
 const SEGREDO_LOCAL = "segredo-local-de-desenvolvimento";
 const SEGREDOS_PROIBIDOS_PRODUCAO = new Set([
     SEGREDO_LOCAL,
-    "troque-este-segredo-em-producao"
+    "troque-este-segredo-em-producao",
+    "gere-um-segredo-com-npm-run-gerar-segredo"
 ]);
 
 function carregarEnvLocal() {
@@ -117,6 +118,7 @@ export const env = {
     NODE_ENV: nodeEnv,
     IS_PRODUCTION: producao,
     PORT: obterPorta(),
+    APP_NOME: obterTextoOpcional("APP_NOME", "Loja Japao"),
     DATABASE_URL: obterTextoObrigatorio("DATABASE_URL"),
     AUTH_TOKEN_SECRET: obterSegredoToken(producao),
     UPLOADS_DIR: obterTextoOpcional("UPLOADS_DIR", "public/uploads"),

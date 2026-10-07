@@ -1,4 +1,4 @@
-import type { StatusPedido } from "../../generated/prisma/client.js";
+import type { StatusPedido, TipoEnvioPedido } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 import { validarCotacaoFrete, ErroFrete } from "./fretes.service.js";
 import { bloquearPedido, bloquearProduto } from "../utils/bloqueios.js";
@@ -59,6 +59,8 @@ export type PedidoResposta = {
     freteTransportadora: string | null;
     fretePrazoDias: number | null;
     freteAmbiente: string | null;
+    tipoEnvio: TipoEnvioPedido;
+    clienteCienteTaxasImportacao: boolean;
 
     id: number;
     clienteId: number;
@@ -82,6 +84,8 @@ type PedidoComItens = {
     freteTransportadora: string | null;
     fretePrazoDias: number | null;
     freteAmbiente: string | null;
+    tipoEnvio: TipoEnvioPedido;
+    clienteCienteTaxasImportacao: boolean;
 
     id: number;
     clienteId: number;
@@ -125,7 +129,10 @@ type ResultadoCriacaoPedido = {
 
 type OpcoesCriacaoPedido = {
     freteToken?: string | undefined;
+    freteInternacionalValor?: number | undefined;
     permitirProdutoInterno?: boolean;
+    tipoEnvio?: TipoEnvioPedido | undefined;
+    clienteCienteTaxasImportacao?: boolean | undefined;
 };
 
 type ResultadoAtualizacaoStatusPedido = {
@@ -234,6 +241,8 @@ function formatarPedido(pedido: PedidoComItens): PedidoResposta {
         freteTransportadora: pedido.freteTransportadora,
         fretePrazoDias: pedido.fretePrazoDias,
         freteAmbiente: pedido.freteAmbiente,
+        tipoEnvio: pedido.tipoEnvio,
+        clienteCienteTaxasImportacao: pedido.clienteCienteTaxasImportacao,
         status: pedido.status,
         transportadora: pedido.transportadora,
         codigoRastreio: pedido.codigoRastreio,
@@ -374,6 +383,8 @@ type DadosCriacaoPedido = {
     freteTransportadora: string | null;
     fretePrazoDias: number | null;
     freteAmbiente: string | null;
+    tipoEnvio: TipoEnvioPedido;
+    clienteCienteTaxasImportacao: boolean;
 
     clienteId: number;
     total: number;
@@ -485,6 +496,8 @@ export async function criarPedido(
         };
     }
 
+    const tipoEnvio = opcoes.tipoEnvio ?? "nacional";
+
     // Sempre bloqueia produtos na mesma ordem para evitar esperas circulares.
     const itensAgrupados = agruparItensPorProduto(itensEntrada).sort((a, b) => a.produtoId - b.produtoId);
 
@@ -511,7 +524,7 @@ export async function criarPedido(
                 };
             }
 
-            if (produto.estoque < item.quantidade) {
+            if (tipoEnvio === "nacional" && produto.estoque < item.quantidade) {
                 return {
                     mensagemErro: `Estoque insuficiente para o produto ${produto.nome}`
                 };
@@ -539,26 +552,74 @@ export async function criarPedido(
         const subtotalProdutos = Number(
             itens.reduce((soma, item) => soma + item.subtotal, 0).toFixed(2)
         );
-        let frete;
-        try {
-            frete = validarCotacaoFrete(opcoes.freteToken, produtosDoPedido, cliente.cep!);
-        } catch (erro) {
-            if (erro instanceof ErroFrete) return { mensagemErro: erro.message };
-            throw erro;
+        if (tipoEnvio === "internacional_direto" && opcoes.permitirProdutoInterno !== true) {
+            return {
+                mensagemErro: "Envio internacional direto so pode ser criado pelo admin"
+            };
         }
+
+        if (tipoEnvio === "internacional_direto" && opcoes.clienteCienteTaxasImportacao !== true) {
+            return {
+                mensagemErro: "Confirme que o cliente esta ciente das taxas de importacao"
+            };
+        }
+
+        let frete = {
+            valor: 0,
+            servicoId: null as string | null,
+            servico: null as string | null,
+            transportadora: null as string | null,
+            prazoDias: null as number | null,
+            ambiente: null as string | null
+        };
+
+        if (tipoEnvio === "nacional") {
+            try {
+                const freteValidado = validarCotacaoFrete(opcoes.freteToken, produtosDoPedido, cliente.cep!);
+                frete = {
+                    valor: freteValidado.valor,
+                    servicoId: freteValidado.servicoId,
+                    servico: freteValidado.servico,
+                    transportadora: freteValidado.transportadora,
+                    prazoDias: freteValidado.prazoDias,
+                    ambiente: freteValidado.ambiente
+                };
+            } catch (erro) {
+                if (erro instanceof ErroFrete) return { mensagemErro: erro.message };
+                throw erro;
+            }
+        } else if (opcoes.freteInternacionalValor !== undefined) {
+            if (!Number.isFinite(opcoes.freteInternacionalValor) || opcoes.freteInternacionalValor < 0) {
+                return {
+                    mensagemErro: "Frete internacional deve ser um numero maior ou igual a zero"
+                };
+            }
+
+            frete = {
+                valor: Number(opcoes.freteInternacionalValor.toFixed(2)),
+                servicoId: null,
+                servico: "Frete internacional",
+                transportadora: "Envio direto do Japao",
+                prazoDias: null,
+                ambiente: "manual"
+            };
+        }
+
         const total = Number((subtotalProdutos + frete.valor).toFixed(2));
 
-        for (const item of itens) {
-            await tx.produto.update({
-                where: {
-                    id: item.produtoId
-                },
-                data: {
-                    estoque: {
-                        decrement: item.quantidade
+        if (tipoEnvio === "nacional") {
+            for (const item of itens) {
+                await tx.produto.update({
+                    where: {
+                        id: item.produtoId
+                    },
+                    data: {
+                        estoque: {
+                            decrement: item.quantidade
+                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         const dadosPedido: DadosCriacaoPedido = {
@@ -569,6 +630,8 @@ export async function criarPedido(
             freteTransportadora: frete.transportadora,
             fretePrazoDias: frete.prazoDias,
             freteAmbiente: frete.ambiente,
+            tipoEnvio,
+            clienteCienteTaxasImportacao: tipoEnvio === "internacional_direto",
             clienteId,
             total,
             entregaNome: cliente.nome,
@@ -673,7 +736,7 @@ export async function atualizarStatusPedidoPorId(
             }
         }
 
-        if (status === "cancelado") {
+        if (status === "cancelado" && pedido.tipoEnvio === "nacional") {
             const itensOrdenados = [...pedido.itens].sort((a, b) => a.produtoId - b.produtoId);
             for (const item of itensOrdenados) {
                 await tx.produto.update({

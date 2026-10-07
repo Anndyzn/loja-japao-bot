@@ -4,6 +4,26 @@ const feedback = document.querySelector("#solicitacao-feedback");
 const nova = document.querySelector("#solicitacao-nova");
 let enviando = false;
 let concluida = false;
+let produtoIdVinculado;
+
+function preencherCamposPelaUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const produtoId = Number(params.get("produtoId"));
+    const produto = params.get("produto");
+    const descricao = params.get("descricao");
+
+    if (Number.isInteger(produtoId) && produtoId > 0) {
+        produtoIdVinculado = produtoId;
+    }
+
+    if (produto) {
+        form.elements.nomeProduto.value = produto.slice(0, 200);
+    }
+
+    if (descricao) {
+        form.elements.descricao.value = descricao.slice(0, 2000);
+    }
+}
 
 function mostrarMensagem(texto, tipo = "") {
     feedback.textContent = texto;
@@ -16,6 +36,7 @@ form.addEventListener("submit", async (evento) => {
     const dados = Object.fromEntries(new FormData(form));
     for (const campo of Object.keys(dados)) dados[campo] = String(dados[campo]).trim();
     if (!dados.linkReferencia) delete dados.linkReferencia;
+    if (produtoIdVinculado) dados.produtoId = produtoIdVinculado;
     if (!dados.nome || !dados.telefone || !dados.nomeProduto || !dados.descricao) {
         mostrarMensagem("Preencha nome, telefone, produto e descrição.", "error");
         return;
@@ -52,3 +73,5 @@ nova.addEventListener("click", () => {
     mostrarMensagem("");
     form.elements.nome.focus();
 });
+
+preencherCamposPelaUrl();

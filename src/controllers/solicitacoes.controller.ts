@@ -169,8 +169,12 @@ export async function atualizarCotacaoSolicitacao(req: Request, res: Response) {
         });
     }
 
-    const { valorCotado, observacaoAdmin } = req.body;
-    const erroValidacao = validarAtualizacaoCotacaoSolicitacao(valorCotado, observacaoAdmin);
+    const { valorCotado, observacaoAdmin, freteInternacionalCotado } = req.body;
+    const erroValidacao = validarAtualizacaoCotacaoSolicitacao(
+        valorCotado,
+        observacaoAdmin,
+        freteInternacionalCotado
+    );
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -181,7 +185,8 @@ export async function atualizarCotacaoSolicitacao(req: Request, res: Response) {
     const solicitacao = await atualizarCotacaoSolicitacaoPorId(
         id,
         valorCotado,
-        typeof observacaoAdmin === "string" && observacaoAdmin.trim() !== "" ? observacaoAdmin.trim() : undefined
+        typeof observacaoAdmin === "string" && observacaoAdmin.trim() !== "" ? observacaoAdmin.trim() : undefined,
+        typeof freteInternacionalCotado === "number" ? freteInternacionalCotado : undefined
     );
 
     if (!solicitacao) {
@@ -278,12 +283,27 @@ export async function vincularPedidoSolicitacao(req: Request, res: Response) {
 }
 
 export async function cadastrarSolicitacaoPublica(req: Request, res: Response) {
-    const { nome, telefone, nomeProduto, descricao, linkReferencia } = req.body ?? {};
+    const { nome, telefone, nomeProduto, descricao, linkReferencia, produtoId } = req.body ?? {};
     const erro = validarSolicitacaoPublica(nome, telefone, nomeProduto, descricao, linkReferencia);
     if (erro) return res.status(400).json({ mensagem: erro });
+
+    if (produtoId !== undefined && (typeof produtoId !== "number" || idEhInvalido(produtoId))) {
+        return res.status(400).json({
+            mensagem: "Produto ID deve ser um numero inteiro positivo"
+        });
+    }
+
     const resultado = await criarSolicitacaoPublica(
         nome.trim(), telefone.trim(), nomeProduto.trim(), descricao.trim(),
-        typeof linkReferencia === "string" ? linkReferencia.trim() : undefined
+        typeof linkReferencia === "string" ? linkReferencia.trim() : undefined,
+        typeof produtoId === "number" ? produtoId : undefined
     );
+
+    if (resultado.mensagemErro) {
+        return res.status(400).json({
+            mensagem: resultado.mensagemErro
+        });
+    }
+
     return res.status(201).json(resultado);
 }

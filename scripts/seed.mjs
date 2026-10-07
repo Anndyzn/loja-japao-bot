@@ -18,7 +18,12 @@ const SENHAS_ADMIN_PROIBIDAS = new Set([
     "123456",
     "12345678",
     "password",
-    "senha123"
+    "senha123",
+    "troque-esta-senha"
+]);
+const EMAILS_ADMIN_PROIBIDOS = new Set([
+    "admin@example.com",
+    "seu-email-admin"
 ]);
 
 function obterAdminInicial() {
@@ -28,6 +33,10 @@ function obterAdminInicial() {
     if (nodeEnv === "production") {
         if (!process.env.ADMIN_EMAIL?.trim()) {
             throw new Error("ADMIN_EMAIL deve ser configurado para executar seed em producao");
+        }
+
+        if (EMAILS_ADMIN_PROIBIDOS.has(email.toLowerCase())) {
+            throw new Error("ADMIN_EMAIL nao pode usar valor de exemplo em producao");
         }
 
         if (!process.env.ADMIN_PASSWORD?.trim()) {

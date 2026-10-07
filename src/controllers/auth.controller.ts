@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { alterarSenhaAdmin as alterarSenhaAdminService, loginAdmin, obterAdminPorId } from "../services/auth.service.js";
+import { obterResumoConfiguracaoSistema } from "../services/configuracao.service.js";
 import { limparFalhasLogin, registrarFalhaLogin, verificarBloqueioLogin } from "../services/login-rate-limit.service.js";
 import type { PayloadTokenAdmin } from "../utils/tokens.js";
 
@@ -91,6 +92,12 @@ export async function obterSessaoAdmin(req: Request, res: Response) {
 
     return res.json({
         admin
+    });
+}
+
+export function obterConfiguracaoSistemaAdmin(req: Request, res: Response) {
+    return res.json({
+        configuracao: obterResumoConfiguracaoSistema()
     });
 }
 

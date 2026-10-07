@@ -80,6 +80,7 @@ export async function cotarFrete(cepEntrada: unknown, itensEntrada: unknown, per
     for (const [id,quantidade] of quantidades) {
         const produto = produtos.find(p=>p.id === id);
         if (!produto || (!produto.publicadoNaLoja && !permitirInternos)) throw new ErroFrete("Um produto nao esta disponivel para entrega");
+        if (produto.tipoEnvio === "internacional_direto") throw new ErroFrete("Produto de envio internacional direto deve ser solicitado por cotacao", 422);
         if (produto.estoque < quantidade) throw new ErroFrete("Estoque insuficiente para " + produto.nome);
         if (![produto.pesoKg,produto.alturaCm,produto.larguraCm,produto.comprimentoCm].every(v=>v !== null && Number.isFinite(Number(v)) && Number(v)>0)) {
             throw new ErroFrete("O produto " + produto.nome + " ainda nao tem peso e medidas de envio cadastrados", 422);

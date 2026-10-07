@@ -1,4 +1,5 @@
 import { prisma } from "../lib/prisma.js";
+import type { TipoEnvioPedido } from "../../generated/prisma/client.js";
 import type { MedidasProduto } from "../utils/medidas-produto.js";
 import { obterMedidasEnvioPendentes } from "../utils/medidas-produto.js";
 
@@ -7,6 +8,7 @@ type FiltrosProdutos = {
     estoqueBaixo?: boolean | undefined;
     medidasIncompletas?: boolean | undefined;
     publicadoNaLoja?: boolean | undefined;
+    tipoEnvio?: TipoEnvioPedido | undefined;
 };
 
 type ProdutoResposta = MedidasProduto & {
@@ -17,6 +19,7 @@ type ProdutoResposta = MedidasProduto & {
     estoque: number;
     imagemUrl?: string;
     publicadoNaLoja: boolean;
+    tipoEnvio: TipoEnvioPedido;
 };
 
 type ProdutoBanco = {
@@ -30,6 +33,7 @@ type ProdutoBanco = {
     estoque: number;
     imagemUrl: string | null;
     publicadoNaLoja: boolean;
+    tipoEnvio: TipoEnvioPedido;
 };
 
 function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
@@ -43,7 +47,8 @@ function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
         nome: produto.nome,
         preco: Number(produto.preco),
         estoque: produto.estoque,
-        publicadoNaLoja: produto.publicadoNaLoja
+        publicadoNaLoja: produto.publicadoNaLoja,
+        tipoEnvio: produto.tipoEnvio
     };
 
     if (produto.imagemUrl !== null) {
@@ -55,7 +60,7 @@ function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
 
 export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
     const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
-        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
+        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "tipoEnvio", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
         FROM "Produto"
         ORDER BY "id" ASC
     `;
@@ -78,6 +83,10 @@ export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
         });
     }
 
+    if (filtros.tipoEnvio !== undefined) {
+        produtosFiltrados = produtosFiltrados.filter((produto) => produto.tipoEnvio === filtros.tipoEnvio);
+    }
+
     if (filtros.medidasIncompletas === true) {
         produtosFiltrados = produtosFiltrados.filter(produto => produto.medidasEnvioPendentes.length > 0);
     }
@@ -87,7 +96,7 @@ export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
 
 export async function obterProdutoPorId(id: number) {
     const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
-        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
+        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "tipoEnvio", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
         FROM "Produto"
         WHERE "id" = ${id}
         LIMIT 1
@@ -108,6 +117,7 @@ export async function criarProduto(
     estoque: number,
     imagemUrl: string | undefined,
     publicadoNaLoja: boolean,
+    tipoEnvio: TipoEnvioPedido,
     medidas: MedidasProduto = {}
 ) {
     const novoProduto = await prisma.produto.create({
@@ -116,6 +126,7 @@ export async function criarProduto(
             preco,
             estoque,
             publicadoNaLoja,
+            tipoEnvio,
             ...medidas
         }
     });
@@ -138,6 +149,7 @@ export async function atualizarProdutoPorId(
     estoque: number | undefined,
     imagemUrl: string | null | undefined,
     publicadoNaLoja: boolean | undefined,
+    tipoEnvio: TipoEnvioPedido | undefined,
     medidas: MedidasProduto = {}
 ) {
     const produtoExiste = await prisma.produto.findUnique({
@@ -156,6 +168,7 @@ export async function atualizarProdutoPorId(
         estoque?: number;
         imagemUrl?: string | null;
         publicadoNaLoja?: boolean;
+        tipoEnvio?: TipoEnvioPedido;
     } = { ...medidas };
 
     if (nome !== undefined) {
@@ -172,6 +185,10 @@ export async function atualizarProdutoPorId(
 
     if (publicadoNaLoja !== undefined) {
         dadosAtualizacao.publicadoNaLoja = publicadoNaLoja;
+    }
+
+    if (tipoEnvio !== undefined) {
+        dadosAtualizacao.tipoEnvio = tipoEnvio;
     }
 
     if (imagemUrl !== undefined) {

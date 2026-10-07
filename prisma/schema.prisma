@@ -33,6 +33,11 @@ enum StatusSolicitacao {
   cancelada
 }
 
+enum TipoEnvioPedido {
+  nacional
+  internacional_direto
+}
+
 model Produto {
   id        Int          @id @default(autoincrement())
   nome      String
@@ -42,6 +47,7 @@ model Produto {
   alturaCm  Int?
   larguraCm Int?
   comprimentoCm Int?
+  tipoEnvio TipoEnvioPedido @default(nacional)
   imagemUrl String?
   publicadoNaLoja Boolean @default(true)
   itens     ItemPedido[]
@@ -85,6 +91,8 @@ model Pedido {
   freteTransportadora String?
   fretePrazoDias Int?
   freteAmbiente String?
+  tipoEnvio TipoEnvioPedido @default(nacional)
+  clienteCienteTaxasImportacao Boolean @default(false)
   status       StatusPedido @default(pendente)
   observacao   String?
   entregaNome  String?
@@ -151,6 +159,7 @@ model SolicitacaoProduto {
   descricao      String
   linkReferencia String?
   valorCotado    Decimal?          @db.Decimal(10, 2)
+  freteInternacionalCotado Decimal? @db.Decimal(10, 2)
   observacaoAdmin String?
   status         StatusSolicitacao @default(recebida)
   criadoEm       DateTime          @default(now())

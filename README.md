@@ -29,14 +29,15 @@ Crie o arquivo `.env` a partir do exemplo:
 copy .env.example .env
 ```
 
-O `.env.example` ja vem com um admin inicial de desenvolvimento:
+O `.env.example` e apenas um modelo seguro para subir no Git. Depois de copiar,
+preencha o `.env` local com os seus dados reais:
 
 ```txt
-ADMIN_EMAIL="admin@lojajapao.com"
-ADMIN_PASSWORD="admin123"
+ADMIN_EMAIL="seu-email-admin"
+ADMIN_PASSWORD="sua-senha-forte"
 ```
 
-Esses dados sao usados pelo `npm run db:seed`.
+Esses dados sao usados pelo `npm run db:seed` para criar o admin inicial.
 
 Em producao, o `db:seed` nao aceita criar admin com senha padrao. Configure
 `ADMIN_EMAIL` e `ADMIN_PASSWORD` fortes antes de executar seed no servidor.
@@ -58,7 +59,11 @@ ADMIN_LOGIN_MAX_TENTATIVAS=5
 ADMIN_LOGIN_BLOQUEIO_MINUTOS=15
 PIX_CHAVE=""
 PIX_RECEBEDOR=""
-AUTH_TOKEN_SECRET="troque-este-segredo-em-producao"
+FRETE_CEP_ORIGEM="00000000"
+MELHOR_ENVIO_AMBIENTE="sandbox"
+MELHOR_ENVIO_TOKEN="cole-seu-token-sandbox-aqui"
+MELHOR_ENVIO_CONTATO="seu-email@example.com"
+AUTH_TOKEN_SECRET="gere-um-segredo-com-npm-run-gerar-segredo"
 ```
 
 `PORT` define onde a API vai rodar. Em desenvolvimento, o padrao e `3000`.
@@ -76,8 +81,10 @@ consulta publica de acompanhamento de pedidos.
 protecao contra muitas tentativas de login incorretas no admin.
 `PIX_CHAVE` e `PIX_RECEBEDOR` aparecem para o cliente no checkout e no
 acompanhamento enquanto o pedido esta aguardando pagamento.
+`FRETE_CEP_ORIGEM`, `MELHOR_ENVIO_AMBIENTE`, `MELHOR_ENVIO_TOKEN` e
+`MELHOR_ENVIO_CONTATO` configuram a cotacao automatica de frete.
 `AUTH_TOKEN_SECRET` assina o login do admin. Em desenvolvimento o sistema aceita
-o valor do exemplo, mas em producao ele deve ser trocado por um texto forte,
+um valor local, mas em producao ele deve ser trocado por um texto forte,
 com pelo menos 32 caracteres.
 
 Para gerar um segredo forte:
@@ -208,6 +215,10 @@ ADMIN_LOGIN_MAX_TENTATIVAS=5
 ADMIN_LOGIN_BLOQUEIO_MINUTOS=15
 PIX_CHAVE="sua-chave-pix"
 PIX_RECEBEDOR="Nome que recebe o Pix"
+FRETE_CEP_ORIGEM="cep-de-postagem-com-8-digitos"
+MELHOR_ENVIO_AMBIENTE="production"
+MELHOR_ENVIO_TOKEN="token-privado-do-melhor-envio"
+MELHOR_ENVIO_CONTATO="email-de-contato"
 AUTH_TOKEN_SECRET="gere-um-segredo-forte-com-mais-de-32-caracteres"
 ```
 
@@ -228,8 +239,8 @@ npm.cmd run verificar:deploy
 ```
 
 Esse comando confere variaveis obrigatorias, segredo do admin, dados Pix,
-valores booleanos e se `UPLOADS_DIR` pode ser criado/escrito. Ele nao imprime
-valores sensiveis.
+configuracao de frete, valores booleanos e se `UPLOADS_DIR` pode ser
+criado/escrito. Ele nao imprime valores sensiveis.
 
 Depois de configurar o banco no servidor, aplique as migrations e inicie a API:
 
@@ -390,8 +401,8 @@ Content-Type: application/json
 
 ```json
 {
-  "email": "admin@lojajapao.com",
-  "senha": "admin123"
+  "email": "seu-email-admin",
+  "senha": "sua-senha-forte"
 }
 ```
 

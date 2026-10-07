@@ -152,6 +152,8 @@ export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInform
         freteTransportadora: pedido.freteTransportadora,
         fretePrazoDias: pedido.fretePrazoDias,
         freteAmbiente: pedido.freteAmbiente,
+        tipoEnvio: pedido.tipoEnvio,
+        clienteCienteTaxasImportacao: pedido.clienteCienteTaxasImportacao,
         criadoEm: pedido.criadoEm.toISOString()
     };
 

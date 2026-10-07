@@ -19,11 +19,13 @@ type SolicitacaoResposta = {
         nome: string;
         preco: number;
         estoque: number;
+        tipoEnvio: "nacional" | "internacional_direto";
     };
     nomeProduto: string;
     descricao: string;
     linkReferencia?: string;
     valorCotado?: number;
+    freteInternacionalCotado?: number;
     observacaoAdmin?: string;
     status: StatusSolicitacao;
     criadoEm: string;
@@ -41,11 +43,13 @@ type SolicitacaoBanco = {
         nome: string;
         preco: unknown;
         estoque: number;
+        tipoEnvio: "nacional" | "internacional_direto";
     } | null;
     nomeProduto: string;
     descricao: string;
     linkReferencia: string | null;
     valorCotado: unknown | null;
+    freteInternacionalCotado: unknown | null;
     observacaoAdmin: string | null;
     status: StatusSolicitacao;
     criadoEm: Date;
@@ -62,7 +66,8 @@ const includeProdutoSolicitacao = {
             id: true,
             nome: true,
             preco: true,
-            estoque: true
+            estoque: true,
+            tipoEnvio: true
         }
     }
 } satisfies Prisma.SolicitacaoProdutoInclude;
@@ -131,7 +136,8 @@ function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta
             id: solicitacao.produto.id,
             nome: solicitacao.produto.nome,
             preco: Number(solicitacao.produto.preco),
-            estoque: solicitacao.produto.estoque
+            estoque: solicitacao.produto.estoque,
+            tipoEnvio: solicitacao.produto.tipoEnvio
         };
     }
 
@@ -145,6 +151,10 @@ function formatarSolicitacao(solicitacao: SolicitacaoBanco): SolicitacaoResposta
 
     if (solicitacao.valorCotado !== null) {
         resposta.valorCotado = Number(solicitacao.valorCotado);
+    }
+
+    if (solicitacao.freteInternacionalCotado !== null) {
+        resposta.freteInternacionalCotado = Number(solicitacao.freteInternacionalCotado);
     }
 
     if (solicitacao.observacaoAdmin !== null) {
@@ -188,7 +198,8 @@ export async function obterSolicitacaoPorId(id: number) {
                     id: true,
                     nome: true,
                     preco: true,
-                    estoque: true
+                    estoque: true,
+                    tipoEnvio: true
                 }
             }
         }
@@ -286,7 +297,8 @@ export async function atualizarStatusSolicitacaoPorId(id: number, status: Status
 export async function atualizarCotacaoSolicitacaoPorId(
     id: number,
     valorCotado: number,
-    observacaoAdmin: string | undefined
+    observacaoAdmin: string | undefined,
+    freteInternacionalCotado?: number
 ) {
     const solicitacaoExiste = await prisma.solicitacaoProduto.findUnique({
         where: {
@@ -304,6 +316,7 @@ export async function atualizarCotacaoSolicitacaoPorId(
         },
         data: {
             valorCotado,
+            freteInternacionalCotado: freteInternacionalCotado ?? null,
             observacaoAdmin: observacaoAdmin ?? null,
             status: "cotada"
         }
@@ -389,7 +402,8 @@ export async function vincularProdutoSolicitacaoPorId(id: number, produtoId: num
                     id: true,
                     nome: true,
                     preco: true,
-                    estoque: true
+                    estoque: true,
+                    tipoEnvio: true
                 }
             }
         }
@@ -445,7 +459,8 @@ export async function vincularPedidoSolicitacaoPorId(id: number, pedidoId: numbe
                     id: true,
                     nome: true,
                     preco: true,
-                    estoque: true
+                    estoque: true,
+                    tipoEnvio: true
                 }
             }
         }
@@ -461,15 +476,34 @@ export async function criarSolicitacaoPublica(
     telefone: string,
     nomeProduto: string,
     descricao: string,
-    linkReferencia: string | undefined
+    linkReferencia: string | undefined,
+    produtoId?: number
 ) {
     // Visitantes podem pedir uma cotação antes de terem um cadastro de entrega.
+    if (produtoId !== undefined) {
+        const produtoExiste = await prisma.produto.findUnique({
+            where: {
+                id: produtoId
+            },
+            select: {
+                id: true
+            }
+        });
+
+        if (!produtoExiste) {
+            return {
+                mensagemErro: "Produto nao encontrado"
+            };
+        }
+    }
+
     const solicitacao = await prisma.solicitacaoProduto.create({
         data: {
             contatoNome: nome,
             contatoTelefone: telefone,
             nomeProduto,
             descricao,
+            ...(produtoId !== undefined ? { produtoId } : {}),
             ...(linkReferencia ? { linkReferencia } : {})
         }
     });

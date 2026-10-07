@@ -149,7 +149,7 @@ function decodificarImagemProduto(valor: unknown): ResultadoImagemProduto {
 }
 
 export async function listarProdutos(req: Request, res: Response) {
-    const { nome, estoqueBaixo, publicadoNaLoja, medidasIncompletas, pagina, limite } = req.query;
+    const { nome, estoqueBaixo, publicadoNaLoja, medidasIncompletas, tipoEnvio, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
         return res.status(400).json({
@@ -173,11 +173,18 @@ export async function listarProdutos(req: Request, res: Response) {
         return res.status(400).json({ mensagem: "Filtro medidasIncompletas deve ser true ou false" });
     }
 
+    if (tipoEnvio !== undefined && tipoEnvio !== "nacional" && tipoEnvio !== "internacional_direto") {
+        return res.status(400).json({
+            mensagem: "Filtro tipoEnvio deve ser nacional ou internacional_direto"
+        });
+    }
+
     const produtosFiltrados = await obterProdutosFiltrados({
         nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
         estoqueBaixo: estoqueBaixo === "true",
         medidasIncompletas: medidasIncompletas === "true",
-        publicadoNaLoja: publicadoNaLoja === undefined ? undefined : publicadoNaLoja === "true"
+        publicadoNaLoja: publicadoNaLoja === undefined ? undefined : publicadoNaLoja === "true",
+        tipoEnvio: tipoEnvio === "nacional" || tipoEnvio === "internacional_direto" ? tipoEnvio : undefined
     });
 
     const paginacao = obterParametrosPaginacao(pagina, limite);
@@ -212,9 +219,9 @@ export async function buscarProdutoPorId(req: Request, res: Response) {
 }
 
 export async function cadastrarProduto(req: Request, res: Response) {
-    const { nome, preco, estoque, imagemUrl, publicadoNaLoja } = req.body;
+    const { nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio } = req.body;
 
-    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja) || validarMedidasProduto(req.body);
+    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio) || validarMedidasProduto(req.body);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -223,7 +230,8 @@ export async function cadastrarProduto(req: Request, res: Response) {
     }
 
     const produtoPublicado = typeof publicadoNaLoja === "boolean" ? publicadoNaLoja : true;
-    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado, extrairMedidasProduto(req.body));
+    const tipoEnvioProduto = tipoEnvio === "internacional_direto" ? "internacional_direto" : "nacional";
+    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado, tipoEnvioProduto, extrairMedidasProduto(req.body));
 
     return res.status(201).json(novoProduto);
 }
@@ -237,11 +245,11 @@ export async function atualizarProduto(req: Request, res: Response) {
         });
     }
 
-    const { nome, preco, estoque, imagemUrl, publicadoNaLoja } = req.body;
+    const { nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio } = req.body;
 
-    const erroCampos = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja);
+    const erroCampos = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio);
     const somenteMedidas = camposMedidas.some(campo => req.body[campo] !== undefined) &&
-        [nome, preco, estoque, imagemUrl, publicadoNaLoja].every(valor => valor === undefined);
+        [nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio].every(valor => valor === undefined);
     const erroValidacao = (somenteMedidas ? undefined : erroCampos) || validarMedidasProduto(req.body);
 
     if (erroValidacao) {
@@ -251,8 +259,9 @@ export async function atualizarProduto(req: Request, res: Response) {
     }
 
     const nomeAtualizado = typeof nome === "string" ? nome.trim() : nome;
+    const tipoEnvioAtualizado = tipoEnvio === "nacional" || tipoEnvio === "internacional_direto" ? tipoEnvio : undefined;
 
-    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja, extrairMedidasProduto(req.body));
+    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja, tipoEnvioAtualizado, extrairMedidasProduto(req.body));
 
     if (!produto) {
         return res.status(404).json({
@@ -298,7 +307,7 @@ export async function enviarImagemProduto(req: Request, res: Response) {
 
     await writeFile(caminhoArquivo, resultadoImagem.conteudo);
 
-    const produto = await atualizarProdutoPorId(id, undefined, undefined, undefined, imagemUrl, undefined);
+    const produto = await atualizarProdutoPorId(id, undefined, undefined, undefined, imagemUrl, undefined, undefined);
     await removerArquivoImagemProduto(produtoExiste.imagemUrl);
 
     return res.json(produto);
@@ -321,7 +330,7 @@ export async function removerImagemProduto(req: Request, res: Response) {
         });
     }
 
-    const produto = await atualizarProdutoPorId(id, undefined, undefined, undefined, null, undefined);
+    const produto = await atualizarProdutoPorId(id, undefined, undefined, undefined, null, undefined, undefined);
     await removerArquivoImagemProduto(produtoExiste.imagemUrl);
 
     return res.json(produto);
