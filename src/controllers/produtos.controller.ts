@@ -3,6 +3,7 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Request, Response } from "express";
 import { env } from "../config/env.js";
+import { camposMedidas, validarMedidasProduto, extrairMedidasProduto } from "../utils/medidas-produto.js";
 import { atualizarProdutoPorId, criarProduto, obterProdutoPorId, obterProdutosFiltrados, removerProdutoPorId } from "../services/produtos.service.js";
 import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
 import { idEhInvalido, validarAtualizacaoProduto, validarCriacaoProduto } from "../utils/validacoes.js";
@@ -148,7 +149,7 @@ function decodificarImagemProduto(valor: unknown): ResultadoImagemProduto {
 }
 
 export async function listarProdutos(req: Request, res: Response) {
-    const { nome, estoqueBaixo, publicadoNaLoja, pagina, limite } = req.query;
+    const { nome, estoqueBaixo, publicadoNaLoja, medidasIncompletas, pagina, limite } = req.query;
 
     if (nome !== undefined && typeof nome !== "string") {
         return res.status(400).json({
@@ -168,9 +169,14 @@ export async function listarProdutos(req: Request, res: Response) {
         });
     }
 
+    if (medidasIncompletas !== undefined && medidasIncompletas !== "true" && medidasIncompletas !== "false") {
+        return res.status(400).json({ mensagem: "Filtro medidasIncompletas deve ser true ou false" });
+    }
+
     const produtosFiltrados = await obterProdutosFiltrados({
         nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
         estoqueBaixo: estoqueBaixo === "true",
+        medidasIncompletas: medidasIncompletas === "true",
         publicadoNaLoja: publicadoNaLoja === undefined ? undefined : publicadoNaLoja === "true"
     });
 
@@ -208,7 +214,7 @@ export async function buscarProdutoPorId(req: Request, res: Response) {
 export async function cadastrarProduto(req: Request, res: Response) {
     const { nome, preco, estoque, imagemUrl, publicadoNaLoja } = req.body;
 
-    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja);
+    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja) || validarMedidasProduto(req.body);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -217,7 +223,7 @@ export async function cadastrarProduto(req: Request, res: Response) {
     }
 
     const produtoPublicado = typeof publicadoNaLoja === "boolean" ? publicadoNaLoja : true;
-    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado);
+    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado, extrairMedidasProduto(req.body));
 
     return res.status(201).json(novoProduto);
 }
@@ -233,7 +239,10 @@ export async function atualizarProduto(req: Request, res: Response) {
 
     const { nome, preco, estoque, imagemUrl, publicadoNaLoja } = req.body;
 
-    const erroValidacao = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja);
+    const erroCampos = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja);
+    const somenteMedidas = camposMedidas.some(campo => req.body[campo] !== undefined) &&
+        [nome, preco, estoque, imagemUrl, publicadoNaLoja].every(valor => valor === undefined);
+    const erroValidacao = (somenteMedidas ? undefined : erroCampos) || validarMedidasProduto(req.body);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -243,7 +252,7 @@ export async function atualizarProduto(req: Request, res: Response) {
 
     const nomeAtualizado = typeof nome === "string" ? nome.trim() : nome;
 
-    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja);
+    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja, extrairMedidasProduto(req.body));
 
     if (!produto) {
         return res.status(404).json({

@@ -16,6 +16,8 @@ import { pedidosRoutes } from "./routes/pedidos.routes.js";
 import { produtosRoutes } from "./routes/produtos.routes.js";
 import { solicitacoesRoutes } from "./routes/solicitacoes.routes.js";
 
+import { fretesRoutes } from "./routes/fretes.routes.js";
+
 const app = express();
 const opcoesEstaticosSemCache = {
     setHeaders(res: express.Response) {
@@ -69,6 +71,7 @@ app.use("/pedidos", pedidosRoutes);
 app.use("/solicitacoes", solicitacoesRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/pagamentos", pagamentosRoutes);
+app.use("/fretes", fretesRoutes);
 app.use("/health", healthRoutes);
 app.use("/info", infoRoutes);
 

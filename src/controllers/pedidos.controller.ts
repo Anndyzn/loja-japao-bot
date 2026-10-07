@@ -3,8 +3,10 @@ import { obterPixManual } from "../services/pix.service.js";
 import { obterAcompanhamentoPedido } from "../services/acompanhamento.service.js";
 import { obterClientePorId } from "../services/clientes.service.js";
 import type { StatusPedido } from "../services/pedidos.service.js";
-import { atualizarRastreioPedidoPorId, atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados, obterPedidosPorClienteId } from "../services/pedidos.service.js";
-import { obterParametrosPaginacao, paginarLista } from "../utils/paginacao.js";
+import { atualizarRastreioPedidoPorId, atualizarStatusPedidoPorId, criarPedido, obterPedidoPorId, obterPedidosFiltrados } from "../services/pedidos.service.js";
+import { obterParametrosPaginacao } from "../utils/paginacao.js";
+import { montarListagemPedidos } from "../utils/listagem-pedidos.js";
+import type { AcaoPedido } from "../utils/listagem-pedidos.js";
 import { idEhInvalido, validarAtualizacaoStatusPedido, validarCriacaoPedido } from "../utils/validacoes.js";
 import { validarTokenAdmin } from "../utils/tokens.js";
 
@@ -38,8 +40,15 @@ function obterPermissaoProdutoInterno(req: Request) {
     };
 }
 
-export async function listarPedidos(req: Request, res: Response) {
-    const { status, pagina, limite, busca } = req.query;
+async function responderListagemPedidos(req: Request, res: Response, clienteId?: number) {
+    const { status, pagina, limite, busca, precisaAcao, acao } = req.query;
+
+    if (precisaAcao !== undefined && precisaAcao !== "true" && precisaAcao !== "false") {
+        return res.status(400).json({ mensagem: "precisaAcao deve ser true ou false" });
+    }
+    if (acao !== undefined && (typeof acao !== "string" || !["pix", "rastreio", "envio"].includes(acao))) {
+        return res.status(400).json({ mensagem: "Acao deve ser pix, rastreio ou envio" });
+    }
 
     if (status !== undefined) {
         const erroValidacao = validarAtualizacaoStatusPedido(status);
@@ -65,11 +74,6 @@ export async function listarPedidos(req: Request, res: Response) {
         });
     }
 
-    const pedidosFiltrados = await obterPedidosFiltrados({
-        status: status as StatusPedido | undefined,
-        busca: buscaTratada
-    });
-
     const paginacao = obterParametrosPaginacao(pagina, limite);
 
     if (paginacao.mensagemErro) {
@@ -78,7 +82,19 @@ export async function listarPedidos(req: Request, res: Response) {
         });
     }
 
-    return res.json(paginarLista(pedidosFiltrados, paginacao.pagina!, paginacao.limite!));
+    const pedidosFiltrados = await obterPedidosFiltrados({
+        clienteId,
+        status: status as StatusPedido | undefined,
+        busca: buscaTratada
+    });
+    return res.json(montarListagemPedidos(
+        pedidosFiltrados, paginacao.pagina!, paginacao.limite!,
+        precisaAcao === "true", acao as AcaoPedido | undefined
+    ));
+}
+
+export async function listarPedidos(req: Request, res: Response) {
+    return responderListagemPedidos(req, res);
 }
 
 export async function buscarPedidoPorId(req: Request, res: Response) {
@@ -148,23 +164,14 @@ export async function listarPedidosPorCliente(req: Request, res: Response) {
         });
     }
 
-    const pedidosDoCliente = await obterPedidosPorClienteId(clienteId);
-
-    const { pagina, limite } = req.query;
-
-    const paginacao = obterParametrosPaginacao(pagina, limite);
-
-    if (paginacao.mensagemErro) {
-        return res.status(400).json({
-            mensagem: paginacao.mensagemErro
-        });
-    }
-
-    return res.json(paginarLista(pedidosDoCliente, paginacao.pagina!, paginacao.limite!));
+    return responderListagemPedidos(req, res, clienteId);
 }
 
 export async function cadastrarPedido(req: Request, res: Response) {
-    const { clienteId, itens, observacao } = req.body;
+    const { clienteId, itens, observacao, freteToken } = req.body;
+    if (typeof freteToken !== "string" || !freteToken || freteToken.length > 8000) {
+        return res.status(400).json({ mensagem: "Calcule e selecione o frete antes de criar o pedido" });
+    }
 
     const erroValidacao = validarCriacaoPedido(clienteId, itens, observacao);
 
@@ -184,7 +191,8 @@ export async function cadastrarPedido(req: Request, res: Response) {
     }
 
     const resultado = await criarPedido(clienteId, itens, observacaoTratada, {
-        permitirProdutoInterno: permissaoProdutoInterno.permitir
+        permitirProdutoInterno: permissaoProdutoInterno.permitir,
+        freteToken
     });
 
     if (resultado.mensagemErro) {

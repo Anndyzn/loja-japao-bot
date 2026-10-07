@@ -1,5 +1,6 @@
 import type { MetodoPagamento, StatusPagamento } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { bloquearPedido } from "../utils/bloqueios.js";
 
 export type { MetodoPagamento } from "../../generated/prisma/client.js";
 
@@ -78,7 +79,10 @@ export async function criarPagamento(
     pedidoId: number,
     metodo: MetodoPagamento
 ): Promise<ResultadoCriacaoPagamento> {
+    if (metodo !== "pix") return { mensagemErro: "Novos pagamentos aceitam somente Pix" };
+
     return await prisma.$transaction(async (tx) => {
+        await bloquearPedido(tx, pedidoId);
         const pedido = await tx.pedido.findUnique({
             where: {
                 id: pedidoId
@@ -101,6 +105,13 @@ export async function criarPagamento(
             return {
                 mensagemErro: "Pedido ja foi pago"
             };
+        }
+
+        const pagamentoExistente = await tx.pagamento.findFirst({
+            where: { pedidoId, status: "aprovado" }
+        });
+        if (pagamentoExistente) {
+            return { mensagemErro: "Pedido ja possui pagamento aprovado. Confira os detalhes antes de continuar" };
         }
 
         const novoPagamento = await tx.pagamento.create({

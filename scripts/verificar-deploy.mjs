@@ -202,6 +202,18 @@ function validarPixManual() {
     avisos.push(mensagem + " antes de publicar.");
 }
 
+function validarFrete() {
+    const producao = obterVariavel("NODE_ENV") === "production";
+    const problemas = producao ? erros : avisos;
+    const ambiente = obterVariavel("MELHOR_ENVIO_AMBIENTE") || "sandbox";
+    if (!/^\d{8}$/.test(obterVariavel("FRETE_CEP_ORIGEM").replace(/\D/g, ""))) problemas.push("FRETE_CEP_ORIGEM deve conter os 8 digitos do CEP de postagem");
+    if (!obterVariavel("MELHOR_ENVIO_TOKEN")) problemas.push("MELHOR_ENVIO_TOKEN nao configurado; cotacao de frete indisponivel");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(obterVariavel("MELHOR_ENVIO_CONTATO"))) problemas.push("MELHOR_ENVIO_CONTATO deve ser um email valido");
+    if (!["sandbox", "production"].includes(ambiente)) erros.push("MELHOR_ENVIO_AMBIENTE deve ser sandbox ou production");
+    else if (ambiente === "sandbox") problemas.push("Frete em sandbox: apenas simulacao. Para publicar, configure production e o token de producao");
+    else oks.push("Frete configurado para consultar o ambiente de producao");
+}
+
 function imprimirResultado() {
     console.log("Verificacao de deploy");
     console.log("");
@@ -240,6 +252,7 @@ validarDatabaseUrl();
 validarSegredo();
 validarAdminInicial();
 validarPixManual();
+validarFrete();
 validarBooleano("TRUST_PROXY");
 validarBooleano("LOG_REQUESTS");
 validarInteiroPositivo("PORT");

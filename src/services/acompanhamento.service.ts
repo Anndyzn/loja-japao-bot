@@ -146,6 +146,12 @@ export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInform
             };
         }),
         total: Number(pedido.total),
+        subtotalProdutos: Number(pedido.subtotalProdutos),
+        freteValor: Number(pedido.freteValor),
+        freteServico: pedido.freteServico,
+        freteTransportadora: pedido.freteTransportadora,
+        fretePrazoDias: pedido.fretePrazoDias,
+        freteAmbiente: pedido.freteAmbiente,
         criadoEm: pedido.criadoEm.toISOString()
     };
 

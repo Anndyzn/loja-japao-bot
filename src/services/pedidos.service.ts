@@ -1,5 +1,7 @@
 import type { StatusPedido } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
+import { validarCotacaoFrete, ErroFrete } from "./fretes.service.js";
+import { bloquearPedido, bloquearProduto } from "../utils/bloqueios.js";
 
 export type { StatusPedido } from "../../generated/prisma/client.js";
 
@@ -9,6 +11,7 @@ export type ItemPedidoEntrada = {
 };
 
 type FiltrosPedidos = {
+    clienteId?: number | undefined;
     status?: StatusPedido | undefined;
     busca?: string | undefined;
 };
@@ -49,6 +52,14 @@ type HistoricoPedidoResposta = {
 };
 
 export type PedidoResposta = {
+    subtotalProdutos: number;
+    freteValor: number;
+    freteServicoId: string | null;
+    freteServico: string | null;
+    freteTransportadora: string | null;
+    fretePrazoDias: number | null;
+    freteAmbiente: string | null;
+
     id: number;
     clienteId: number;
     cliente?: ClientePedidoResposta;
@@ -64,6 +75,14 @@ export type PedidoResposta = {
 };
 
 type PedidoComItens = {
+    subtotalProdutos: unknown;
+    freteValor: unknown;
+    freteServicoId: string | null;
+    freteServico: string | null;
+    freteTransportadora: string | null;
+    fretePrazoDias: number | null;
+    freteAmbiente: string | null;
+
     id: number;
     clienteId: number;
     total: unknown;
@@ -105,6 +124,7 @@ type ResultadoCriacaoPedido = {
 };
 
 type OpcoesCriacaoPedido = {
+    freteToken?: string | undefined;
     permitirProdutoInterno?: boolean;
 };
 
@@ -207,6 +227,13 @@ function formatarPedido(pedido: PedidoComItens): PedidoResposta {
             };
         }),
         total: Number(pedido.total),
+        subtotalProdutos: Number(pedido.subtotalProdutos),
+        freteValor: Number(pedido.freteValor),
+        freteServicoId: pedido.freteServicoId,
+        freteServico: pedido.freteServico,
+        freteTransportadora: pedido.freteTransportadora,
+        fretePrazoDias: pedido.fretePrazoDias,
+        freteAmbiente: pedido.freteAmbiente,
         status: pedido.status,
         transportadora: pedido.transportadora,
         codigoRastreio: pedido.codigoRastreio,
@@ -340,6 +367,14 @@ const includePedidoCompleto = {
 } as const;
 
 type DadosCriacaoPedido = {
+    subtotalProdutos: number;
+    freteValor: number;
+    freteServicoId: string | null;
+    freteServico: string | null;
+    freteTransportadora: string | null;
+    fretePrazoDias: number | null;
+    freteAmbiente: string | null;
+
     clienteId: number;
     total: number;
     observacao?: string;
@@ -384,19 +419,18 @@ export async function obterPedidosFiltrados(filtros: FiltrosPedidos) {
         }
     } as const;
 
-    const pedidos = filtros.status
-        ? await prisma.pedido.findMany({
-            ...opcoesConsulta,
-            where: {
-                status: filtros.status
-            }
-        })
-        : await prisma.pedido.findMany(opcoesConsulta);
+    const pedidos = await prisma.pedido.findMany({
+        ...opcoesConsulta,
+        where: {
+            ...(filtros.status ? { status: filtros.status } : {}),
+            ...(filtros.clienteId !== undefined ? { clienteId: filtros.clienteId } : {})
+        }
+    });
 
-    return pedidos
-        .map(formatarPedido)
+    return pedidos.map(formatarPedido)
         .filter((pedido) => pedidoConfereBusca(pedido, filtros.busca));
 }
+
 
 export async function obterPedidoPorId(id: number) {
     const pedido = await prisma.pedido.findUnique({
@@ -451,12 +485,14 @@ export async function criarPedido(
         };
     }
 
-    const itensAgrupados = agruparItensPorProduto(itensEntrada);
+    // Sempre bloqueia produtos na mesma ordem para evitar esperas circulares.
+    const itensAgrupados = agruparItensPorProduto(itensEntrada).sort((a, b) => a.produtoId - b.produtoId);
 
     return await prisma.$transaction(async (tx) => {
         const produtosDoPedido = [];
 
         for (const item of itensAgrupados) {
+            await bloquearProduto(tx, item.produtoId);
             const produto = await tx.produto.findUnique({
                 where: {
                     id: item.produtoId
@@ -500,9 +536,17 @@ export async function criarPedido(
             };
         });
 
-        const total = Number(
+        const subtotalProdutos = Number(
             itens.reduce((soma, item) => soma + item.subtotal, 0).toFixed(2)
         );
+        let frete;
+        try {
+            frete = validarCotacaoFrete(opcoes.freteToken, produtosDoPedido, cliente.cep!);
+        } catch (erro) {
+            if (erro instanceof ErroFrete) return { mensagemErro: erro.message };
+            throw erro;
+        }
+        const total = Number((subtotalProdutos + frete.valor).toFixed(2));
 
         for (const item of itens) {
             await tx.produto.update({
@@ -518,6 +562,13 @@ export async function criarPedido(
         }
 
         const dadosPedido: DadosCriacaoPedido = {
+            subtotalProdutos,
+            freteValor: frete.valor,
+            freteServicoId: frete.servicoId,
+            freteServico: frete.servico,
+            freteTransportadora: frete.transportadora,
+            fretePrazoDias: frete.prazoDias,
+            freteAmbiente: frete.ambiente,
             clienteId,
             total,
             entregaNome: cliente.nome,
@@ -572,6 +623,7 @@ export async function atualizarStatusPedidoPorId(
     status: StatusPedido
 ): Promise<ResultadoAtualizacaoStatusPedido> {
     return await prisma.$transaction(async (tx) => {
+        await bloquearPedido(tx, id);
         const pedido = await tx.pedido.findUnique({
             where: {
                 id
@@ -585,16 +637,21 @@ export async function atualizarStatusPedidoPorId(
             };
         }
 
-        if (pedido.status === "cancelado") {
-            return {
-                mensagemErro: "Pedido cancelado nao pode mudar de status"
-            };
+        if (status === "pago") {
+            return { mensagemErro: "Use a confirmacao de recebimento do Pix para registrar o pagamento" };
         }
 
-        if (pedido.status === status) {
-            return {
-                pedido: formatarPedido(pedido)
-            };
+        // Repetir cancelamento ou envio nao repete estoque nem historico.
+        if (pedido.status === status) return { pedido: formatarPedido(pedido) };
+
+        if (pedido.status === "cancelado") {
+            return { mensagemErro: "Pedido cancelado nao pode mudar de status" };
+        }
+        if (pedido.status === "enviado") {
+            return { mensagemErro: "Pedido enviado nao pode voltar de etapa nem ser cancelado por este fluxo" };
+        }
+        if (status === "pendente") {
+            return { mensagemErro: "Pedido nao pode voltar para pendente" };
         }
 
         if (status === "enviado") {
@@ -602,6 +659,11 @@ export async function atualizarStatusPedidoPorId(
                 return {
                     mensagemErro: "Pedido precisa estar pago antes de ser enviado"
                 };
+            }
+
+            const pagamento = await tx.pagamento.findFirst({ where: { pedidoId: id, status: "aprovado" } });
+            if (!pagamento) {
+                return { mensagemErro: "Pedido precisa ter pagamento registrado antes de ser enviado" };
             }
 
             if (!pedido.transportadora || !pedido.codigoRastreio) {
@@ -612,7 +674,8 @@ export async function atualizarStatusPedidoPorId(
         }
 
         if (status === "cancelado") {
-            for (const item of pedido.itens) {
+            const itensOrdenados = [...pedido.itens].sort((a, b) => a.produtoId - b.produtoId);
+            for (const item of itensOrdenados) {
                 await tx.produto.update({
                     where: {
                         id: item.produtoId
@@ -656,7 +719,7 @@ export async function atualizarRastreioPedidoPorId(
     codigoRastreio: string
 ): Promise<ResultadoAtualizacaoStatusPedido> {
     return await prisma.$transaction(async (tx) => {
-        // A condição também impede editar o rastreio de um pedido cancelado.
+        await bloquearPedido(tx, id);
         const pedido = await tx.pedido.findUnique({
             where: { id },
             include: includeItensPedido

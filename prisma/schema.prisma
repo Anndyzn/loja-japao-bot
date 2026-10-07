@@ -38,6 +38,10 @@ model Produto {
   nome      String
   preco     Decimal      @db.Decimal(10, 2)
   estoque   Int
+  pesoKg    Decimal? @db.Decimal(10, 3)
+  alturaCm  Int?
+  larguraCm Int?
+  comprimentoCm Int?
   imagemUrl String?
   publicadoNaLoja Boolean @default(true)
   itens     ItemPedido[]
@@ -74,6 +78,13 @@ model Pedido {
   solicitacoes SolicitacaoProduto[]
   historico    HistoricoPedido[]
   total        Decimal      @db.Decimal(10, 2)
+  subtotalProdutos Decimal @default(0) @db.Decimal(10, 2)
+  freteValor Decimal @default(0) @db.Decimal(10, 2)
+  freteServicoId String?
+  freteServico String?
+  freteTransportadora String?
+  fretePrazoDias Int?
+  freteAmbiente String?
   status       StatusPedido @default(pendente)
   observacao   String?
   entregaNome  String?

@@ -1,12 +1,16 @@
 import { prisma } from "../lib/prisma.js";
+import type { MedidasProduto } from "../utils/medidas-produto.js";
+import { obterMedidasEnvioPendentes } from "../utils/medidas-produto.js";
 
 type FiltrosProdutos = {
     nome?: string | undefined;
     estoqueBaixo?: boolean | undefined;
+    medidasIncompletas?: boolean | undefined;
     publicadoNaLoja?: boolean | undefined;
 };
 
-type ProdutoResposta = {
+type ProdutoResposta = MedidasProduto & {
+    medidasEnvioPendentes: string[];
     id: number;
     nome: string;
     preco: number;
@@ -16,6 +20,10 @@ type ProdutoResposta = {
 };
 
 type ProdutoBanco = {
+    pesoKg: unknown;
+    alturaCm: number | null;
+    larguraCm: number | null;
+    comprimentoCm: number | null;
     id: number;
     nome: string;
     preco: unknown;
@@ -27,6 +35,11 @@ type ProdutoBanco = {
 function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
     const resposta: ProdutoResposta = {
         id: produto.id,
+        medidasEnvioPendentes: obterMedidasEnvioPendentes(produto),
+        pesoKg: produto.pesoKg == null ? null : Number(produto.pesoKg),
+        alturaCm: produto.alturaCm,
+        larguraCm: produto.larguraCm,
+        comprimentoCm: produto.comprimentoCm,
         nome: produto.nome,
         preco: Number(produto.preco),
         estoque: produto.estoque,
@@ -42,7 +55,7 @@ function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
 
 export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
     const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
-        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja"
+        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
         FROM "Produto"
         ORDER BY "id" ASC
     `;
@@ -65,12 +78,16 @@ export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
         });
     }
 
+    if (filtros.medidasIncompletas === true) {
+        produtosFiltrados = produtosFiltrados.filter(produto => produto.medidasEnvioPendentes.length > 0);
+    }
+
     return produtosFiltrados;
 }
 
 export async function obterProdutoPorId(id: number) {
     const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
-        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja"
+        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
         FROM "Produto"
         WHERE "id" = ${id}
         LIMIT 1
@@ -90,14 +107,16 @@ export async function criarProduto(
     preco: number,
     estoque: number,
     imagemUrl: string | undefined,
-    publicadoNaLoja: boolean
+    publicadoNaLoja: boolean,
+    medidas: MedidasProduto = {}
 ) {
     const novoProduto = await prisma.produto.create({
         data: {
             nome,
             preco,
             estoque,
-            publicadoNaLoja
+            publicadoNaLoja,
+            ...medidas
         }
     });
 
@@ -118,7 +137,8 @@ export async function atualizarProdutoPorId(
     preco: number | undefined,
     estoque: number | undefined,
     imagemUrl: string | null | undefined,
-    publicadoNaLoja: boolean | undefined
+    publicadoNaLoja: boolean | undefined,
+    medidas: MedidasProduto = {}
 ) {
     const produtoExiste = await prisma.produto.findUnique({
         where: {
@@ -130,13 +150,13 @@ export async function atualizarProdutoPorId(
         return undefined;
     }
 
-    const dadosAtualizacao: {
+    const dadosAtualizacao: MedidasProduto & {
         nome?: string;
         preco?: number;
         estoque?: number;
         imagemUrl?: string | null;
         publicadoNaLoja?: boolean;
-    } = {};
+    } = { ...medidas };
 
     if (nome !== undefined) {
         dadosAtualizacao.nome = nome;

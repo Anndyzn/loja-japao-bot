@@ -5,6 +5,24 @@ const cartItems = document.querySelector("#cart-items");
 const cartTotal = document.querySelector("#cart-total");
 const checkoutTotal = document.querySelector("#checkout-total");
 const paymentTotal = document.querySelector("#payment-total");
+const calcularFreteButton = document.querySelector("#calcular-frete");
+const freteSelect = document.querySelector("#frete-opcoes");
+const freteFeedback = document.querySelector("#frete-feedback");
+let freteOpcoes = [];
+let freteConsulta = 0;
+let freteSubtotal;
+let enviandoPedido = false;
+function obterFreteSelecionado() { return freteOpcoes.find(f => f.token === freteSelect.value); }
+function invalidarFrete() {
+    freteConsulta++;
+    freteOpcoes = [];
+    freteSubtotal = undefined;
+    freteSelect.replaceChildren(new Option("Calcule o frete", ""));
+    freteSelect.disabled = true;
+    calcularFreteButton.disabled = false;
+    freteFeedback.textContent = "Calcule o frete apos informar o CEP.";
+    atualizarTotais();
+}
 const clearCartButton = document.querySelector("#clear-cart");
 const feedback = document.querySelector("#store-feedback");
 const orderNumber = document.querySelector("#order-number");
@@ -92,6 +110,8 @@ async function buscarEnderecoPorCep() {
 }
 
 cepInput.addEventListener("input", buscarEnderecoPorCep);
+cepInput.addEventListener("input", invalidarFrete);
+cepInput.addEventListener("change", invalidarFrete);
 cepInput.addEventListener("change", buscarEnderecoPorCep);
 checkoutForm.addEventListener("reset", () => {
     cancelarBuscaCep();
@@ -274,11 +294,13 @@ function podeIrParaEtapa(etapa) {
 }
 
 function atualizarTotais() {
-    const total = formatarMoeda(calcularTotal());
-
-    cartTotal.textContent = total;
-    checkoutTotal.textContent = total;
-    paymentTotal.textContent = total;
+    const subtotal = freteSubtotal ?? calcularTotal();
+    const frete = obterFreteSelecionado();
+    cartTotal.textContent = formatarMoeda(calcularTotal());
+    document.querySelector("#frete-subtotal").textContent = formatarMoeda(subtotal);
+    document.querySelector("#frete-valor").textContent = frete ? formatarMoeda(frete.valor) : "A calcular";
+    checkoutTotal.textContent = frete ? formatarMoeda(subtotal + frete.valor) : formatarMoeda(subtotal) + " + frete";
+    paymentTotal.textContent = frete ? formatarMoeda(subtotal + frete.valor) : "Selecione a entrega";
 }
 
 function alterarQuantidade(produtoId, novaQuantidade) {
@@ -361,6 +383,7 @@ function criarLinhaCarrinho(item) {
 }
 
 function renderizarCarrinho() {
+    invalidarFrete();
     const itens = Array.from(carrinho.values());
     const botaoAvancar = document.querySelector('[data-next-step="entrega"]');
 
@@ -382,7 +405,7 @@ function renderizarPedidoCriado(pedido) {
     paymentTotal.textContent = formatarMoeda(pedido.total);
     orderNumber.textContent = `Pedido #${pedido.id}`;
     const status = pedido.status === "pendente" ? "Aguardando pagamento" : pedido.status;
-    orderStatus.textContent = `${status} - total ${formatarMoeda(pedido.total)}`;
+    orderStatus.textContent = `${status} - produtos ${formatarMoeda(pedido.subtotalProdutos)} + frete ${formatarMoeda(pedido.freteValor)} = ${formatarMoeda(pedido.total)}. ${pedido.freteTransportadora} / ${pedido.freteServico}: ${pedido.fretePrazoDias} dias uteis apos postagem.${pedido.freteAmbiente === "sandbox" ? " SIMULACAO DE FRETE." : ""}`;
     const quadroPix = criarQuadroPix(pedido);
     document.querySelector("#order-pix").replaceChildren(...(quadroPix ? [quadroPix] : []));
     trackingLink.href = `/loja/acompanhamento?pedido=${pedido.id}`;
@@ -395,6 +418,29 @@ async function carregarProdutos() {
     sincronizarCarrinhoComProdutos();
     renderizarCarrinho();
 }
+
+calcularFreteButton.addEventListener("click", async () => {
+    if (!validarCarrinho() || !validarEntrega()) return;
+    invalidarFrete();
+    const consulta = freteConsulta;
+    calcularFreteButton.disabled = true;
+    freteFeedback.textContent = "Consultando opcoes de entrega...";
+    try {
+        const resposta = await apiFetch("/fretes/cotacao", {method:"POST",body:JSON.stringify({cep:cepInput.value,itens:Array.from(carrinho.values()).map(i=>({produtoId:i.produto.id,quantidade:i.quantidade}))})});
+        if (consulta !== freteConsulta) return;
+        freteOpcoes = resposta.opcoes;
+        freteSubtotal = resposta.subtotalProdutos;
+        freteSelect.replaceChildren(new Option("Selecione a entrega", ""), ...freteOpcoes.map(f=>new Option(f.transportadora + " / " + f.servico + " - " + formatarMoeda(f.valor) + " - " + f.prazoDias + " dias uteis apos postagem" + (f.ambiente === "sandbox" ? " (SIMULACAO)" : ""), f.token)));
+        freteSelect.disabled = false;
+        freteFeedback.textContent = "Escolha a entrega. Cotacao valida por 15 minutos.";
+        atualizarTotais();
+    } catch (erro) {
+        if (consulta === freteConsulta) freteFeedback.textContent = erro.message;
+    } finally {
+        if (consulta === freteConsulta) calcularFreteButton.disabled = false;
+    }
+});
+freteSelect.addEventListener("change", atualizarTotais);
 
 async function finalizarPedido(evento) {
     evento.preventDefault();
@@ -411,9 +457,18 @@ async function finalizarPedido(evento) {
         return;
     }
 
+    if (enviandoPedido) return;
+    const frete = obterFreteSelecionado();
+    if (!frete || frete.expiraEm <= Date.now()) {
+        definirEtapa("pagamento");
+        setFeedback("Calcule e selecione um frete valido antes de finalizar.", "error"); return;
+    }
+    const itensPedido = Array.from(carrinho.values()).map(i=>({produtoId:i.produto.id,quantidade:i.quantidade}));
     const formData = new FormData(checkoutForm);
     const telefonePedido = obterTexto(formData, "telefone");
 
+    enviandoPedido = true;
+    checkoutForm.inert = true;
     try {
         setFeedback("Enviando pedido...");
 
@@ -439,12 +494,8 @@ async function finalizarPedido(evento) {
             body: JSON.stringify({
                 clienteId: cliente.id,
                 observacao: obterTextoOpcional(formData, "observacao"),
-                itens: Array.from(carrinho.values()).map(({ produto, quantidade }) => {
-                    return {
-                        produtoId: produto.id,
-                        quantidade
-                    };
-                })
+                freteToken: frete.token,
+                itens: itensPedido
             })
         });
 
@@ -459,6 +510,9 @@ async function finalizarPedido(evento) {
         setFeedback(`Pedido ${pedido.id} criado. Aguardando pagamento e confirmacao da loja.`, "success");
     } catch (erro) {
         setFeedback(erro.message, "error");
+    } finally {
+        enviandoPedido = false;
+        checkoutForm.inert = false;
     }
 }
 

@@ -681,6 +681,7 @@ Content-Type: application/json
 {
   "clienteId": 1,
   "observacao": "Entregar no periodo da tarde",
+  "freteToken": "token retornado por POST /fretes/cotacao",
   "itens": [
     {
       "produtoId": 1,
@@ -981,3 +982,215 @@ A rota publica e POST /solicitacoes/publica; a listagem continua exclusiva do ad
 
 Ao atualizar outra maquina, aplique as migrations e gere o Prisma Client antes
 de iniciar o servidor, conforme os comandos da secao anterior.
+
+### Filtros e paginacao de pedidos
+
+GET /pedidos e GET /pedidos/cliente/:clienteId aceitam status, busca,
+precisaAcao=true|false, acao=pix|rastreio|envio, pagina e limite (ate 50).
+Todos os filtros sao combinados antes de paginar. A busca parcial existente
+por cliente, telefone, produto e numero continua disponivel.
+
+A resposta inclui dados, pagina, limite, total, totalPaginas e resumo dos
+resultados filtrados (valor total, status e acoes). O resumo nao se limita
+a pagina visivel. Sem resultados, dados fica vazio e totalPaginas e zero.
+Filtros de acao ordenam por Pix, rastreio e envio, depois pelos pedidos mais
+recentes, com desempate por ID. Combinacoes sem correspondencia retornam vazio.
+
+O admin permite navegar por Anterior/Proxima e escolher 10, 20 ou 50 pedidos.
+Mudar filtros volta para a primeira pagina; atualizar um pedido preserva a
+pagina e recua se a ultima pagina ficar vazia. Respostas antigas de buscas
+sobrepostas nao substituem a consulta atual. Os atalhos do Dashboard e o
+filtro por cliente usam a mesma listagem.
+
+A busca continua sendo feita em memoria no backend para preservar a
+normalizacao atual de acentos e telefones. A consulta ao banco ja restringe
+status e cliente; a paginacao em SQL pode ser uma evolucao para grandes volumes.
+
+Teste manual: altere o tamanho da pagina, navegue, combine busca com cada
+tipo de acao, teste os atalhos do Dashboard e os pedidos de um cliente.
+Confirme Pix ou salve rastreio com filtro ativo e confira que a lista e o
+resumo se atualizam. Nenhuma migration e necessaria para esta alteracao.
+
+Regressao automatizada: `npm run test:pedidos`. Usa 96 pedidos ficticios e
+substitui as leituras do Prisma em memoria, sem gravar no banco. Cobre filtros
+alem da primeira pagina, totais, cliente, busca, entradas invalidas, pagina
+esvaziada, erro de rede e respostas fora de ordem.
+
+### Consistencia de pedidos, pagamentos e estoque
+
+- Somente POST /pagamentos, autenticado como admin, pode confirmar Pix e mudar
+  o pedido para pago. PATCH /pedidos/:id/status rejeita o destino pago.
+- Nao e permitido voltar para pendente. Repetir cancelamento ou envio retorna
+  o estado atual, sem repetir estoque nem historico.
+- Enviar exige pedido pago, pagamento aprovado registrado e rastreio completo.
+- Cancelar e permitido antes do envio (pendente ou pago). Devolve o estoque
+  uma unica vez. Um pagamento ja registrado permanece no historico; o estorno
+  deve ser tratado manualmente. Este fluxo nao registra nem executa estornos.
+- Pedido enviado nao pode voltar de etapa ou ser cancelado pelo fluxo simples.
+  Devolucoes apos envio precisarao de um fluxo proprio.
+- Confirmacao de Pix, status e rastreio bloqueiam a linha do pedido durante
+  a transacao. Uma segunda operacao espera e verifica o estado atualizado.
+- Criacao de pedidos bloqueia os produtos por ID antes de conferir o estoque;
+  duas compras nao podem consumir a mesma ultima unidade. Todas as alteracoes
+  de cada operacao sao confirmadas juntas ou desfeitas em caso de erro.
+
+Nenhuma migration e necessaria. Registros antigos inconsistentes nao sao
+alterados automaticamente; enviar um pedido pago sem pagamento registrado
+retorna uma orientacao de erro para que o caso seja conferido.
+
+Teste de concorrencia: `npm run test:consistencia`. Requer PostgreSQL local
+ativo e usuario com permissao de criar bancos. Cria um banco de nome aleatorio,
+aplica as migrations existentes, testa operacoes simultaneas e rollback, e
+remove exclusivamente esse banco ao terminar. Nao utiliza dados da loja.
+
+## Frete automatico Brasil -> Brasil
+
+Esta etapa consulta Correios PAC e SEDEX pelo Melhor Envio, a partir do seu
+estoque no Brasil. Nao compra etiquetas nem agenda postagem. Pix continua
+manual: o pedido nasce pendente e o admin confirma o recebimento.
+
+### Atualizar este computador ou outra maquina
+
+Com o Docker iniciado:
+
+```powershell
+npm install
+npm run db:up
+npm run db:deploy
+npm run db:generate
+npm run check
+npm run dev
+```
+
+A migration adiciona peso/medidas aos produtos e dados de frete aos pedidos.
+Pedidos antigos mantem o total original, com frete zero e sem servico definido;
+nao representam uma cotacao nova. Nao recrie o banco.
+
+No .env local, preencha (o arquivo nao vai para o Git):
+
+```dotenv
+FRETE_CEP_ORIGEM="CEP de postagem no Brasil, com 8 digitos"
+MELHOR_ENVIO_AMBIENTE="sandbox"
+MELHOR_ENVIO_TOKEN="token privado da sua conta sandbox"
+MELHOR_ENVIO_CONTATO="seu email de contato"
+```
+
+Crie a conta de testes no [sandbox do Melhor Envio](https://sandbox.melhorenvio.com.br/).
+As contas e credenciais de sandbox e producao sao separadas. Gere o token no
+painel em Integracoes > Permissoes de Acesso. Guarde-o somente no servidor.
+Reinicie o backend depois de mudar o .env. Nunca envie o token pelo chat ou Git.
+
+No admin, edite cada produto e informe peso embalado por unidade em kg (ex. 0.250)
+e altura, largura e comprimento em cm inteiros. Use medidas reais, incluindo a
+embalagem. Produtos antigos continuam editaveis sem medidas, mas nao podem
+ser cotados ate completar esses campos.
+
+### Fluxo e teste manual
+
+1. Adicione produtos ao carrinho e preencha o endereco de entrega.
+2. Na etapa Pagamento, clique em Calcular frete e escolha um servico.
+3. Confira subtotal dos produtos, frete e total antes de finalizar.
+4. O pedido fica pendente; o valor do Pix inclui o frete.
+5. Confira o mesmo resumo nos detalhes do admin e no acompanhamento publico.
+6. Alterar CEP ou quantidade exige uma nova cotacao. Sem cotacao, ou com
+   cotacao vencida, o pedido nao e criado. Teste tambem um produto sem medidas.
+7. No admin, criar pedido tambem exige calcular e selecionar o frete.
+
+Cotacoes expiram em 15 minutos. O backend assina a opcao e confere produtos,
+quantidades, precos, medidas e CEP ao criar o pedido. O navegador nao decide
+quanto cobrar. Falhas na integracao nao viram frete gratis. O prazo mostrado
+corresponde ao transporte em dias uteis apos a postagem.
+
+No sandbox as opcoes e os pedidos mostram SIMULACAO. Nao faca pagamentos reais
+nesses testes. Em producao, configure NODE_ENV=production,
+MELHOR_ENVIO_AMBIENTE=production e credenciais de producao, alem das demais
+variaveis obrigatorias. O backend rejeita frete sandbox em producao.
+Execute npm run verificar:deploy antes de publicar. A validacao local nao
+comprova a autenticacao com o provedor: teste sua conta e CEPs reais antes de abrir a loja.
+
+### API de cotacao
+
+```http
+POST /fretes/cotacao
+Content-Type: application/json
+```
+
+```json
+{
+  "cep": "01001000",
+  "itens": [{ "produtoId": 1, "quantidade": 2 }]
+}
+```
+
+Resposta: subtotalProdutos e opcoes com valor, servico, transportadora,
+prazoDias, ambiente, expiraEm e token. Envie o token escolhido como freteToken
+em POST /pedidos junto dos mesmos itens e de um cliente com o mesmo CEP.
+Para cotar produtos internos, envie Authorization: Bearer com token admin.
+
+Testes: npm run test:checkout verifica a logica do navegador com DOM e API
+simulados; npm run test:consistencia verifica migracao, cotacoes e pedidos em
+PostgreSQL temporario, com a API do provedor simulada. Nenhum deles compra
+etiquetas ou valida sua conta real. A revisao visual no navegador e manual.
+
+Documentacao consultada: [calculo por produtos](https://docs.melhorenvio.com.br/reference/calculo-de-fretes-por-produtos)
+e [ambiente sandbox](https://docs.melhorenvio.com.br/docs/sandbox).
+O calculo usa custom_price e custom_delivery_time retornados pelo provedor.
+
+### Rastreio no admin apos a cotacao
+
+Em Pedidos > Ver detalhes > Rastreio do envio, a transportadora vem preenchida
+pela entrega escolhida. Se ja existir rastreio, prevalece a transportadora salva.
+O servico escolhido (PAC/SEDEX), valor e indicacao de sandbox ficam visiveis
+junto ao formulario. Pedidos antigos sem cotacao continuam com preenchimento manual.
+
+Apos postar, informe o codigo, salve o rastreio e marque como enviado.
+Alteracoes ainda nao salvas bloqueiam o botao de envio. A transportadora pode
+ser corrigida, preservando o frete original cobrado do cliente. A integracao
+atual apenas calcula frete: a etiqueta e a postagem continuam fora do sistema.
+
+Teste manual: abra um pedido pago com frete, confira o preenchimento, salve
+um rastreio de teste e reabra. Altere o codigo sem salvar e confira que o envio
+fica desabilitado; salve e confira a liberacao. Confira tambem um pedido antigo
+sem cotacao e um pedido que ja tenha transportadora de envio cadastrada.
+
+Teste automatizado do formulario, sem banco ou rede:
+`node --test tests/admin-rastreio.test.mjs`.
+
+### Produtos com medidas de envio pendentes
+
+O admin mostra uma coluna com peso/dimensoes ou os campos que faltam.
+Use o filtro "Sem medidas de envio" e o botao "Completar medidas" para abrir
+uma edicao no primeiro campo pendente. O filtro combina com nome, publicacao
+e estoque baixo, e e aplicado no backend antes da paginacao.
+GET /produtos aceita medidasIncompletas=true e retorna medidasEnvioPendentes
+em cada produto. false ou ausencia do filtro mantem todos os produtos.
+
+Essa indicacao usa apenas o cadastro local, sem chamadas ao Melhor Envio.
+"Medidas completas" nao garante cobertura da transportadora para todo CEP;
+a disponibilidade continua sendo consultada no checkout. Nenhuma migration
+ou nova dependencia e necessaria.
+
+Teste manual: filtre os produtos sem medidas, complete um cadastro e salve.
+Ele deve sair desse filtro; ao limpar, deve exibir "Medidas completas".
+O cadastro ainda pode ser salvo incompleto para preparar produtos internos.
+
+### Responsividade da loja e do admin
+
+Formularios, seletores e textos longos se ajustam a telas pequenas. No admin,
+o menu fica horizontal no celular; deslize para acessar as outras abas.
+As tabelas mantem colunas legiveis e rolam dentro do proprio quadro (tambem
+acessivel por teclado). Modais usam a altura disponivel com rolagem interna.
+O carrinho lateral acompanha a altura da tela e bloqueia a rolagem do fundo.
+
+Verificacao em Chrome isolado, com dados ficticios e gravacoes da API
+bloqueadas: catalogo, carrinho lateral, quatro etapas do checkout,
+acompanhamento, solicitacao, login, sete abas do admin e quatro modais.
+Foram conferidas 160 combinacoes entre telas e tamanhos, de 320 a 1440 px,
+incluindo pouca altura e celular deitado, sem transbordamento horizontal
+nos elementos verificados fora das areas de rolagem intencional e sem
+excecoes JavaScript. Capturas selecionadas foram revisadas visualmente.
+
+Teste manual: atualize com Ctrl+F5, reduza a janela ou use o modo dispositivo
+do navegador; confira filtros, rolagem de tabelas, abertura/fechamento dos
+modais e campos de frete. Teste tambem no celular real, principalmente
+com o teclado aberto. Nenhuma dependencia ou servico foi adicionado.

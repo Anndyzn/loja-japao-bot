@@ -81,6 +81,11 @@
                             <input id="produto-estoque" name="estoque" type="number" min="0" step="1" required>
                         </label>
 
+<label>Peso embalado por unidade (kg)<input id="produto-pesoKg" name="pesoKg" type="number" min="0.001" max="1000" step="0.001"></label>
+                        <label>Altura (cm)<input id="produto-alturaCm" name="alturaCm" type="number" min="1" max="1000" step="1"></label>
+                        <label>Largura (cm)<input id="produto-larguraCm" name="larguraCm" type="number" min="1" max="1000" step="1"></label>
+                        <label>Comprimento (cm)<input id="produto-comprimentoCm" name="comprimentoCm" type="number" min="1" max="1000" step="1"></label>
+
                         <div class="upload-control">
                             <span>Foto</span>
                             <button id="produto-imagem-botao" class="small-button" type="button">Escolher arquivo</button>
@@ -116,13 +121,19 @@
                         </label>
 
                         <button type="submit">Buscar</button>
+                        <label class="checkbox-control">
+                            <input id="produto-medidas-incompletas-filtro" type="checkbox">
+                            Sem medidas de envio
+                        </label>
                         <button id="produto-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
 
+                    <p class="lista-resumo">Produtos sem peso ou medidas impedem o cálculo do frete no checkout. Complete o cadastro antes de divulgar.</p>
                     <p id="produto-lista-resumo" class="lista-resumo"></p>
 
-                    <div class="table-shell">
-                        <table>
+                    <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
+                    <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
+                        <table class="produtos-table">
                             <thead>
                                 <tr>
                                     <th>ID</th>
@@ -131,6 +142,7 @@
                                     <th>Preco</th>
                                     <th>Estoque</th>
                                     <th>Loja</th>
+                                    <th>Medidas para envio</th>
                                     <th>Acoes</th>
                                 </tr>
                             </thead>
@@ -162,7 +174,8 @@
 
                     <p id="cliente-lista-resumo" class="lista-resumo"></p>
 
-                    <div class="table-shell">
+                    <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
+                    <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
                         <table>
                             <thead>
                                 <tr>
@@ -200,6 +213,11 @@
                             <input id="pedido-observacao" type="text" placeholder="Opcional">
                         </label>
 
+                        <div class="field-wide freight-selection">
+                            <button id="pedido-calcular-frete" type="button">Calcular frete</button>
+                            <label>Entrega<select id="pedido-frete" disabled><option value="">Calcule o frete</option></select></label>
+                            <p id="pedido-frete-feedback" class="feedback" role="status"></p>
+                        </div>
                         <button type="submit">Criar pedido</button>
                     </form>
 
@@ -241,8 +259,21 @@
 
                     <p id="pedido-filtro-contexto" class="filtro-contexto hidden"></p>
                     <p id="pedido-lista-resumo" class="lista-resumo"></p>
+                    <nav class="filters-bar" aria-label="Paginas de pedidos">
+                        <button id="pedido-pagina-anterior" type="button" disabled>Anterior</button>
+                        <span id="pedido-pagina-info" role="status" aria-live="polite"></span>
+                        <button id="pedido-pagina-proxima" type="button" disabled>Proxima</button>
+                        <label>Pedidos por pagina
+                            <select id="pedido-limite">
+                                <option value="10">10</option>
+                                <option value="20" selected>20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </label>
+                    </nav>
 
-                    <div class="table-shell">
+                    <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
+                    <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
                         <table class="pedidos-table">
                             <colgroup>
                                 <col class="col-id">
@@ -302,7 +333,8 @@
 
                     <p id="pagamento-lista-resumo" class="lista-resumo"></p>
 
-                    <div class="table-shell">
+                    <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
+                    <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
                         <table class="solicitacoes-table">
                             <colgroup>
                                 <col class="col-id">
@@ -353,7 +385,8 @@
                     <p id="solicitacao-filtro-contexto" class="filtro-contexto hidden"></p>
                     <p id="solicitacao-lista-resumo" class="lista-resumo"></p>
 
-                    <div class="table-shell">
+                    <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
+                    <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
                         <table>
                             <thead>
                                 <tr>
@@ -446,6 +479,11 @@
                     <input id="produto-edit-publicado-na-loja" name="publicadoNaLoja" type="checkbox">
                     Publicado na loja
                 </label>
+
+                <label>Peso embalado por unidade (kg)<input id="produto-edit-pesoKg" name="pesoKg" type="number" min="0.001" max="1000" step="0.001"></label>
+                        <label>Altura (cm)<input id="produto-edit-alturaCm" name="alturaCm" type="number" min="1" max="1000" step="1"></label>
+                        <label>Largura (cm)<input id="produto-edit-larguraCm" name="larguraCm" type="number" min="1" max="1000" step="1"></label>
+                        <label>Comprimento (cm)<input id="produto-edit-comprimentoCm" name="comprimentoCm" type="number" min="1" max="1000" step="1"></label>
 
                 <div class="modal-actions">
                     <button id="produto-edit-cancelar" class="small-button" type="button">Cancelar</button>

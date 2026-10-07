@@ -160,6 +160,14 @@
 
                     <p class="result-text">Ao finalizar, seu pedido ficara aguardando pagamento. A loja confirmara o recebimento do Pix manualmente.</p>
 
+                    <section class="tracking-card" aria-label="Opcoes de entrega">
+                        <h3>Frete</h3>
+                        <button id="calcular-frete" type="button">Calcular frete para meu CEP</button>
+                        <label>Escolha a entrega<select id="frete-opcoes" disabled><option value="">Calcule o frete</option></select></label>
+                        <p id="frete-feedback" class="feedback" role="status"></p>
+                        <p>Prazo de transporte contado em dias uteis apos a postagem.</p>
+                        <p>Produtos: <strong id="frete-subtotal">R$ 0,00</strong> | Frete: <strong id="frete-valor">A calcular</strong></p>
+                    </section>
                     <div class="payment-summary">
                         <span>Total do pedido</span>
                         <strong id="payment-total">R$ 0,00</strong>
