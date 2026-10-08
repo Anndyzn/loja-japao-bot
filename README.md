@@ -47,6 +47,14 @@ As variaveis principais sao:
 ```txt
 NODE_ENV=development
 PORT=3000
+APP_NOME="Loja Japao"
+LOJA_HERO_ETIQUETA="Importados do Japao"
+LOJA_HERO_TITULO="Doces, presentes e achadinhos japoneses"
+LOJA_HERO_DESCRICAO="Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada."
+LOJA_HERO_IMAGEM_URL="/loja/assets/hero-produtos-japao.png"
+LOJA_COR_PRINCIPAL="#c52233"
+LOJA_COR_PRINCIPAL_ESCURO="#8e1724"
+LOJA_ATENDIMENTO_TEXTO="Atendimento pelo WhatsApp apos a confirmacao do pedido."
 DATABASE_URL="postgresql://..."
 UPLOADS_DIR="public/uploads"
 TRUST_PROXY=false
@@ -67,6 +75,17 @@ AUTH_TOKEN_SECRET="gere-um-segredo-com-npm-run-gerar-segredo"
 ```
 
 `PORT` define onde a API vai rodar. Em desenvolvimento, o padrao e `3000`.
+`APP_NOME` define o nome exibido no admin, na loja publica e em mensagens de
+WhatsApp geradas pelo sistema. Para adaptar para outro cliente, troque esse
+valor no `.env` local ou no ambiente de producao.
+`LOJA_HERO_ETIQUETA`, `LOJA_HERO_TITULO`, `LOJA_HERO_DESCRICAO` e
+`LOJA_HERO_IMAGEM_URL` controlam o conteudo principal da vitrine publica.
+Use uma URL local iniciada com `/` ou uma URL `https://`.
+`LOJA_COR_PRINCIPAL` e `LOJA_COR_PRINCIPAL_ESCURO` controlam os botoes e
+destaques da loja publica. Use cores hexadecimais com 6 digitos, como
+`#c52233`.
+`LOJA_ATENDIMENTO_TEXTO` aparece nas telas publicas como orientacao curta de
+atendimento ou suporte.
 `UPLOADS_DIR` define onde as fotos enviadas pelo admin ficam salvas no disco.
 O padrao local e `public/uploads`, e as imagens continuam sendo acessadas pela
 URL publica `/uploads/...`.
@@ -166,6 +185,15 @@ http://localhost:3000/info
 Essa rota retorna nome, versao, ambiente, uptime e horario da API sem consultar
 o banco e sem expor segredos.
 
+A configuracao publica da loja roda em:
+
+```txt
+http://localhost:3000/configuracao-publica
+```
+
+Essa rota retorna somente dados publicos de personalizacao, como nome da loja,
+texto da vitrine, imagem e cores. Ela nao expoe Pix, tokens ou segredos.
+
 A tela admin roda em:
 
 ```txt
@@ -203,6 +231,14 @@ Antes de colocar no ar, configure um `.env` proprio no servidor:
 ```env
 NODE_ENV=production
 PORT=3000
+APP_NOME="Nome da loja"
+LOJA_HERO_ETIQUETA="Categoria ou chamada curta"
+LOJA_HERO_TITULO="Titulo principal da loja"
+LOJA_HERO_DESCRICAO="Descricao curta da proposta da loja"
+LOJA_HERO_IMAGEM_URL="/loja/assets/hero-produtos-japao.png"
+LOJA_COR_PRINCIPAL="#c52233"
+LOJA_COR_PRINCIPAL_ESCURO="#8e1724"
+LOJA_ATENDIMENTO_TEXTO="Atendimento pelo WhatsApp apos a confirmacao do pedido."
 DATABASE_URL="postgresql://usuario:senha@host:5432/banco?schema=public"
 UPLOADS_DIR="/caminho/persistente/uploads"
 TRUST_PROXY=true
@@ -901,6 +937,11 @@ Requer token admin.
 GET /dashboard/resumo
 ```
 
+No painel, o dashboard foi pensado como central de trabalho: cards principais
+no topo, fila de acoes abaixo e atalhos para as telas mais usadas. O atalho
+Pedidos ativos abre pedidos pendentes/pagos; Finalizados abre enviados e
+cancelados. Isso evita misturar trabalho do dia com historico.
+
 ## WhatsApp
 
 Ainda nao existe bot integrado nem envio automatico de mensagens. O admin usa
@@ -987,8 +1028,12 @@ A solicitacao guarda os dados de contato e nasce com status recebida; nao cria
 pedido, pagamento ou cadastro de cliente. Solicitacoes antigas continuam ligadas
 aos clientes existentes. A vinculacao automatica com o checkout fica para outra etapa.
 
-No admin, a aba Solicitacoes mostra o contato. Use Ver descricao para consultar
-os detalhes e o link. O contato com o visitante e feito manualmente.
+No admin, a aba Solicitacoes mostra o contato, o ciclo da solicitacao e a
+proxima acao. O ciclo usa OK/Falta para Cotacao, Cliente, Produto e Pedido.
+Quando uma solicitacao ja tem cotacao, cliente e produto, o botao Preparar
+pedido aparece diretamente na linha. Use Ver descricao para consultar detalhes,
+link, observacao interna e acoes extras. O contato com o visitante e feito
+manualmente.
 A rota publica e POST /solicitacoes/publica; a listagem continua exclusiva do admin.
 
 Ao atualizar outra maquina, aplique as migrations e gere o Prisma Client antes
@@ -996,10 +1041,14 @@ de iniciar o servidor, conforme os comandos da secao anterior.
 
 ### Filtros e paginacao de pedidos
 
-GET /pedidos e GET /pedidos/cliente/:clienteId aceitam status, busca,
-precisaAcao=true|false, acao=pix|rastreio|envio, pagina e limite (ate 50).
+GET /pedidos e GET /pedidos/cliente/:clienteId aceitam status, ciclo,
+busca, precisaAcao=true|false, acao=pix|rastreio|envio, pagina e limite (ate 50).
 Todos os filtros sao combinados antes de paginar. A busca parcial existente
 por cliente, telefone, produto e numero continua disponivel.
+
+O filtro ciclo aceita ativos, finalizados ou todos. Ativos mostra pendente e
+pago; finalizados mostra enviado e cancelado. Se um status especifico for
+informado, ele tem prioridade sobre o ciclo.
 
 A resposta inclui dados, pagina, limite, total, totalPaginas e resumo dos
 resultados filtrados (valor total, status e acoes). O resumo nao se limita
@@ -1012,6 +1061,11 @@ Mudar filtros volta para a primeira pagina; atualizar um pedido preserva a
 pagina e recua se a ultima pagina ficar vazia. Respostas antigas de buscas
 sobrepostas nao substituem a consulta atual. Os atalhos do Dashboard e o
 filtro por cliente usam a mesma listagem.
+
+Na criacao manual de pedidos pelo admin, pedidos nacionais podem usar uma
+cotacao automatica ou um frete combinado manual. O frete manual e exclusivo
+do admin, entra no total do pedido e no Pix, e nao altera a regra de estoque.
+No checkout publico, o cliente continua usando a cotacao automatica.
 
 A busca continua sendo feita em memoria no backend para preservar a
 normalizacao atual de acentos e telefones. A consulta ao banco ja restringe

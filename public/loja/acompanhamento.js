@@ -1,4 +1,7 @@
+import { aplicarConfiguracaoPublica } from "./configuracao.js";
 import { criarQuadroPix } from "./pix.js";
+
+void aplicarConfiguracaoPublica("Acompanhamento");
 
 const trackingForm = document.querySelector("#tracking-form");
 const pedidoIdInput = document.querySelector("#pedido-id");
@@ -135,6 +138,52 @@ function criarItemPedido(item) {
     return linha;
 }
 
+function criarLinhaValor(rotulo, valor, destaque = false) {
+    const linha = document.createElement("p");
+    linha.className = destaque ? "tracking-value-row tracking-value-total" : "tracking-value-row";
+
+    const texto = document.createElement("span");
+    texto.textContent = rotulo;
+
+    const preco = document.createElement("strong");
+    preco.textContent = formatarMoeda(valor);
+
+    linha.append(texto, preco);
+    return linha;
+}
+
+function criarResumoValoresPedido(pedido) {
+    const valores = document.createElement("article");
+    valores.className = "tracking-card tracking-values-card";
+
+    const titulo = document.createElement("div");
+    titulo.innerHTML = `
+        <p class="eyebrow">Valores</p>
+        <h3>Resumo financeiro</h3>
+    `;
+
+    const lista = document.createElement("div");
+    lista.className = "tracking-values-list";
+    const freteRotulo = pedido.tipoEnvio === "internacional_direto" ? "Frete internacional" : "Frete";
+
+    lista.append(
+        criarLinhaValor("Produtos", pedido.subtotalProdutos),
+        criarLinhaValor(freteRotulo, pedido.freteValor),
+        criarLinhaValor("Total do pedido", pedido.total, true)
+    );
+
+    valores.append(titulo, lista);
+
+    if (pedido.tipoEnvio === "internacional_direto") {
+        const aviso = document.createElement("p");
+        aviso.className = "tracking-note";
+        aviso.textContent = "Taxas de importacao, se cobradas, nao entram nesse total e ficam por conta do cliente.";
+        valores.append(aviso);
+    }
+
+    return valores;
+}
+
 function renderizarPedido(pedido) {
     const indiceAtual = obterIndiceStatus(pedido.status);
     const pedidoCancelado = pedido.status === "cancelado";
@@ -196,7 +245,7 @@ function renderizarPedido(pedido) {
     itensLista.replaceChildren(...pedido.itens.map(criarItemPedido));
 
     itens.append(itensTitulo, itensLista);
-    detalhes.append(pagamento, itens);
+    detalhes.append(pagamento, criarResumoValoresPedido(pedido), itens);
     if (pedido.tipoEnvio === "internacional_direto") {
         const importacao = document.createElement("article");
         importacao.className = "tracking-card";
@@ -215,8 +264,7 @@ function renderizarPedido(pedido) {
         const descricao = document.createElement("p");
         const prazo = pedido.fretePrazoDias == null ? "" : " - " + pedido.fretePrazoDias + " dias uteis apos postagem";
         descricao.textContent = pedido.freteTransportadora + " / " + pedido.freteServico + " - " + formatarMoeda(pedido.freteValor) + prazo + (pedido.freteAmbiente === "sandbox" ? " (SIMULACAO)" : "");
-        const valores = document.createElement("p"); valores.textContent = "Produtos: " + formatarMoeda(pedido.subtotalProdutos) + " | Total com frete: " + formatarMoeda(pedido.total);
-        frete.append(titulo, descricao, valores); detalhes.append(frete);
+        frete.append(titulo, descricao); detalhes.append(frete);
     }
     const quadroPix = criarQuadroPix(pedido);
     if (quadroPix) detalhes.append(quadroPix);

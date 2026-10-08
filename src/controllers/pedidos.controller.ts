@@ -41,13 +41,16 @@ function obterPermissaoProdutoInterno(req: Request) {
 }
 
 async function responderListagemPedidos(req: Request, res: Response, clienteId?: number) {
-    const { status, pagina, limite, busca, precisaAcao, acao } = req.query;
+    const { status, pagina, limite, busca, precisaAcao, acao, ciclo } = req.query;
 
     if (precisaAcao !== undefined && precisaAcao !== "true" && precisaAcao !== "false") {
         return res.status(400).json({ mensagem: "precisaAcao deve ser true ou false" });
     }
     if (acao !== undefined && (typeof acao !== "string" || !["pix", "rastreio", "envio"].includes(acao))) {
         return res.status(400).json({ mensagem: "Acao deve ser pix, rastreio ou envio" });
+    }
+    if (ciclo !== undefined && (typeof ciclo !== "string" || !["ativos", "finalizados", "todos"].includes(ciclo))) {
+        return res.status(400).json({ mensagem: "Ciclo deve ser ativos, finalizados ou todos" });
     }
 
     if (status !== undefined) {
@@ -82,11 +85,20 @@ async function responderListagemPedidos(req: Request, res: Response, clienteId?:
         });
     }
 
-    const pedidosFiltrados = await obterPedidosFiltrados({
+    let pedidosFiltrados = await obterPedidosFiltrados({
         clienteId,
         status: status as StatusPedido | undefined,
         busca: buscaTratada
     });
+
+    if (status === undefined && ciclo === "ativos") {
+        pedidosFiltrados = pedidosFiltrados.filter((pedido) => ["pendente", "pago"].includes(pedido.status));
+    }
+
+    if (status === undefined && ciclo === "finalizados") {
+        pedidosFiltrados = pedidosFiltrados.filter((pedido) => ["enviado", "cancelado"].includes(pedido.status));
+    }
+
     return res.json(montarListagemPedidos(
         pedidosFiltrados, paginacao.pagina!, paginacao.limite!,
         precisaAcao === "true", acao as AcaoPedido | undefined
@@ -175,16 +187,13 @@ export async function cadastrarPedido(req: Request, res: Response) {
         freteToken,
         tipoEnvio,
         clienteCienteTaxasImportacao,
-        freteInternacionalValor
+        freteInternacionalValor,
+        freteManualValor
     } = req.body;
     const tipoEnvioTratado = tipoEnvio === "internacional_direto" ? "internacional_direto" : "nacional";
 
     if (tipoEnvio !== undefined && tipoEnvio !== "nacional" && tipoEnvio !== "internacional_direto") {
         return res.status(400).json({ mensagem: "Tipo de envio invalido" });
-    }
-
-    if (tipoEnvioTratado === "nacional" && (typeof freteToken !== "string" || !freteToken || freteToken.length > 8000)) {
-        return res.status(400).json({ mensagem: "Calcule e selecione o frete antes de criar o pedido" });
     }
 
     if (
@@ -214,6 +223,20 @@ export async function cadastrarPedido(req: Request, res: Response) {
         });
     }
 
+    const freteManualValido = typeof freteManualValor === "number" && Number.isFinite(freteManualValor) && freteManualValor >= 0;
+
+    if (freteManualValor !== undefined && !freteManualValido) {
+        return res.status(400).json({ mensagem: "Frete manual deve ser um numero maior ou igual a zero" });
+    }
+
+    if (
+        tipoEnvioTratado === "nacional" &&
+        (typeof freteToken !== "string" || !freteToken || freteToken.length > 8000) &&
+        !(permissaoProdutoInterno.permitir && freteManualValido)
+    ) {
+        return res.status(400).json({ mensagem: "Calcule e selecione o frete ou informe um frete manual combinado" });
+    }
+
     if (tipoEnvioTratado === "internacional_direto" && !permissaoProdutoInterno.permitir) {
         return res.status(401).json({
             mensagem: "Envio internacional direto so pode ser criado pelo admin"
@@ -223,6 +246,9 @@ export async function cadastrarPedido(req: Request, res: Response) {
     const resultado = await criarPedido(clienteId, itens, observacaoTratada, {
         permitirProdutoInterno: permissaoProdutoInterno.permitir,
         freteToken,
+        freteManualValor: tipoEnvioTratado === "nacional" && permissaoProdutoInterno.permitir && freteManualValido
+            ? freteManualValor
+            : undefined,
         freteInternacionalValor: tipoEnvioTratado === "internacional_direto" && typeof freteInternacionalValor === "number"
             ? freteInternacionalValor
             : undefined,

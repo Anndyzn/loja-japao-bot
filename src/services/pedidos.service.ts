@@ -130,6 +130,7 @@ type ResultadoCriacaoPedido = {
 type OpcoesCriacaoPedido = {
     freteToken?: string | undefined;
     freteInternacionalValor?: number | undefined;
+    freteManualValor?: number | undefined;
     permitirProdutoInterno?: boolean;
     tipoEnvio?: TipoEnvioPedido | undefined;
     clienteCienteTaxasImportacao?: boolean | undefined;
@@ -573,7 +574,7 @@ export async function criarPedido(
             ambiente: null as string | null
         };
 
-        if (tipoEnvio === "nacional") {
+        if (tipoEnvio === "nacional" && opcoes.freteToken) {
             try {
                 const freteValidado = validarCotacaoFrete(opcoes.freteToken, produtosDoPedido, cliente.cep!);
                 frete = {
@@ -588,6 +589,25 @@ export async function criarPedido(
                 if (erro instanceof ErroFrete) return { mensagemErro: erro.message };
                 throw erro;
             }
+        } else if (tipoEnvio === "nacional" && opcoes.permitirProdutoInterno === true && opcoes.freteManualValor !== undefined) {
+            if (!Number.isFinite(opcoes.freteManualValor) || opcoes.freteManualValor < 0) {
+                return {
+                    mensagemErro: "Frete manual deve ser um numero maior ou igual a zero"
+                };
+            }
+
+            frete = {
+                valor: Number(opcoes.freteManualValor.toFixed(2)),
+                servicoId: null,
+                servico: "Frete combinado",
+                transportadora: "Entrega combinada",
+                prazoDias: null,
+                ambiente: "manual"
+            };
+        } else if (tipoEnvio === "nacional") {
+            return {
+                mensagemErro: "Calcule e selecione o frete ou informe um frete manual combinado"
+            };
         } else if (opcoes.freteInternacionalValor !== undefined) {
             if (!Number.isFinite(opcoes.freteInternacionalValor) || opcoes.freteInternacionalValor < 0) {
                 return {

@@ -87,6 +87,20 @@ function obterBooleanoOpcional(nome: string, padrao: boolean) {
     throw new Error(`${nome} deve ser true ou false`);
 }
 
+function obterCorHexOpcional(nome: string, padrao: string) {
+    const valor = process.env[nome]?.trim();
+
+    if (!valor) {
+        return padrao;
+    }
+
+    if (!/^#[0-9a-fA-F]{6}$/.test(valor)) {
+        throw new Error(`${nome} deve ser uma cor hexadecimal, exemplo: #c52233`);
+    }
+
+    return valor;
+}
+
 function obterSegredoToken(producao: boolean) {
     const segredo = process.env.AUTH_TOKEN_SECRET?.trim();
 
@@ -119,6 +133,13 @@ export const env = {
     IS_PRODUCTION: producao,
     PORT: obterPorta(),
     APP_NOME: obterTextoOpcional("APP_NOME", "Loja Japao"),
+    LOJA_HERO_ETIQUETA: obterTextoOpcional("LOJA_HERO_ETIQUETA", "Importados do Japao"),
+    LOJA_HERO_TITULO: obterTextoOpcional("LOJA_HERO_TITULO", "Doces, presentes e achadinhos japoneses"),
+    LOJA_HERO_DESCRICAO: obterTextoOpcional("LOJA_HERO_DESCRICAO", "Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada."),
+    LOJA_HERO_IMAGEM_URL: obterTextoOpcional("LOJA_HERO_IMAGEM_URL", "/loja/assets/hero-produtos-japao.png"),
+    LOJA_COR_PRINCIPAL: obterCorHexOpcional("LOJA_COR_PRINCIPAL", "#c52233"),
+    LOJA_COR_PRINCIPAL_ESCURO: obterCorHexOpcional("LOJA_COR_PRINCIPAL_ESCURO", "#8e1724"),
+    LOJA_ATENDIMENTO_TEXTO: obterTextoOpcional("LOJA_ATENDIMENTO_TEXTO", "Atendimento pelo WhatsApp apos a confirmacao do pedido."),
     DATABASE_URL: obterTextoObrigatorio("DATABASE_URL"),
     AUTH_TOKEN_SECRET: obterSegredoToken(producao),
     UPLOADS_DIR: obterTextoOpcional("UPLOADS_DIR", "public/uploads"),

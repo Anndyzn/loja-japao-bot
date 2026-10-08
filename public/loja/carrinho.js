@@ -1,4 +1,7 @@
+import { aplicarConfiguracaoPublica } from "./configuracao.js";
 import { criarQuadroPix } from "./pix.js";
+
+void aplicarConfiguracaoPublica("Carrinho");
 
 const checkoutForm = document.querySelector("#checkout-form");
 const cartItems = document.querySelector("#cart-items");

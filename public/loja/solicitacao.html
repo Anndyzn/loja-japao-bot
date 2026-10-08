@@ -9,7 +9,7 @@
 <body>
     <main class="tracking-page">
         <header class="store-topbar checkout-topbar">
-            <a class="brand-link" href="/loja">Loja Japão</a>
+            <a class="brand-link" href="/loja" data-app-name>Loja Japão</a>
             <a class="cart-link muted-link" href="/loja">Voltar ao catálogo</a>
         </header>
         <section class="tracking-shell">
@@ -38,6 +38,7 @@
             </form>
             <p id="solicitacao-feedback" class="feedback" role="status" tabindex="-1"></p>
             <button id="solicitacao-nova" type="button" class="ghost-button hidden">Solicitar outro produto</button>
+            <p class="store-support" data-atendimento-texto></p>
         </section>
     </main>
     <script src="/loja/solicitacao.js" type="module"></script>

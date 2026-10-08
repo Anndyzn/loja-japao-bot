@@ -30,6 +30,13 @@ export function obterResumoConfiguracaoSistema() {
         app: {
             nome: env.APP_NOME
         },
+        loja: {
+            heroTitulo: env.LOJA_HERO_TITULO,
+            heroImagemUrl: env.LOJA_HERO_IMAGEM_URL,
+            corPrincipal: env.LOJA_COR_PRINCIPAL,
+            corPrincipalEscuro: env.LOJA_COR_PRINCIPAL_ESCURO,
+            atendimentoTexto: env.LOJA_ATENDIMENTO_TEXTO
+        },
         pix: {
             status: pixConfigurado ? "configurado" : "pendente",
             mensagem: pixConfigurado ? "Pix manual pronto para o checkout" : "Configure PIX_CHAVE e PIX_RECEBEDOR no .env"

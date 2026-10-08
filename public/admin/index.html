@@ -268,7 +268,11 @@
 
                                 <div class="field-wide freight-selection">
                                     <button id="pedido-calcular-frete" type="button">Calcular frete</button>
-                                    <label>Entrega<select id="pedido-frete" disabled><option value="">Calcule o frete</option></select></label>
+                                    <label>Entrega automatica<select id="pedido-frete" disabled><option value="">Clique em Calcular frete</option></select></label>
+                                    <label id="pedido-frete-manual-grupo">
+                                        Frete combinado manual
+                                        <input id="pedido-frete-manual" type="text" inputmode="decimal" placeholder="Ex: 25,00">
+                                    </label>
                                     <p id="pedido-frete-feedback" class="feedback" role="status"></p>
                                 </div>
                                 <button type="submit">Criar pedido</button>
@@ -297,6 +301,15 @@
                                         <option value="pago">Pago</option>
                                         <option value="enviado">Enviado</option>
                                         <option value="cancelado">Cancelado</option>
+                                    </select>
+                                </label>
+
+                                <label>
+                                    Ciclo
+                                    <select id="pedido-ciclo-filtro">
+                                        <option value="ativos" selected>Ativos</option>
+                                        <option value="finalizados">Finalizados</option>
+                                        <option value="todos">Todos</option>
                                     </select>
                                 </label>
 

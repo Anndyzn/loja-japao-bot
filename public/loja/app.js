@@ -1,3 +1,5 @@
+import { aplicarConfiguracaoPublica } from "./configuracao.js";
+
 const productsGrid = document.querySelector("#products-grid");
 const reloadProducts = document.querySelector("#reload-products");
 const cartCount = document.querySelector("#cart-count");
@@ -16,6 +18,8 @@ const CHAVE_CARRINHO = "lojaJapaoCarrinho";
 
 let produtos = [];
 let carrinho = carregarCarrinho();
+
+void aplicarConfiguracaoPublica();
 
 function formatarMoeda(valor) {
     return Number(valor).toLocaleString("pt-BR", {

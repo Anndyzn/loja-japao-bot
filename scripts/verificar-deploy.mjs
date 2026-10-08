@@ -24,6 +24,12 @@ const PLACEHOLDERS_FRETE = new Set([
     "seu-email@example.com",
     "00000000"
 ]);
+const PLACEHOLDERS_LOJA = new Set([
+    "nome da loja",
+    "categoria ou chamada curta",
+    "titulo principal da loja",
+    "descricao curta da proposta da loja"
+]);
 
 const erros = [];
 const avisos = [];
@@ -231,6 +237,71 @@ function validarFrete() {
     else oks.push("Frete configurado para consultar o ambiente de producao");
 }
 
+function validarCorHex(nome) {
+    const valor = obterVariavel(nome);
+
+    if (!valor) {
+        avisos.push(`${nome} nao configurada; usando cor padrao.`);
+        return;
+    }
+
+    if (!/^#[0-9a-fA-F]{6}$/.test(valor)) {
+        erros.push(`${nome} deve ser uma cor hexadecimal com 6 digitos, exemplo: #c52233`);
+        return;
+    }
+
+    oks.push(`${nome} valida`);
+}
+
+function validarUrlPublicaOuLocal(nome) {
+    const valor = obterVariavel(nome);
+
+    if (!valor) {
+        avisos.push(`${nome} nao configurada; usando imagem padrao.`);
+        return;
+    }
+
+    if (valor.startsWith("/") && !valor.startsWith("//")) {
+        oks.push(`${nome} usa caminho local`);
+        return;
+    }
+
+    try {
+        const url = new URL(valor);
+
+        if (!["http:", "https:"].includes(url.protocol)) {
+            erros.push(`${nome} deve usar http://, https:// ou caminho local iniciado com /`);
+            return;
+        }
+
+        oks.push(`${nome} usa URL publica`);
+    } catch {
+        erros.push(`${nome} deve ser uma URL valida ou caminho local iniciado com /`);
+    }
+}
+
+function validarConfiguracaoPublicaLoja() {
+    for (const nome of ["APP_NOME", "LOJA_HERO_ETIQUETA", "LOJA_HERO_TITULO", "LOJA_HERO_DESCRICAO", "LOJA_ATENDIMENTO_TEXTO"]) {
+        const valor = obterVariavel(nome);
+
+        if (!valor) {
+            avisos.push(`${nome} nao configurada; usando texto padrao.`);
+            continue;
+        }
+
+        if (PLACEHOLDERS_LOJA.has(valor.toLowerCase())) {
+            avisos.push(`${nome} ainda parece texto de exemplo.`);
+            continue;
+        }
+
+        oks.push(`${nome} configurada`);
+    }
+
+    validarUrlPublicaOuLocal("LOJA_HERO_IMAGEM_URL");
+    validarCorHex("LOJA_COR_PRINCIPAL");
+    validarCorHex("LOJA_COR_PRINCIPAL_ESCURO");
+}
+
 function imprimirResultado() {
     console.log("Verificacao de deploy");
     console.log("");
@@ -270,6 +341,7 @@ validarSegredo();
 validarAdminInicial();
 validarPixManual();
 validarFrete();
+validarConfiguracaoPublicaLoja();
 validarBooleano("TRUST_PROXY");
 validarBooleano("LOG_REQUESTS");
 validarInteiroPositivo("PORT");

@@ -10,7 +10,7 @@
     <main class="store-page">
         <header class="store-topbar">
             <a class="brand-link" href="/loja">
-                <span>Loja Japao</span>
+                <span data-app-name>Loja Japao</span>
             </a>
 
             <div class="topbar-actions">
@@ -24,11 +24,11 @@
         </header>
 
         <section class="hero">
-            <img src="/loja/assets/hero-produtos-japao.png" alt="" class="hero-image">
+            <img src="/loja/assets/hero-produtos-japao.png" alt="" class="hero-image" data-hero-imagem>
             <div class="hero-content">
-                <p class="eyebrow">Importados do Japao</p>
-                <h1>Doces, presentes e achadinhos japoneses</h1>
-                <p>Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada.</p>
+                <p class="eyebrow" data-hero-etiqueta>Importados do Japao</p>
+                <h1 data-hero-titulo>Doces, presentes e achadinhos japoneses</h1>
+                <p data-hero-descricao>Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada.</p>
                 <div class="hero-actions">
                     <a href="#catalogo" class="hero-button">Ver produtos</a>
                     <a href="/loja/carrinho" class="hero-button secondary-button">Ir para o carrinho</a>
@@ -51,6 +51,7 @@
 
             <div id="products-grid" class="products-grid"></div>
             <p id="store-feedback" class="feedback" role="status"></p>
+            <p class="store-support" data-atendimento-texto></p>
         </section>
 
         <button id="floating-cart-button" class="floating-cart-button" type="button">

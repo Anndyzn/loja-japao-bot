@@ -48,6 +48,8 @@ const pedidoForm = document.querySelector("#pedido-form");
 const pedidoFreteSelect = document.querySelector("#pedido-frete");
 const pedidoCalcularFrete = document.querySelector("#pedido-calcular-frete");
 const pedidoFreteFeedback = document.querySelector("#pedido-frete-feedback");
+const pedidoFreteManualGrupo = document.querySelector("#pedido-frete-manual-grupo");
+const pedidoFreteManual = document.querySelector("#pedido-frete-manual");
 let pedidoFreteOpcoes = [];
 let pedidoFreteConsulta = 0;
 let pedidoFreteAssinatura = "";
@@ -64,6 +66,7 @@ const pedidoFreteInternacional = document.querySelector("#pedido-frete-internaci
 const pedidoFiltrosForm = document.querySelector("#pedido-filtros-form");
 const pedidoBuscaFiltro = document.querySelector("#pedido-busca-filtro");
 const pedidoStatusFiltro = document.querySelector("#pedido-status-filtro");
+const pedidoCicloFiltro = document.querySelector("#pedido-ciclo-filtro");
 const pedidoPrecisaAcaoFiltro = document.querySelector("#pedido-precisa-acao-filtro");
 const pedidoAcaoFiltro = document.querySelector("#pedido-acao-filtro");
 const pedidoFiltrosLimpar = document.querySelector("#pedido-filtros-limpar");
@@ -1071,6 +1074,29 @@ function mostrarLogin() {
     appView.classList.add("hidden");
 }
 
+function aplicarNomeApp(nome) {
+    appNome = nome || appNome;
+    document.title = appNome + " Admin";
+    document.querySelectorAll("[data-app-name]").forEach((elemento) => {
+        elemento.textContent = appNome;
+    });
+}
+
+async function carregarNomeAppPublico() {
+    try {
+        const resposta = await fetch("/configuracao-publica");
+
+        if (!resposta.ok) {
+            return;
+        }
+
+        const configuracao = await resposta.json();
+        aplicarNomeApp(configuracao.app?.nome);
+    } catch {
+        // Se a configuracao publica falhar, o admin segue com o nome padrao.
+    }
+}
+
 async function mostrarApp() {
     atualizarAdminLogadoInfo();
     loginView.classList.add("hidden");
@@ -1098,23 +1124,28 @@ async function carregarSeguranca() {
 
     const statusBanco = saude.banco?.status === "ok" ? "ok" : "erro";
     const configuracao = configuracaoResposta.configuracao ?? {};
-    appNome = configuracao.app?.nome || appNome;
-    document.title = appNome + " Admin";
-    document.querySelectorAll("[data-app-name]").forEach((elemento) => {
-        elemento.textContent = appNome;
-    });
+    aplicarNomeApp(configuracao.app?.nome);
     const pixConfigurado = configuracao.pix?.status === "configurado";
     const freteConfigurado = configuracao.frete?.status === "configurado";
     const ambienteFrete = configuracao.frete?.ambiente ? " (" + configuracao.frete.ambiente + ")" : "";
+    const ambienteSistema = info.ambiente ?? saude.ambiente ?? "-";
+    const contextoAmbiente = ambienteSistema === "production"
+        ? "producao"
+        : "desenvolvimento";
 
     sistemaStatus.replaceChildren(
         criarLinhaStatusSistema("API", saude.status === "ok" ? "online" : "erro", saude.status === "ok" ? "aprovado" : "cancelado"),
         criarLinhaStatusSistema("Banco", statusBanco === "ok" ? "ok" : "erro", statusBanco === "ok" ? "aprovado" : "cancelado"),
+        criarLinhaStatusSistema("Modo", contextoAmbiente, ambienteSistema === "production" ? "aprovado" : "pendente"),
         criarLinhaStatusSistema("Nome da loja", appNome),
+        criarLinhaStatusSistema("Titulo da vitrine", configuracao.loja?.heroTitulo ?? "-"),
+        criarLinhaStatusSistema("Imagem da vitrine", configuracao.loja?.heroImagemUrl ?? "-"),
+        criarLinhaStatusSistema("Cor da loja", (configuracao.loja?.corPrincipal ?? "-") + " / " + (configuracao.loja?.corPrincipalEscuro ?? "-")),
+        criarLinhaStatusSistema("Texto de atendimento", configuracao.loja?.atendimentoTexto ?? "-"),
         criarLinhaStatusSistema("Pix manual", pixConfigurado ? "configurado" : "pendente", pixConfigurado ? "aprovado" : "pendente"),
         criarLinhaStatusSistema("Frete", (freteConfigurado ? "configurado" : "pendente") + ambienteFrete, freteConfigurado ? "aprovado" : "pendente"),
         criarLinhaStatusSistema("Latencia banco", String(saude.banco?.latenciaMs ?? "-") + " ms"),
-        criarLinhaStatusSistema("Ambiente", info.ambiente ?? saude.ambiente ?? "-"),
+        criarLinhaStatusSistema("Ambiente", ambienteSistema),
         criarLinhaStatusSistema("Versao", info.versao ?? "-"),
         criarLinhaStatusSistema("Tempo online", formatarDuracao(info.uptimeSegundos ?? saude.uptimeSegundos))
     );
@@ -1360,15 +1391,20 @@ async function irParaClientesDashboard() {
     await carregarView();
 }
 
-async function irParaPedidosDashboard(status = "") {
+async function irParaPedidosDashboard(status = "", ciclo = "ativos") {
     pedidoPaginaAtual = 1;
     trocarView("pedidos");
     pedidoFiltrosForm.reset();
     pedidoClienteFiltro = null;
     pedidoStatusFiltro.value = status;
+    pedidoCicloFiltro.value = status ? "todos" : ciclo;
     pedidoPrecisaAcaoFiltro.checked = false;
     pedidoAcaoFiltro.value = "";
     await carregarView();
+}
+
+async function irParaPedidosFinalizadosDashboard() {
+    await irParaPedidosDashboard("", "finalizados");
 }
 
 async function irParaPedidosComAcaoDashboard() {
@@ -1377,6 +1413,7 @@ async function irParaPedidosComAcaoDashboard() {
     pedidoFiltrosForm.reset();
     pedidoClienteFiltro = null;
     pedidoStatusFiltro.value = "";
+    pedidoCicloFiltro.value = "ativos";
     pedidoPrecisaAcaoFiltro.checked = true;
     pedidoAcaoFiltro.value = "";
     await carregarView();
@@ -1388,6 +1425,7 @@ async function irParaPedidosPorTipoAcaoDashboard(tipoAcao) {
     pedidoFiltrosForm.reset();
     pedidoClienteFiltro = null;
     pedidoStatusFiltro.value = "";
+    pedidoCicloFiltro.value = "ativos";
     pedidoPrecisaAcaoFiltro.checked = true;
     pedidoAcaoFiltro.value = tipoAcao;
     await carregarView();
@@ -1456,7 +1494,8 @@ function criarPainelAtalhosDashboard() {
     const atalhos = [
         ["Produtos", () => irParaProdutosDashboard()],
         ["Clientes", irParaClientesDashboard],
-        ["Pedidos", () => irParaPedidosDashboard()],
+        ["Pedidos ativos", () => irParaPedidosDashboard()],
+        ["Finalizados", irParaPedidosFinalizadosDashboard],
         ["Pagamentos", irParaPagamentosDashboard]
     ];
 
@@ -1566,12 +1605,6 @@ function renderizarPaineisDashboardPadrao(resumo) {
             "Nenhum pedido precisando de acao."
         ),
         criarPainelResumoAcoesDashboard(pedidosComAcao, resumo.pedidos.acoes),
-        criarPainelDashboard(
-            "Estoque baixo",
-            resumo.produtosEstoqueBaixo ?? [],
-            criarLinhaProdutoEstoqueDashboard,
-            "Nenhum produto com estoque baixo."
-        ),
         criarPainelAtalhosDashboard()
     );
 }
@@ -1586,11 +1619,11 @@ async function carregarDashboard() {
                 textoAcao: "Ver pedidos"
             })
         }),
-        criarStat("Precisam acao", resumo.pedidos.acoes?.total ?? (resumo.pedidos.pendentes + resumo.pedidos.pagos), {
+        criarStat("Fila", resumo.pedidos.acoes?.total ?? (resumo.pedidos.pendentes + resumo.pedidos.pagos), {
             textoAcao: "Abrir fila",
             acao: irParaPedidosComAcaoDashboard
         }),
-        criarStat("Estoque baixo", resumo.produtos.estoqueBaixo, {
+        criarStat("Estoque", resumo.produtos.estoqueBaixo, {
             textoAcao: "Ver itens",
             acao: () => mostrarEstoqueDashboard(resumo.produtosEstoqueBaixo ?? [])
         }),
@@ -2256,6 +2289,7 @@ async function irParaPedidosDoCliente(clienteId, clienteNome) {
         nome: clienteNome || "Cliente #" + clienteId
     };
     pedidoFiltrosForm.reset();
+    pedidoCicloFiltro.value = "todos";
     trocarView("pedidos");
     await carregarView();
 }
@@ -2474,6 +2508,44 @@ function criarSecaoPedido(titulo) {
     return secao;
 }
 
+function criarLinhaValorPedido(rotulo, valor, destaque = false) {
+    const linha = document.createElement("p");
+    linha.className = destaque ? "pedido-valor-linha pedido-valor-total" : "pedido-valor-linha";
+
+    const label = document.createElement("span");
+    label.textContent = rotulo;
+
+    const preco = document.createElement("strong");
+    preco.textContent = formatarMoeda(valor);
+
+    linha.append(label, preco);
+    return linha;
+}
+
+function criarResumoValoresPedido(pedido) {
+    const secao = criarSecaoPedido("Valores");
+    const lista = document.createElement("div");
+    lista.className = "pedido-valores-lista";
+    const freteRotulo = pedido.tipoEnvio === "internacional_direto" ? "Frete internacional" : "Frete";
+
+    lista.append(
+        criarLinhaValorPedido("Produtos", pedido.subtotalProdutos),
+        criarLinhaValorPedido(freteRotulo, pedido.freteValor),
+        criarLinhaValorPedido("Total do pedido", pedido.total, true)
+    );
+
+    secao.append(lista);
+
+    if (pedido.tipoEnvio === "internacional_direto") {
+        const aviso = document.createElement("p");
+        aviso.className = "pedido-aviso-importacao";
+        aviso.textContent = "Possiveis taxas de importacao nao entram no total e ficam por conta do cliente.";
+        secao.append(aviso);
+    }
+
+    return secao;
+}
+
 function criarWhatsAppPedido(pedido, cliente) {
     const secao = criarSecaoPedido("WhatsApp");
     const pedidoComCliente = {
@@ -2549,6 +2621,7 @@ function criarWhatsAppPedido(pedido, cliente) {
 
 function criarRastreioPedido(pedido) {
     const secao = criarSecaoPedido("Rastreio do envio");
+    secao.dataset.secaoPedido = "rastreio";
     if (pedido.freteTransportadora && pedido.freteServico) {
         secao.append(criarDetalhePedido(
             "Entrega escolhida pelo cliente",
@@ -2601,6 +2674,7 @@ function criarRastreioPedido(pedido) {
     transportadora.name = "transportadora";
     const codigo = criarCampo("Código de rastreio", pedido.codigoRastreio);
     codigo.name = "codigoRastreio";
+    codigo.dataset.focoRastreio = "true";
     const aviso = document.createElement("p");
     aviso.className = "field-wide";
     aviso.textContent = "A cotação não emite a etiqueta. Após a postagem, informe o código e salve o rastreio antes de marcar como enviado. " +
@@ -2751,11 +2825,9 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
         criarDetalhePedido('Tipo de envio', pedido.tipoEnvio === 'internacional_direto' ? 'Envio internacional direto' : 'Pronta entrega Brasil'),
         criarDetalhePedido('Taxas de importacao', pedido.tipoEnvio === 'internacional_direto' ? 'Responsabilidade do cliente' : '-'),
         criarDetalhePedido('Criado em', formatarData(pedido.criadoEm)),
-        criarDetalhePedido('Produtos', formatarMoeda(pedido.subtotalProdutos)),
-        criarDetalhePedido('Frete', pedido.tipoEnvio === 'internacional_direto' ? formatarMoeda(pedido.freteValor) + ' - frete internacional combinado' : (pedido.freteServico ? formatarMoeda(pedido.freteValor) + ' - ' + pedido.freteTransportadora + ' / ' + pedido.freteServico : 'Nao registrado (pedido anterior ao frete automatico)')),
+        criarDetalhePedido('Entrega', pedido.tipoEnvio === 'internacional_direto' ? 'Frete internacional combinado' : (pedido.freteServico ? pedido.freteTransportadora + ' / ' + pedido.freteServico : 'Nao registrado (pedido anterior ao frete automatico)')),
         criarDetalhePedido('Prazo de transporte', pedido.fretePrazoDias == null ? '-' : pedido.fretePrazoDias + ' dias uteis apos postagem'),
-        criarDetalhePedido('Cotacao', pedido.freteAmbiente === 'sandbox' ? 'Simulacao de frete' : 'Real / anterior'),
-        criarDetalhePedido('Total', formatarMoeda(pedido.total))
+        criarDetalhePedido('Cotacao', pedido.freteAmbiente === 'sandbox' ? 'Simulacao de frete' : 'Real / anterior')
     );
     const entrega = criarSecaoPedido('Cliente e entrega');
     const entregaPedido = pedido.enderecoEntrega;
@@ -2830,6 +2902,7 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
     observacao.append(texto);
     pedidoConteudo.replaceChildren(
         resumo,
+        criarResumoValoresPedido(pedido),
         entrega,
         criarWhatsAppPedido(pedido, cliente),
         criarRastreioPedido(pedido),
@@ -2863,7 +2936,18 @@ async function carregarDetalhesPedidoNoModal(pedidoId, consulta) {
     }
 }
 
-async function abrirModalPedido(pedidoId) {
+function focarSecaoPedidoModal(secao) {
+    if (!secao) return;
+
+    secao.scrollIntoView({ block: "center" });
+    const campo = secao.querySelector("[data-foco-rastreio]") || secao.querySelector("input, button, select, textarea");
+
+    if (campo) {
+        campo.focus();
+    }
+}
+
+async function abrirModalPedido(pedidoId, opcoes = {}) {
     const consulta = ++consultaPedidoAtual;
     pedidoTitulo.textContent = 'Pedido #' + pedidoId;
     pedidoConteudo.replaceChildren();
@@ -2871,6 +2955,10 @@ async function abrirModalPedido(pedidoId) {
     pedidoModal.showModal();
     pedidoFechar.focus();
     await carregarDetalhesPedidoNoModal(pedidoId, consulta);
+
+    if (opcoes.foco === "rastreio" && consulta === consultaPedidoAtual) {
+        focarSecaoPedidoModal(pedidoConteudo.querySelector('[data-secao-pedido="rastreio"]'));
+    }
 }
 
 async function irParaPedido(pedidoId) {
@@ -3025,7 +3113,7 @@ function criarLinhaPedido(pedido) {
             adicionarAcao("Enviar", "enviado");
         } else {
             const adicionarRastreio = criarBotao("Rastreio", "small-button");
-            adicionarRastreio.addEventListener("click", () => abrirModalPedido(pedido.id));
+            adicionarRastreio.addEventListener("click", () => abrirModalPedido(pedido.id, { foco: "rastreio" }));
             actions.append(adicionarRastreio);
         }
     }
@@ -3054,6 +3142,7 @@ async function carregarPedidos(paginaSolicitada) {
     const consulta = ++pedidoConsultaAtual;
     const parametros = new URLSearchParams({ limite: pedidoLimite.value });
     if (pedidoStatusFiltro.value) parametros.set("status", pedidoStatusFiltro.value);
+    if (pedidoCicloFiltro.value && pedidoCicloFiltro.value !== "todos") parametros.set("ciclo", pedidoCicloFiltro.value);
     if (pedidoBuscaFiltro.value.trim()) parametros.set("busca", pedidoBuscaFiltro.value.trim());
     if (pedidoPrecisaAcaoFiltro.checked) parametros.set("precisaAcao", "true");
     if (pedidoAcaoFiltro.value) parametros.set("acao", pedidoAcaoFiltro.value);
@@ -3401,23 +3490,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
 
     const proximoPasso = document.createElement("p");
     proximoPasso.className = "solicitacao-info-box muted-cell";
-
-    if (solicitacao.pedidoId) {
-        proximoPasso.textContent = "Concluido: solicitacao vinculada ao pedido #" + solicitacao.pedidoId + ".";
-    } else if (solicitacao.status === "aprovada") {
-        proximoPasso.textContent = "Aprovada, mas sem pedido vinculado. Procure o pedido criado antes de preparar outro.";
-    } else if (!solicitacao.valorCotado) {
-        proximoPasso.textContent = "Proximo passo: salvar a cotacao.";
-    } else if (!solicitacao.clienteId && !solicitacao.produtoId) {
-        proximoPasso.textContent = "Proximo passo: se o cliente aprovar, crie o cadastro dele e o produto interno.";
-    } else if (!solicitacao.clienteId) {
-        proximoPasso.textContent = "Proximo passo: crie ou vincule o cadastro do cliente.";
-    } else if (!solicitacao.produtoId) {
-        proximoPasso.textContent = "Proximo passo: cadastrar o produto interno.";
-    } else {
-        proximoPasso.textContent = "Pronto: depois da confirmacao do cliente, prepare o pedido.";
-    }
-
+    proximoPasso.textContent = obterProximaAcaoSolicitacao(solicitacao);
     detalhesGrid.append(proximoPasso);
 
     const acoesSolicitacao = document.createElement("div");
@@ -3446,13 +3519,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
         acoesSolicitacao.append(procurarPedido);
     }
 
-    if (
-        solicitacao.status !== "aprovada" &&
-        solicitacao.valorCotado &&
-        solicitacao.clienteId &&
-        solicitacao.produtoId &&
-        !solicitacao.pedidoId
-    ) {
+    if (solicitacaoPodePrepararPedido(solicitacao)) {
         const prepararPedido = criarBotao("Preparar pedido");
         prepararPedido.addEventListener("click", () => preencherPedidoPorSolicitacao(solicitacao));
         acoesSolicitacao.append(prepararPedido);
@@ -3583,10 +3650,103 @@ function criarCelulaProdutoSolicitado(solicitacao) {
     return td;
 }
 
+function criarEtapaSolicitacao(rotulo, concluida) {
+    const etapa = document.createElement("span");
+    etapa.className = concluida ? "solicitacao-etapa concluida" : "solicitacao-etapa pendente";
+    etapa.textContent = (concluida ? "OK: " : "Falta: ") + rotulo;
+    return etapa;
+}
+
+function obterProximaAcaoSolicitacao(solicitacao) {
+    if (solicitacao.pedidoId) {
+        return "Concluido: solicitacao vinculada ao pedido #" + solicitacao.pedidoId + ".";
+    }
+
+    if (solicitacao.status === "aprovada") {
+        return "Proxima acao: procurar o pedido criado e vincular nesta solicitacao.";
+    }
+
+    if (!solicitacao.valorCotado) {
+        return "Proxima acao: salvar a cotacao.";
+    }
+
+    if (!solicitacao.clienteId && !solicitacao.produtoId) {
+        return "Proxima acao: aguardar aprovacao do cliente; depois criar cliente e produto.";
+    }
+
+    if (!solicitacao.clienteId) {
+        return "Proxima acao: criar ou vincular o cadastro do cliente.";
+    }
+
+    if (!solicitacao.produtoId) {
+        return "Proxima acao: cadastrar ou vincular o produto interno.";
+    }
+
+    return "Proxima acao: preparar o pedido depois da confirmacao do cliente.";
+}
+
+function criarFluxoSolicitacao(solicitacao) {
+    const fluxo = document.createElement("div");
+    fluxo.className = "solicitacao-fluxo";
+    fluxo.setAttribute("aria-label", "Etapas da solicitacao");
+
+    fluxo.append(
+        criarEtapaSolicitacao("Cotacao", Boolean(solicitacao.valorCotado)),
+        criarEtapaSolicitacao("Cliente", Boolean(solicitacao.clienteId)),
+        criarEtapaSolicitacao("Produto", Boolean(solicitacao.produtoId)),
+        criarEtapaSolicitacao("Pedido", Boolean(solicitacao.pedidoId))
+    );
+
+    return fluxo;
+}
+
+function criarProximaAcaoSolicitacao(solicitacao) {
+    const aviso = document.createElement("p");
+    aviso.className = solicitacao.pedidoId
+        ? "solicitacao-proxima-acao concluida"
+        : "solicitacao-proxima-acao";
+    aviso.textContent = obterProximaAcaoSolicitacao(solicitacao);
+    return aviso;
+}
+
+function solicitacaoPodePrepararPedido(solicitacao) {
+    return solicitacao.status !== "aprovada" &&
+        Boolean(solicitacao.valorCotado) &&
+        Boolean(solicitacao.clienteId) &&
+        Boolean(solicitacao.produtoId) &&
+        !solicitacao.pedidoId;
+}
+
+function criarAcoesRapidasSolicitacao(solicitacao) {
+    const acoes = document.createElement("div");
+    acoes.className = "solicitacao-acoes-rapidas";
+
+    if (solicitacaoPodePrepararPedido(solicitacao)) {
+        const prepararPedido = criarBotao("Preparar pedido");
+        prepararPedido.addEventListener("click", () => preencherPedidoPorSolicitacao(solicitacao));
+        acoes.append(prepararPedido);
+    }
+
+    if (solicitacao.status === "aprovada" && !solicitacao.pedidoId) {
+        const procurarPedido = criarBotao("Procurar pedido");
+        procurarPedido.addEventListener("click", () => vincularPedidoEncontradoPorSolicitacao(solicitacao));
+        acoes.append(procurarPedido);
+    }
+
+    return acoes;
+}
+
 function criarLinhaSolicitacao(solicitacao) {
     const tr = document.createElement("tr");
     const actions = document.createElement("div");
     actions.className = "actions";
+    const produtoSolicitado = criarCelulaProdutoSolicitado(solicitacao);
+    const acoesRapidas = criarAcoesRapidasSolicitacao(solicitacao);
+    produtoSolicitado.prepend(
+        criarFluxoSolicitacao(solicitacao),
+        criarProximaAcaoSolicitacao(solicitacao),
+        ...(acoesRapidas.childElementCount > 0 ? [acoesRapidas] : [])
+    );
 
     const statusSelect = criarSelectStatus(statusSolicitacoes, solicitacao.status);
     const salvar = criarBotao("Salvar");
@@ -3600,7 +3760,7 @@ function criarLinhaSolicitacao(solicitacao) {
     tr.append(
         criarCelula(solicitacao.id),
         criarCelulaContatoSolicitacao(solicitacao),
-        criarCelulaProdutoSolicitado(solicitacao),
+        produtoSolicitado,
         criarCelulaComConteudo(criarStatusBadge(solicitacao.status)),
         criarCelula(formatarDataCurta(solicitacao.criadoEm), "pedido-data-cell"),
         tdActions
@@ -3924,6 +4084,40 @@ function atualizarResumoPedidoInternacional() {
         ". Taxas de importacao ficam por conta do cliente se forem cobradas.";
 }
 
+function obterFreteManualPedido() {
+    const valor = pedidoFreteManual.value.trim();
+
+    if (valor === "") {
+        return undefined;
+    }
+
+    return Number(valor.replace(",", "."));
+}
+
+function atualizarResumoFreteManualPedido() {
+    if (pedidoUsaEnvioInternacional()) {
+        return;
+    }
+
+    const subtotal = calcularSubtotalPedidoAtual();
+    const freteManual = obterFreteManualPedido();
+
+    if (freteManual === undefined) {
+        return;
+    }
+
+    pedidoFreteSelect.value = "";
+
+    if (subtotal === undefined || !Number.isFinite(freteManual) || freteManual < 0) {
+        pedidoFreteFeedback.textContent = "Informe produto, quantidade e um frete manual valido.";
+        return;
+    }
+
+    pedidoFreteFeedback.textContent = "Produtos " + formatarMoeda(subtotal) +
+        " + frete combinado " + formatarMoeda(freteManual) +
+        " = " + formatarMoeda(subtotal + freteManual) + ".";
+}
+
 function atualizarTipoEnvioPedidoPeloProduto() {
     const produto = pedidoProdutosDisponiveis.find((item) => item.id === Number(pedidoProduto.value));
 
@@ -3937,35 +4131,45 @@ function invalidarFretePedido() {
     pedidoFreteConsulta++;
     pedidoFreteOpcoes = [];
     pedidoFreteAssinatura = "";
-    pedidoFreteSelect.replaceChildren(new Option("Calcule o frete", ""));
+    pedidoFreteSelect.replaceChildren(new Option("Clique em Calcular frete", ""));
     pedidoFreteSelect.disabled = true;
     pedidoCalcularFrete.disabled = pedidoUsaEnvioInternacional();
+    if (!pedidoUsaEnvioInternacional()) {
+        pedidoFreteManual.value = "";
+    }
 
     if (pedidoUsaEnvioInternacional()) {
         atualizarResumoPedidoInternacional();
     } else {
-        pedidoFreteFeedback.textContent = "Selecione cliente, produto e quantidade para calcular.";
+        pedidoFreteFeedback.textContent = "Calcule o frete automatico ou digite o frete manual combinado.";
     }
 }
 function atualizarTipoEnvioPedido() {
     const internacional = pedidoUsaEnvioInternacional();
     pedidoTaxasImportacaoGrupo.classList.toggle("hidden", !internacional);
     pedidoFreteInternacionalGrupo.classList.toggle("hidden", !internacional);
+    pedidoFreteManualGrupo.classList.toggle("hidden", internacional);
 
     if (!internacional) {
         pedidoClienteCienteTaxas.checked = false;
         pedidoFreteInternacional.value = "0";
+    } else {
+        pedidoFreteManual.value = "";
     }
 
     invalidarFretePedido();
 }
 for (const campo of [pedidoCliente, pedidoQuantidade]) campo.addEventListener("input", invalidarFretePedido);
 pedidoFreteInternacional.addEventListener("input", atualizarResumoPedidoInternacional);
+pedidoFreteManual.addEventListener("input", atualizarResumoFreteManualPedido);
 pedidoProduto.addEventListener("change", atualizarTipoEnvioPedidoPeloProduto);
 pedidoTipoEnvio.addEventListener("change", atualizarTipoEnvioPedido);
 pedidoForm.addEventListener("reset", () => setTimeout(atualizarTipoEnvioPedido, 0));
 pedidoFreteSelect.addEventListener("change", () => {
     const f = pedidoFreteOpcoes.find(f => f.token === pedidoFreteSelect.value);
+    if (f) {
+        pedidoFreteManual.value = "";
+    }
     pedidoFreteFeedback.textContent = f ? "Produtos " + formatarMoeda(pedidoFreteSubtotal) + " + frete " + formatarMoeda(f.valor) + " = " + formatarMoeda(pedidoFreteSubtotal + f.valor) + (f.ambiente === "sandbox" ? " (SIMULACAO)" : "") : "Selecione uma entrega.";
 });
 pedidoCalcularFrete.addEventListener("click", async () => {
@@ -3995,7 +4199,12 @@ pedidoCalcularFrete.addEventListener("click", async () => {
         pedidoFreteSelect.disabled = false;
         setFeedback(pedidoFreteFeedback, "Escolha uma opcao. Cotacao valida por 15 minutos.");
     } catch (erro) {
-        if (consulta === pedidoFreteConsulta) setFeedback(pedidoFreteFeedback, erro.message, "error");
+        if (consulta === pedidoFreteConsulta) {
+            pedidoFreteSelect.replaceChildren(new Option("Frete automatico indisponivel", ""));
+            pedidoFreteSelect.disabled = true;
+            setFeedback(pedidoFreteFeedback, erro.message + " Digite o frete manual combinado para criar o pedido.", "error");
+            pedidoFreteManual.focus();
+        }
     } finally {
         if (consulta === pedidoFreteConsulta) pedidoCalcularFrete.disabled = false;
     }
@@ -4011,9 +4220,16 @@ pedidoForm.addEventListener("submit", async (evento) => {
     const tipoEnvio = pedidoTipoEnvio.value === "internacional_direto" ? "internacional_direto" : "nacional";
     const envioInternacional = tipoEnvio === "internacional_direto";
     const freteInternacionalValor = Number(pedidoFreteInternacional.value || 0);
+    const freteManualValor = obterFreteManualPedido();
     const frete = pedidoFreteOpcoes.find(f => f.token === pedidoFreteSelect.value);
-    if (!envioInternacional && (!frete || frete.expiraEm <= Date.now() || pedidoFreteAssinatura !== assinaturaFretePedido())) {
-        setFeedback(appFeedback, "Calcule e selecione um frete valido antes de criar o pedido.", "error"); return;
+    const usaFreteManual = !envioInternacional && freteManualValor !== undefined;
+    if (!envioInternacional && !usaFreteManual && (!frete || frete.expiraEm <= Date.now() || pedidoFreteAssinatura !== assinaturaFretePedido())) {
+        setFeedback(appFeedback, "Calcule e selecione um frete valido ou informe um frete manual combinado.", "error"); return;
+    }
+
+    if (usaFreteManual && (!Number.isFinite(freteManualValor) || freteManualValor < 0)) {
+        setFeedback(appFeedback, "Informe um frete manual maior ou igual a zero.", "error");
+        return;
     }
 
     if (envioInternacional && !pedidoClienteCienteTaxas.checked) {
@@ -4057,7 +4273,9 @@ pedidoForm.addEventListener("submit", async (evento) => {
                 clienteId,
                 tipoEnvio,
                 clienteCienteTaxasImportacao: envioInternacional && pedidoClienteCienteTaxas.checked,
-                ...(envioInternacional ? { freteInternacionalValor } : { freteToken: frete.token }),
+                ...(envioInternacional
+                    ? { freteInternacionalValor }
+                    : usaFreteManual ? { freteManualValor } : { freteToken: frete.token }),
                 observacao: obterValorOpcionalDoInput(pedidoObservacao),
                 itens: [
                     {
@@ -4154,8 +4372,19 @@ pedidoBuscaFiltro.addEventListener("input", agendarBuscaPedidos);
 
 pedidoStatusFiltro.addEventListener("change", async () => {
     if (pedidoStatusFiltro.value) {
+        pedidoCicloFiltro.value = "todos";
         pedidoPrecisaAcaoFiltro.checked = false;
         pedidoAcaoFiltro.value = "";
+    }
+
+    if (activeView === "pedidos") {
+        await carregarPedidos();
+    }
+});
+
+pedidoCicloFiltro.addEventListener("change", async () => {
+    if (pedidoCicloFiltro.value !== "todos") {
+        pedidoStatusFiltro.value = "";
     }
 
     if (activeView === "pedidos") {
@@ -4324,4 +4553,5 @@ for (const botao of navButtons) {
 refreshButton.addEventListener("click", carregarView);
 logoutButton.addEventListener("click", mostrarLogin);
 
+void carregarNomeAppPublico();
 void iniciarAdmin();

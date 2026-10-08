@@ -144,6 +144,26 @@ test('frete adulterado, expirado, CEP diferente ou preco alterado nao cria pedid
     assert.ok((await criarPedidoReal(cliente.id,[{produtoId:p.id,quantidade:1}],undefined,{freteToken:token})).mensagemErro);
     assert.equal(await estoque(p),5);assert.equal(await prisma.itemPedido.count({where:{produtoId:p.id}}),0);
 });
+test('pedido internacional direto exige admin e ciencia das taxas sem mexer no estoque',async()=>{
+    const p=await prisma.produto.create({data:{nome:'Produto internacional',preco:100,estoque:3,tipoEnvio:'internacional_direto',publicadoNaLoja:true}});
+    const itens=[{produtoId:p.id,quantidade:1}];
+    assert.ok((await criarPedidoReal(cliente.id,itens,undefined,{tipoEnvio:'internacional_direto',freteInternacionalValor:45,clienteCienteTaxasImportacao:true})).mensagemErro);
+    assert.ok((await criarPedidoReal(cliente.id,itens,undefined,{tipoEnvio:'internacional_direto',permitirProdutoInterno:true,freteInternacionalValor:45})).mensagemErro);
+    const pedido=(await criarPedidoReal(cliente.id,itens,'Solicitacao internacional',{tipoEnvio:'internacional_direto',permitirProdutoInterno:true,freteInternacionalValor:45,clienteCienteTaxasImportacao:true})).pedido;
+    assert.ok(pedido);assert.equal(pedido.tipoEnvio,'internacional_direto');assert.equal(pedido.subtotalProdutos,100);
+    assert.equal(pedido.freteValor,45);assert.equal(pedido.total,145);assert.equal(pedido.clienteCienteTaxasImportacao,true);
+    assert.equal(await estoque(p),3);assert.equal((await pagar(pedido.id,'pix')).pagamento.valor,145);
+    await status(pedido.id,'cancelado');assert.equal(await estoque(p),3);
+});
+test('pedido nacional com frete manual admin soma total e mantem controle de estoque',async()=>{
+    const p=await produto(4);
+    assert.ok((await criarPedidoReal(cliente.id,[{produtoId:p.id,quantidade:1}],undefined,{freteManualValor:12})).mensagemErro);
+    const pedido=(await criarPedidoReal(cliente.id,[{produtoId:p.id,quantidade:2}],undefined,{permitirProdutoInterno:true,freteManualValor:12})).pedido;
+    assert.ok(pedido);assert.equal(pedido.tipoEnvio,'nacional');assert.equal(pedido.subtotalProdutos,20);
+    assert.equal(pedido.freteValor,12);assert.equal(pedido.total,32);assert.equal(pedido.freteAmbiente,'manual');
+    assert.equal(await estoque(p),2);assert.equal((await pagar(pedido.id,'pix')).pagamento.valor,32);
+    await status(pedido.id,'cancelado');assert.equal(await estoque(p),4);
+});
 test('cotacao rejeita medidas ausentes, produtos internos sem admin, CEP e quantidades invalidos',async()=>{
     const p=await produto();const original=globalThis.fetch;
     globalThis.fetch=async()=>{throw Error('Nao deve acessar o provedor');};

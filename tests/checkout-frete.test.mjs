@@ -5,6 +5,7 @@ import vm from 'node:vm';
 
 // Executa o script real da loja com DOM/API simulados, sem dependencias ou rede.
 const source = (await readFile(new URL('../public/loja/carrinho.js', import.meta.url), 'utf8'))
+    .replace('import { aplicarConfiguracaoPublica } from "./configuracao.js";', 'const aplicarConfiguracaoPublica = () => Promise.resolve();')
     .replace('import { criarQuadroPix } from "./pix.js";', '');
 class Element {
     value = ''; textContent = ''; disabled = false; inert = false; children = []; events = new Map();

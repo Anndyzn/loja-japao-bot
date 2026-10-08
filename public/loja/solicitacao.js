@@ -1,3 +1,7 @@
+import { aplicarConfiguracaoPublica } from "./configuracao.js";
+
+void aplicarConfiguracaoPublica("Solicitar produto");
+
 const form = document.querySelector("#solicitacao-form");
 const enviar = document.querySelector("#solicitacao-enviar");
 const feedback = document.querySelector("#solicitacao-feedback");
