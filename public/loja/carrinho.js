@@ -1,3 +1,4 @@
+import { salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
 import { criarQuadroPix } from "./pix.js";
 
@@ -123,7 +124,6 @@ checkoutForm.addEventListener("reset", () => {
 });
 
 const CHAVE_CARRINHO = "lojaJapaoCarrinho";
-const CHAVE_TELEFONE_ACOMPANHAMENTO = "lojaJapaoTelefoneAcompanhamento";
 const ORDEM_ETAPAS = ["resumo", "entrega", "pagamento", "acompanhamento"];
 
 let produtos = [];
@@ -503,14 +503,17 @@ async function finalizarPedido(evento) {
         });
 
         pedidoCriado = pedido;
-        sessionStorage.setItem(CHAVE_TELEFONE_ACOMPANHAMENTO, telefonePedido);
+        const atalhoSalvo = salvarUltimoPedido(pedido.id, telefonePedido);
+        montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"));
         carrinho.clear();
-        salvarCarrinho();
+        let carrinhoSalvo = true;
+        try { salvarCarrinho(); } catch { carrinhoSalvo = false; }
         renderizarCarrinho();
         checkoutForm.reset();
         renderizarPedidoCriado(pedido);
         definirEtapa("acompanhamento");
-        setFeedback(`Pedido ${pedido.id} criado. Aguardando pagamento e confirmacao da loja.`, "success");
+        setFeedback(`Pedido ${pedido.id} criado. Aguardando pagamento e confirmacao da loja.` +
+            (!atalhoSalvo || !carrinhoSalvo ? " Anote o numero do pedido: o navegador nao conseguiu salvar todos os dados desta sessao. Nao refaca a compra." : ""), "success");
     } catch (erro) {
         setFeedback(erro.message, "error");
     } finally {
@@ -556,6 +559,7 @@ clearCartButton.addEventListener("click", () => {
 });
 
 checkoutForm.addEventListener("submit", finalizarPedido);
+montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"));
 
 try {
     await carregarProdutos();

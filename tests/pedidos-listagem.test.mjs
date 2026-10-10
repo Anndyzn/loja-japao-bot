@@ -78,7 +78,7 @@ function tela(api) {
     const elemento=()=>({value:'',checked:false,disabled:false,textContent:'',setAttribute(){},removeAttribute(){},replaceChildren(...rows){this.rows=rows;}});
     const c={URLSearchParams,apiFetch:api,carregarDadosFormularioPedido:async()=>{},pedidoConsultaAtual:0,pedidoPaginaAtual:1,pedidoTotalPaginas:0,pedidoFiltrosAtuais:'',pedidoClienteFiltro:null,
         criarLinhaPedido:p=>p,criarLinhaVazia:(_,text)=>text,atualizarContextoFiltroPedidos(){},atualizarResumoListaPedidos(r){c.resumo=r;},appFeedback:{},setFeedback(){}};
-    for(const k of ['pedidoLimite','pedidoStatusFiltro','pedidoBuscaFiltro','pedidoPrecisaAcaoFiltro','pedidoAcaoFiltro','pedidoPaginaAnterior','pedidoPaginaProxima','pedidoPaginaInfo','pedidosTbody','pedidoListaResumo']) c[k]=elemento();
+    for(const k of ['pedidoLimite','pedidoStatusFiltro','pedidoCicloFiltro','pedidoBuscaFiltro','pedidoPrecisaAcaoFiltro','pedidoAcaoFiltro','pedidoPaginaAnterior','pedidoPaginaProxima','pedidoPaginaInfo','pedidosTbody','pedidoListaResumo']) c[k]=elemento();
     c.pedidoLimite.value='10';vm.createContext(c);vm.runInContext(loader,c);return c;
 }
 function pagina(numero,total=25) {return {pagina:numero,limite:10,total,totalPaginas:Math.ceil(total/10),dados:total?[{id:numero}]:[],resumo:{}};}
@@ -86,6 +86,8 @@ test('admin preserva pagina ao atualizar e reinicia ao mudar filtro ou cliente',
     const urls=[];const c=tela(async url=>{urls.push(url);return pagina(Number(new URL(url,'http://teste').searchParams.get('pagina')));});
     await c.carregarPedidos();await c.carregarPedidos(2);await c.carregarPedidos();
     assert.equal(c.pedidoPaginaAtual,2);assert.match(urls.at(-1),/pagina=2/);
+    c.pedidoCicloFiltro.value='ativos';await c.carregarPedidos();assert.equal(c.pedidoPaginaAtual,1);assert.match(urls.at(-1),/ciclo=ativos/);
+    await c.carregarPedidos(2);
     c.pedidoAcaoFiltro.value='pix';await c.carregarPedidos();assert.equal(c.pedidoPaginaAtual,1);
     c.pedidoClienteFiltro={id:2};await c.carregarPedidos();assert.match(urls.at(-1),/pedidos\/cliente\/2/);assert.match(urls.at(-1),/acao=pix/);
 });

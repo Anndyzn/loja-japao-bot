@@ -1,3 +1,4 @@
+import { lerUltimoPedido, salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
 import { criarQuadroPix } from "./pix.js";
 
@@ -8,7 +9,17 @@ const pedidoIdInput = document.querySelector("#pedido-id");
 const telefoneInput = document.querySelector("#pedido-telefone");
 const trackingResult = document.querySelector("#tracking-result");
 const trackingFeedback = document.querySelector("#tracking-feedback");
-const CHAVE_TELEFONE_ACOMPANHAMENTO = "lojaJapaoTelefoneAcompanhamento";
+let consultaAcompanhamento = 0;
+function atualizarAtalhoPedido() {
+    montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"), () => {
+        consultaAcompanhamento++;
+        pedidoIdInput.value = "";
+        telefoneInput.value = "";
+        trackingResult.replaceChildren();
+        trackingResult.classList.add("hidden");
+        setFeedback("Atalho removido. Seu pedido continua registrado na loja.");
+    });
+}
 
 const etapas = [
     {
@@ -320,15 +331,23 @@ function renderizarPedido(pedido) {
 }
 
 async function buscarPedido(pedidoId, telefone) {
+    const consulta = ++consultaAcompanhamento;
     setFeedback("Buscando pedido...");
     trackingResult.classList.add("hidden");
 
     const parametros = new URLSearchParams({
         telefone
     });
-    const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento?${parametros.toString()}`);
-    renderizarPedido(pedido);
-    setFeedback("Pedido encontrado.", "success");
+    try {
+        const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento?${parametros.toString()}`);
+        if (consulta !== consultaAcompanhamento) return;
+        renderizarPedido(pedido);
+        salvarUltimoPedido(pedidoId, telefone);
+        atualizarAtalhoPedido();
+        setFeedback("Pedido encontrado.", "success");
+    } catch (erro) {
+        if (consulta === consultaAcompanhamento) setFeedback(erro.message, "error");
+    }
 }
 
 trackingForm.addEventListener("submit", async (evento) => {
@@ -349,7 +368,6 @@ trackingForm.addEventListener("submit", async (evento) => {
     }
 
     try {
-        sessionStorage.setItem(CHAVE_TELEFONE_ACOMPANHAMENTO, telefone);
         await buscarPedido(pedidoId, telefone);
     } catch (erro) {
         setFeedback(erro.message, "error");
@@ -357,13 +375,13 @@ trackingForm.addEventListener("submit", async (evento) => {
 });
 
 const pedidoUrl = new URLSearchParams(window.location.search).get("pedido");
-
-if (pedidoUrl) {
-    pedidoIdInput.value = pedidoUrl;
-    const telefoneSalvo = sessionStorage.getItem(CHAVE_TELEFONE_ACOMPANHAMENTO);
-
-    if (telefoneSalvo) {
-        telefoneInput.value = telefoneSalvo;
+const ultimoPedido = lerUltimoPedido();
+atualizarAtalhoPedido();
+// Um link para outro pedido prevalece sobre o atalho salvo.
+if (pedidoUrl !== null || ultimoPedido) {
+    pedidoIdInput.value = pedidoUrl ?? String(ultimoPedido.id);
+    if (ultimoPedido && Number(pedidoIdInput.value) === ultimoPedido.id) {
+        telefoneInput.value = ultimoPedido.telefone;
         trackingForm.requestSubmit();
     } else {
         setFeedback("Informe o telefone usado no pedido para ver o acompanhamento.");

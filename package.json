@@ -20,7 +20,9 @@
     "db:deploy": "npx --yes prisma@7.10.0 migrate deploy --config prisma7.config.ts",
     "db:seed": "node scripts/seed.mjs",
     "db:studio": "npx --yes prisma@7.10.0 studio --config prisma7.config.ts",
-    "test:checkout": "node --test tests/checkout-frete.test.mjs"
+    "test:checkout": "node --test tests/checkout-frete.test.mjs",
+    "backup": "node scripts/backup.mjs",
+    "backup:verificar": "node scripts/backup.mjs --verificar"
   },
   "keywords": [],
   "author": "",
@@ -29,12 +31,13 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.3",
+    "prisma": "7.10.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.10.0",
-    "@prisma/client": "^7.10.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
     "express": "^5.2.1",
     "pg": "^8.23.0"
   }

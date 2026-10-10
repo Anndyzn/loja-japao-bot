@@ -4,8 +4,10 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 // Executa o script real da loja com DOM/API simulados, sem dependencias ou rede.
-const source = (await readFile(new URL('../public/loja/carrinho.js', import.meta.url), 'utf8'))
+const sessaoSource = (await readFile(new URL('../public/loja/pedido-sessao.js', import.meta.url), 'utf8')).replaceAll('export function ', 'function ');
+const source = sessaoSource + (await readFile(new URL('../public/loja/carrinho.js', import.meta.url), 'utf8'))
     .replace('import { aplicarConfiguracaoPublica } from "./configuracao.js";', 'const aplicarConfiguracaoPublica = () => Promise.resolve();')
+    .replace('import { salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";', '')
     .replace('import { criarQuadroPix } from "./pix.js";', '');
 class Element {
     value = ''; textContent = ''; disabled = false; inert = false; children = []; events = new Map();
@@ -25,20 +27,23 @@ const opcao = (token = 'cotacao', expires = Date.now() + 60000) => ({
 });
 const json = (body, ok = true) => ({ok, json: async () => body});
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return {promise, resolve}; }
-async function loja(handler = async () => json({subtotalProdutos: 20, opcoes: [opcao()]})) {
+async function loja(handler = async () => json({subtotalProdutos: 20, opcoes: [opcao()]}), opcoesTeste = {}) {
     const dom = new Map(), calls = [];
     const el = id => { if (!dom.has(id)) dom.set(id, new Element()); return dom.get(id); };
     const form = el('#checkout-form');
     form.elements = Object.fromEntries(['nome','telefone','email','cep','endereco','numero','complemento','bairro','cidade','estado','referencia','observacao','metodo'].map(k => [k, new Element()]));
     Object.assign(form.elements.cep, {value: '01001000'});
     form.elements.nome.value = 'Cliente'; form.elements.telefone.value = '11999990000';
-    const storage = new Map([['lojaJapaoCarrinho', JSON.stringify([{produto, quantidade: 2}])]]);
+    const storage = opcoesTeste.storage ?? new Map([['lojaJapaoCarrinho', JSON.stringify([{produto, quantidade: 2}])]]);
+    const sessao = opcoesTeste.sessao ?? new Map();
+    let bloqueado = false;
+    const conferir = () => { if (bloqueado) throw Error('Armazenamento bloqueado'); };
     const context = vm.createContext({
         document: {querySelector: el, querySelectorAll: () => [], createElement: () => new Element()},
         Option: class extends Element { constructor(label, value) { super(); this.textContent = label; this.value = value; } },
         FormData: class { constructor(form) { this.fields = Object.fromEntries(Object.entries(form.elements).map(([k,v]) => [k, v.value])); } get(k) { return this.fields[k]; } },
-        localStorage: {getItem: k => storage.get(k), setItem: (k,v) => storage.set(k,v)},
-        sessionStorage: {setItem() {}}, criarQuadroPix: () => undefined,
+        localStorage: {getItem: k => storage.get(k), setItem: (k,v) => { conferir();storage.set(k,v); }},
+        sessionStorage: {getItem: k => { conferir();return sessao.get(k); }, setItem: (k,v) => { conferir();sessao.set(k,v); },removeItem:k=>{conferir();sessao.delete(k);}}, criarQuadroPix: () => undefined,
         setTimeout, clearTimeout, AbortController,
         fetch: async (path, options = {}) => {
             if (path.startsWith('/produtos')) return json({dados: [produto]});
@@ -49,7 +54,7 @@ async function loja(handler = async () => json({subtotalProdutos: 20, opcoes: [o
     });
     const api = await vm.runInContext('(async () => {' + source + '; return {alterarQuantidade, finalizarPedido}; })()', context);
     assert.equal(el('#store-feedback').textContent, ''); // Falha se a inicializacao do script quebrou.
-    return {el, form, calls, api, calcular: () => el('#calcular-frete').emit('click'),
+    return {el, form, calls, api, storage, sessao, bloquearArmazenamento:()=>{bloqueado=true;}, calcular: () => el('#calcular-frete').emit('click'),
         selecionar: async token => { el('#frete-opcoes').value = token; await el('#frete-opcoes').emit('change'); },
         finalizar: () => api.finalizarPedido({preventDefault() {}})};
 }
@@ -123,4 +128,26 @@ test('falha na criacao libera formulario para tentar de novo sem perder o carrin
     await l.calcular(); await l.selecionar('cotacao'); await l.finalizar();
     assert.equal(l.form.inert, false); assert.match(l.el('#store-feedback').textContent, /Pedido recusado/);
     await l.finalizar(); assert.equal(l.calls.filter(c => c.path === '/clientes').length, 2);
+});
+
+const compraOk = async path => {
+    if(path==='/fretes/cotacao') return json({subtotalProdutos:20,opcoes:[opcao()]});
+    if(path==='/clientes') return json({id:7});
+    return json({id:42,total:38.75,subtotalProdutos:20,freteValor:18.75,status:'pendente'});
+};
+test('reabrir checkout preserva atalho do pedido e nao faz nova compra',async()=>{
+    const l=await loja(compraOk);await l.calcular();await l.selecionar('cotacao');await l.finalizar();
+    assert.deepEqual(JSON.parse(l.sessao.get('lojaJapaoUltimoPedido')),{id:42,telefone:'11999990000'});
+    const reaberta=await loja(compraOk,{storage:l.storage,sessao:l.sessao});
+    const atalho=reaberta.el('#ultimo-pedido');
+    assert.equal(atalho.children[1].children[0].href,'/loja/acompanhamento?pedido=42');
+    assert.equal(reaberta.calls.length,0);
+    await atalho.children[1].children[1].emit('click');
+    assert.equal(l.sessao.has('lojaJapaoUltimoPedido'),false);
+});
+test('armazenamento bloqueado apos envio nao transforma pedido criado em falha nem duplica compra',async()=>{
+    const l=await loja(compraOk);await l.calcular();await l.selecionar('cotacao');l.bloquearArmazenamento();
+    await l.finalizar();assert.match(l.el('#store-feedback').textContent,/Pedido 42 criado.*Anote/);
+    assert.match(l.el('#order-number').textContent,/#42/);
+    await l.finalizar();assert.equal(l.calls.filter(c=>c.path==='/pedidos').length,1);
 });

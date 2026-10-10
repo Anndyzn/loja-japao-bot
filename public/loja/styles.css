@@ -1076,3 +1076,13 @@ body:has(.cart-drawer.open) { overflow: hidden; }
 }
 
 .form-grid, .payment-grid, .address-grid { align-items: start; }
+
+.ultimo-pedido {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+}
+.ultimo-pedido .step-actions { margin-top: 0; flex-wrap: wrap; }

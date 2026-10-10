@@ -14,3 +14,7 @@ public/uploads/
 
 .DS_Store
 Thumbs.db
+
+# Copias locais do banco e imagens (dados privados)
+backups/
+*.dump

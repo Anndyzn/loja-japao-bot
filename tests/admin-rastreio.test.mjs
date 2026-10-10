@@ -7,7 +7,7 @@ const source = await readFile(new URL('../public/admin/app.js', import.meta.url)
 const trecho = source.slice(source.indexOf('function criarRastreioPedido('), source.indexOf('function criarHistoricoPedido('));
 const proximaAcao = source.slice(source.indexOf('function obterProximaAcaoPedido('), source.indexOf('function criarCelulaProximaAcaoPedido('));
 class Elemento {
-    children = []; events = {}; textContent = ''; value = ''; disabled = false;
+    children = []; events = {}; dataset = {}; textContent = ''; value = ''; disabled = false;
     constructor(tag) { this.tag = tag; }
     append(...nodes) { this.children.push(...nodes); }
     replaceChildren(...nodes) { this.children = nodes; }

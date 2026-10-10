@@ -413,10 +413,24 @@
                             </select>
                         </label>
 
+                        <label>
+                            Recebido de
+                            <input id="pagamento-data-inicio" type="date">
+                        </label>
+                        <label>
+                            Ate
+                            <input id="pagamento-data-fim" type="date">
+                        </label>
+
                         <button type="submit">Buscar</button>
+                        <button id="pagamento-periodo-hoje" class="small-button" type="button">Hoje</button>
+                        <button id="pagamento-periodo-mes" class="small-button" type="button">Este mes</button>
                         <button id="pagamento-filtros-limpar" class="small-button" type="button">Limpar</button>
                     </form>
 
+                    <p id="pagamento-periodo-feedback" class="lista-resumo" role="status"></p>
+                    <div id="pagamento-resumo-cards" class="stats-grid" aria-live="polite"></div>
+                    <p class="lista-resumo">Recebimentos registrados na confirmacao do pagamento, no horario de Brasilia. Incluem frete e pagamentos de pedidos cancelados; nao descontam custos ou devolucoes e nao representam lucro.</p>
                     <p id="pagamento-lista-resumo" class="lista-resumo"></p>
 
                     <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
@@ -437,7 +451,7 @@
                                     <th>Valor</th>
                                     <th>Metodo</th>
                                     <th>Status</th>
-                                    <th>Criado em</th>
+                                    <th>Recebido em (Brasilia)</th>
                                 </tr>
                             </thead>
                             <tbody id="pagamentos-tbody"></tbody>

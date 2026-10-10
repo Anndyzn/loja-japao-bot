@@ -858,6 +858,24 @@ Teste manual desta etapa (use pedidos de teste, sem transferencia real):
 11. Salve um rastreio duas vezes com os mesmos dados e confira que o historico nao duplica a etapa.
 12. Confira os botoes de WhatsApp do pedido para dados Pix, pagamento aprovado, rastreio e status atual.
 
+### Recebimentos por periodo no admin
+
+Em Pagamentos, use Recebido de / Ate ou os atalhos Hoje e Este mes. Limpar
+restaura a consulta de todos os periodos. Busca, metodo e status continuam
+combinando com o periodo escolhido. As datas incluem o dia inteiro no fuso
+America/Sao_Paulo e usam a data de registro do pagamento, nao a data do pedido.
+Os registros mais recentes aparecem primeiro.
+
+Os cards mostram total recebido, quantidade de pagamentos aprovados e valor
+medio dentro dos filtros. Incluem frete e pagamentos preservados de pedidos
+cancelados. Nao descontam custos ou devolucoes: este resumo nao representa lucro.
+A consulta reaproveita a rota admin GET /pagamentos, sem nova integracao.
+
+Teste manual: consulte Hoje, Este mes, um intervalo sem registros e um periodo
+com data inicial maior que a final. Combine com Pix e busca por pedido; confira
+se tabela e totais correspondem. Limpar deve trazer todos os registros novamente.
+Teste automatizado: node --test tests/admin-pagamentos.test.mjs.
+
 ### Solicitacoes de Produto
 
 Listar solicitacoes:
@@ -1259,3 +1277,74 @@ Teste manual: atualize com Ctrl+F5, reduza a janela ou use o modo dispositivo
 do navegador; confira filtros, rolagem de tabelas, abertura/fechamento dos
 modais e campos de frete. Teste tambem no celular real, principalmente
 com o teclado aberto. Nenhuma dependencia ou servico foi adicionado.
+
+## Backup local do banco e das imagens
+
+Com o Docker ligado, pare a API com Ctrl+C no terminal de npm run dev/start.
+Evite cadastrar pedidos ou alterar imagens durante a copia. Depois rode:
+
+```bash
+npm run backup
+```
+
+O comando confere se DATABASE_URL aponta para a porta do PostgreSQL local deste
+Docker Compose e cria uma nova pasta datada dentro de backups/, sem sobrescrever
+backups anteriores. Usa pg_dump do proprio container, sem instalar PostgreSQL no PC.
+A pasta contem banco.dump, uploads/ e manifesto.json com tamanhos e hashes SHA-256.
+O dump inclui tabelas, dados, historico de migrations e administradores da loja.
+O .env, o codigo e usuarios globais do PostgreSQL nao fazem parte do backup.
+Se UPLOADS_DIR nao existir, isso sera informado e uploads/ ficara vazia.
+
+O banco e exportado em formato custom do PostgreSQL, usado pelo pg_restore:
+[documentacao do pg_dump](https://www.postgresql.org/docs/16/app-pgdump.html).
+A copia de imagens e separada do dump; por isso mantenha a API parada ate terminar.
+Depois, inicie a API novamente com npm run dev (ou npm start para o build).
+
+Para conferir os arquivos depois de copiar para outro computador:
+
+```bash
+npm run backup:verificar -- "backups/NOME-DA-PASTA"
+```
+
+A verificacao funciona sem Docker e nao restaura nem altera o banco. Confere se
+arquivos estao ausentes, extras ou diferentes do manifesto; nao substitui um teste
+de restauracao. Copie a pasta inteira, incluindo manifesto.json e uploads/.
+Guarde outra copia em um local privado fora deste computador. Backups contem dados
+de clientes e hashes de senha dos administradores; nao publique nem envie ao Git.
+backups/ e arquivos *.dump estao excluidos do Git e do contexto de build Docker.
+
+Se falhar, o comando retorna erro e preserva a pasta com sufixo .incompleto para
+inspecao. Essa pasta nao e um backup concluido. Corrija a causa e execute novamente.
+Nenhum backup anterior ou dado da loja e apagado automaticamente.
+
+Para recuperar em outra maquina, o destino deve ser um banco vazio: use pg_restore
+com --no-owner --no-acl --exit-on-error --single-transaction e copie uploads/ para
+UPLOADS_DIR. Preserve o .env local e ajuste DATABASE_URL para o banco restaurado.
+Nao restaure por cima de um banco em uso; prepare a restauracao antes de trocar a
+conexao. O login sera o do admin salvo no backup. Em seguida aplique migrations
+pendentes com npm run db:deploy. O comando de backup nao executa restauracoes.
+
+Teste automatizado da integridade: node --test tests/backup.test.mjs.
+
+### Retomar o ultimo pedido na loja
+
+Depois de criar um pedido ou consulta-lo com telefone valido, o carrinho e o
+acompanhamento mostram um atalho para o ultimo pedido da sessao. Atualizar a
+pagina preserva o atalho. O acompanhamento consulta a API novamente para mostrar
+Pix, pagamento e rastreio atuais; nenhum status ou endereco fica salvo nesse atalho.
+
+A referencia (numero e telefone) fica em sessionStorage, restrita a sessao da aba,
+e nao e sincronizada com outros computadores. Nao substitui guardar o numero do
+pedido. Um link explicito para outro pedido prevalece sobre a referencia salva e
+pede o telefone correspondente. Remover atalho remove o atalho e, no
+acompanhamento, limpa o resultado, sem cancelar ou apagar o pedido da loja.
+
+Se o navegador bloquear o armazenamento, a consulta manual continua funcionando.
+Uma compra ja criada continua sendo mostrada como concluida, com orientacao para
+anotar o numero e nao refazer a compra.
+
+Teste manual: finalize uma compra de teste, atualize o carrinho e abra o atalho.
+Confirme o Pix no admin e consulte novamente para conferir o novo status. Use
+Remover atalho e verifique que numero e telefone precisam ser informados
+novamente. Nenhuma transferencia real e necessaria.
+Testes: npm run test:checkout e node --test tests/acompanhamento-sessao.test.mjs.

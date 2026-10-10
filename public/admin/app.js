@@ -86,6 +86,13 @@ const pagamentoFiltrosForm = document.querySelector("#pagamento-filtros-form");
 const pagamentoBuscaFiltro = document.querySelector("#pagamento-busca-filtro");
 const pagamentoMetodoFiltro = document.querySelector("#pagamento-metodo-filtro");
 const pagamentoStatusFiltro = document.querySelector("#pagamento-status-filtro");
+const pagamentoDataInicio = document.querySelector("#pagamento-data-inicio");
+const pagamentoDataFim = document.querySelector("#pagamento-data-fim");
+const pagamentoPeriodoHoje = document.querySelector("#pagamento-periodo-hoje");
+const pagamentoPeriodoMes = document.querySelector("#pagamento-periodo-mes");
+const pagamentoPeriodoFeedback = document.querySelector("#pagamento-periodo-feedback");
+const pagamentoResumoCards = document.querySelector("#pagamento-resumo-cards");
+let pagamentoConsultaAtual = 0;
 const pagamentoFiltrosLimpar = document.querySelector("#pagamento-filtros-limpar");
 const solicitacoesTbody = document.querySelector("#solicitacoes-tbody");
 const solicitacaoBuscaFiltro = document.querySelector("#solicitacao-busca-filtro");
@@ -714,7 +721,15 @@ function atualizarResumoListaSolicitacoes(solicitacoes) {
 
 function atualizarResumoListaPagamentos(pagamentos) {
     const quantidade = pagamentos.length;
-    const total = pagamentos.reduce((soma, pagamento) => soma + Number(pagamento.valor), 0);
+    const aprovados = pagamentos.filter(pagamento => pagamento.status === "aprovado");
+    // Somar em centavos evita acumular erros de ponto flutuante.
+    const totalCentavos = aprovados.reduce((soma, pagamento) => soma + Math.round(Number(pagamento.valor) * 100), 0);
+    const total = totalCentavos / 100;
+    pagamentoResumoCards.replaceChildren(
+        criarStat("Total recebido", formatarMoeda(total)),
+        criarStat("Pagamentos aprovados", String(aprovados.length)),
+        criarStat("Valor medio recebido", formatarMoeda(aprovados.length ? total / aprovados.length : 0))
+    );
     const pix = pagamentos.filter((pagamento) => pagamento.metodo === "pix").length;
     const cartao = pagamentos.filter((pagamento) => pagamento.metodo === "cartao").length;
     const boleto = pagamentos.filter((pagamento) => pagamento.metodo === "boleto").length;
@@ -3338,35 +3353,69 @@ function criarLinhaPagamento(pagamento) {
         criarCelula(formatarMoeda(pagamento.valor)),
         criarCelula(pagamento.metodo),
         criarCelulaComConteudo(criarStatusBadge(pagamento.status)),
-        criarCelula(formatarData(pagamento.criadoEm))
+        criarCelula(new Date(pagamento.criadoEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }))
     );
 
     return tr;
 }
 
+function dataPagamentoBrasilia(valor) {
+    const data = new Date(valor);
+    if (Number.isNaN(data.getTime())) return "";
+    const partes = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(data);
+    const obter = tipo => partes.find(parte => parte.type === tipo).value;
+    return obter("year") + "-" + obter("month") + "-" + obter("day");
+}
+
+async function aplicarPeriodoPagamentos(periodo) {
+    const hoje = dataPagamentoBrasilia(new Date());
+    pagamentoDataInicio.value = periodo === "mes" ? hoje.slice(0, 7) + "-01" : hoje;
+    pagamentoDataFim.value = hoje;
+    window.clearTimeout(pagamentoFiltroTimer);
+    if (activeView === "pagamentos") await carregarPagamentos();
+}
+
 async function carregarPagamentos() {
-    let pagamentos = await apiFetch("/pagamentos");
+    const consulta = ++pagamentoConsultaAtual;
     const busca = pagamentoBuscaFiltro.value.trim();
     const metodo = pagamentoMetodoFiltro.value;
     const status = pagamentoStatusFiltro.value;
-
-    if (busca) {
-        pagamentos = pagamentos.filter((pagamento) => pagamentoConfereBuscaLocal(pagamento, busca));
+    const inicio = pagamentoDataInicio.value;
+    const fim = pagamentoDataFim.value;
+    pagamentoResumoCards.replaceChildren();
+    pagamentoListaResumo.textContent = "";
+    if (inicio && fim && inicio > fim) {
+        pagamentoPeriodoFeedback.textContent = "A data inicial deve ser anterior ou igual a data final.";
+        pagamentosTbody.replaceChildren(criarLinhaVazia(6, "Corrija o periodo para consultar os pagamentos"));
+        return;
     }
-
-    if (metodo) {
-        pagamentos = pagamentos.filter((pagamento) => pagamento.metodo === metodo);
+    pagamentoPeriodoFeedback.textContent = "Carregando recebimentos...";
+    pagamentosTbody.replaceChildren(criarLinhaVazia(6, "Carregando..."));
+    try {
+        let pagamentos = await apiFetch("/pagamentos");
+        if (consulta !== pagamentoConsultaAtual) return;
+        if (busca) pagamentos = pagamentos.filter(pagamento => pagamentoConfereBuscaLocal(pagamento, busca));
+        if (metodo) pagamentos = pagamentos.filter(pagamento => pagamento.metodo === metodo);
+        if (status) pagamentos = pagamentos.filter(pagamento => pagamento.status === status);
+        if (inicio || fim) {
+            pagamentos = pagamentos.filter(pagamento => {
+                const dia = dataPagamentoBrasilia(pagamento.criadoEm);
+                return dia && (!inicio || dia >= inicio) && (!fim || dia <= fim);
+            });
+        }
+        pagamentos.sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm) || b.id - a.id);
+        pagamentosTbody.replaceChildren(
+            ...(pagamentos.length ? pagamentos.map(criarLinhaPagamento) : [criarLinhaVazia(6, "Nenhum pagamento encontrado")])
+        );
+        atualizarResumoListaPagamentos(pagamentos);
+        pagamentoPeriodoFeedback.textContent = "";
+    } catch (erro) {
+        if (consulta !== pagamentoConsultaAtual) return;
+        pagamentoPeriodoFeedback.textContent = "Nao foi possivel carregar os recebimentos. Clique em Buscar para tentar novamente.";
+        pagamentosTbody.replaceChildren(criarLinhaVazia(6, "Falha ao carregar pagamentos"));
     }
-
-    if (status) {
-        pagamentos = pagamentos.filter((pagamento) => pagamento.status === status);
-    }
-
-    pagamentosTbody.replaceChildren(
-        ...(pagamentos.length > 0 ? pagamentos.map(criarLinhaPagamento) : [criarLinhaVazia(6, "Nenhum pagamento encontrado")])
-    );
-
-    atualizarResumoListaPagamentos(pagamentos);
 }
 
 function criarCelulaContatoSolicitacao(solicitacao) {
@@ -4449,6 +4498,14 @@ pagamentoMetodoFiltro.addEventListener("change", async () => {
         await carregarPagamentos();
     }
 });
+
+pagamentoPeriodoHoje.addEventListener("click", () => aplicarPeriodoPagamentos("hoje"));
+pagamentoPeriodoMes.addEventListener("click", () => aplicarPeriodoPagamentos("mes"));
+for (const campo of [pagamentoDataInicio, pagamentoDataFim]) {
+    campo.addEventListener("change", async () => {
+        if (activeView === "pagamentos") await carregarPagamentos();
+    });
+}
 
 pagamentoStatusFiltro.addEventListener("change", async () => {
     if (activeView === "pagamentos") {
