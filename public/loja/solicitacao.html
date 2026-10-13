@@ -3,13 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Solicitar produto | Loja Japão</title>
+    <title>Solicitar produto | HK Nippon store</title>
     <link rel="stylesheet" href="/loja/styles.css">
 </head>
 <body>
     <main class="tracking-page">
         <header class="store-topbar checkout-topbar">
-            <a class="brand-link" href="/loja" data-app-name>Loja Japão</a>
+            <a class="cart-link muted-link" href="/loja/conta">Minha conta</a>
+            <a class="brand-link" href="/loja" data-app-name>HK Nippon store</a>
             <a class="cart-link muted-link" href="/loja">Voltar ao catálogo</a>
         </header>
         <section class="tracking-shell">
@@ -17,14 +18,9 @@
                 <p class="eyebrow">Direto do Japão</p>
                 <h1>Não encontrou o produto?</h1>
             </div>
-            <p>Conte o que procura. Vamos analisar a disponibilidade e entrar em contato pelo telefone informado. Solicitar uma cotação não gera um pedido nem uma cobrança.</p>
-            <form id="solicitacao-form" class="checkout-flow">
-                <label>Seu nome
-                    <input name="nome" type="text" autocomplete="name" maxlength="120" required>
-                </label>
-                <label>Telefone / WhatsApp com DDD
-                    <input name="telefone" type="tel" autocomplete="tel" maxlength="30" required>
-                </label>
+            <p>Conte o que procura. Vamos analisar a disponibilidade e entrar em contato pelo telefone da sua conta. Solicitar uma cotação não gera um pedido nem uma cobrança.</p>
+            <p id="solicitacao-conta" role="status">Conferindo sua conta...</p>
+            <form id="solicitacao-form" class="checkout-flow hidden">
                 <label>Nome do produto
                     <input name="nomeProduto" type="text" maxlength="200" required>
                 </label>
@@ -37,6 +33,7 @@
                 <button id="solicitacao-enviar" type="submit">Enviar solicitação</button>
             </form>
             <p id="solicitacao-feedback" class="feedback" role="status" tabindex="-1"></p>
+            <a id="solicitacao-acompanhar" class="ghost-link hidden" href="/loja/conta#minhas-solicitacoes">Acompanhar minhas solicitações</a>
             <button id="solicitacao-nova" type="button" class="ghost-button hidden">Solicitar outro produto</button>
             <p class="store-support" data-atendimento-texto></p>
         </section>

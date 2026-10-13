@@ -1,12 +1,16 @@
+import { exigirContaNaPagina, urlLoginPara } from "./conta-api.js";
 import { lerUltimoPedido, salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
 import { criarQuadroPix } from "./pix.js";
 
 void aplicarConfiguracaoPublica("Acompanhamento");
+const contaAcompanhamento = await exigirContaNaPagina("acompanhamento").catch(erro => {
+    document.querySelector("#tracking-feedback").textContent = erro.message;
+    return null;
+});
 
 const trackingForm = document.querySelector("#tracking-form");
 const pedidoIdInput = document.querySelector("#pedido-id");
-const telefoneInput = document.querySelector("#pedido-telefone");
 const trackingResult = document.querySelector("#tracking-result");
 const trackingFeedback = document.querySelector("#tracking-feedback");
 let consultaAcompanhamento = 0;
@@ -14,7 +18,6 @@ function atualizarAtalhoPedido() {
     montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"), () => {
         consultaAcompanhamento++;
         pedidoIdInput.value = "";
-        telefoneInput.value = "";
         trackingResult.replaceChildren();
         trackingResult.classList.add("hidden");
         setFeedback("Atalho removido. Seu pedido continua registrado na loja.");
@@ -89,7 +92,9 @@ async function apiFetch(caminho) {
     const conteudo = await resposta.json().catch(() => undefined);
 
     if (!resposta.ok) {
-        throw new Error(conteudo?.mensagem ?? "Nao foi possivel buscar o pedido");
+        const erro = new Error(conteudo?.mensagem ?? "Nao foi possivel buscar o pedido");
+        erro.status = resposta.status;
+        throw erro;
     }
 
     return conteudo;
@@ -330,45 +335,39 @@ function renderizarPedido(pedido) {
     trackingResult.append(resumo, status, detalhes);
 }
 
-async function buscarPedido(pedidoId, telefone) {
+async function buscarPedido(pedidoId) {
     const consulta = ++consultaAcompanhamento;
     setFeedback("Buscando pedido...");
     trackingResult.classList.add("hidden");
 
-    const parametros = new URLSearchParams({
-        telefone
-    });
     try {
-        const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento?${parametros.toString()}`);
+        const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento`);
         if (consulta !== consultaAcompanhamento) return;
         renderizarPedido(pedido);
-        salvarUltimoPedido(pedidoId, telefone);
+        salvarUltimoPedido(pedidoId);
         atualizarAtalhoPedido();
         setFeedback("Pedido encontrado.", "success");
     } catch (erro) {
-        if (consulta === consultaAcompanhamento) setFeedback(erro.message, "error");
+        if (consulta === consultaAcompanhamento) {
+            setFeedback(erro.message, "error");
+            if (erro.status === 401) location.assign(urlLoginPara("acompanhamento", "pedido=" + pedidoId));
+        }
     }
 }
 
 trackingForm.addEventListener("submit", async (evento) => {
     evento.preventDefault();
+    if (!contaAcompanhamento) return;
 
     const pedidoId = Number(pedidoIdInput.value);
-    const telefone = telefoneInput.value.trim();
 
     if (!Number.isInteger(pedidoId) || pedidoId <= 0) {
         setFeedback("Informe um numero de pedido valido.", "error");
         return;
     }
 
-    if (normalizarDigitos(telefone).length < 8) {
-        setFeedback("Informe o telefone usado no pedido.", "error");
-        telefoneInput.focus();
-        return;
-    }
-
     try {
-        await buscarPedido(pedidoId, telefone);
+        await buscarPedido(pedidoId);
     } catch (erro) {
         setFeedback(erro.message, "error");
     }
@@ -376,14 +375,12 @@ trackingForm.addEventListener("submit", async (evento) => {
 
 const pedidoUrl = new URLSearchParams(window.location.search).get("pedido");
 const ultimoPedido = lerUltimoPedido();
-atualizarAtalhoPedido();
+if (contaAcompanhamento) {
+    trackingForm.classList.remove("hidden");
+    atualizarAtalhoPedido();
+}
 // Um link para outro pedido prevalece sobre o atalho salvo.
-if (pedidoUrl !== null || ultimoPedido) {
+if (contaAcompanhamento && (pedidoUrl !== null || ultimoPedido)) {
     pedidoIdInput.value = pedidoUrl ?? String(ultimoPedido.id);
-    if (ultimoPedido && Number(pedidoIdInput.value) === ultimoPedido.id) {
-        telefoneInput.value = ultimoPedido.telefone;
-        trackingForm.requestSubmit();
-    } else {
-        setFeedback("Informe o telefone usado no pedido para ver o acompanhamento.");
-    }
+    trackingForm.requestSubmit();
 }

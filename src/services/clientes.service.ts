@@ -7,6 +7,7 @@ type FiltrosClientes = {
 };
 
 export type DadosCliente = {
+    cpf?: string;
     nome?: string;
     telefone?: string;
     email?: string;
@@ -32,6 +33,7 @@ export type DadosCriacaoCliente = DadosCliente & {
 };
 
 type ClienteResposta = {
+    cpf?: string;
     id: number;
     nome: string;
     telefone: string;
@@ -69,6 +71,7 @@ function formatarCliente(cliente: Cliente): ClienteResposta {
         endereco: cliente.endereco
     };
 
+    adicionarCampoOpcional(resposta, "cpf", cliente.cpf);
     adicionarCampoOpcional(resposta, "email", cliente.email);
     adicionarCampoOpcional(resposta, "cep", cliente.cep);
     adicionarCampoOpcional(resposta, "numero", cliente.numero);
@@ -95,28 +98,6 @@ function montarDadosCliente(dados: DadosCliente) {
 
 function obterDigitos(texto: string) {
     return texto.replace(/\D/g, "");
-}
-
-async function obterClienteExistentePorTelefone(telefone: string) {
-    const telefoneBuscado = obterDigitos(telefone);
-
-    if (!telefoneBuscado) {
-        return undefined;
-    }
-
-    const clientes = await prisma.cliente.findMany({
-        select: {
-            id: true,
-            telefone: true
-        },
-        orderBy: {
-            id: "asc"
-        }
-    });
-
-    return clientes.find((cliente) => {
-        return obterDigitos(cliente.telefone) === telefoneBuscado;
-    });
 }
 
 export async function obterClientesFiltrados(filtros: FiltrosClientes) {
@@ -159,52 +140,39 @@ export async function obterClientePorId(id: number) {
     return formatarCliente(cliente);
 }
 
-export async function criarCliente(dados: DadosCriacaoCliente): Promise<ResultadoCriacaoCliente> {
-    const clienteExistente = await obterClienteExistentePorTelefone(dados.telefone);
-
-    if (clienteExistente) {
-        const clienteAtualizado = await prisma.cliente.update({
-            where: {
-                id: clienteExistente.id
-            },
-            data: montarDadosCliente(dados)
-        });
-
-        return {
-            cliente: formatarCliente(clienteAtualizado),
-            criado: false
-        };
+function tratarConflitoCpf(erro: unknown): never {
+    if (typeof erro === "object" && erro !== null && "code" in erro && erro.code === "P2002") {
+        throw Object.assign(new Error("CPF ja cadastrado em outro cliente. Confira o cadastro correto antes de continuar."), { status: 409 });
     }
+    throw erro;
+}
 
-    const novoCliente = await prisma.cliente.create({
-        data: dados
-    });
-
-    return {
-        cliente: formatarCliente(novoCliente),
-        criado: true
-    };
+export async function criarCliente(dados: DadosCriacaoCliente): Promise<ResultadoCriacaoCliente> {
+    try {
+        return await prisma.$transaction(async tx => {
+            if (dados.cpf) {
+                await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${"cadastro-cpf:" + dados.cpf}))::text`;
+                const existente = await tx.cliente.findUnique({ where: { cpf: dados.cpf } });
+                if (existente) {
+                    const atualizado = await tx.cliente.update({ where: { id: existente.id }, data: montarDadosCliente(dados) });
+                    return { cliente: formatarCliente(atualizado), criado: false };
+                }
+            }
+            // Sem CPF, o admin deve escolher explicitamente um cadastro existente.
+            // Compartilhar telefone nunca autoriza sobrescrever outro cliente.
+            const novo = await tx.cliente.create({ data: dados });
+            return { cliente: formatarCliente(novo), criado: true };
+        });
+    } catch (erro) { return tratarConflitoCpf(erro); }
 }
 
 export async function atualizarClientePorId(id: number, dados: DadosCliente) {
-    const clienteExiste = await prisma.cliente.findUnique({
-        where: {
-            id
-        }
-    });
-
-    if (!clienteExiste) {
-        return undefined;
-    }
-
-    const clienteAtualizado = await prisma.cliente.update({
-        where: {
-            id
-        },
-        data: montarDadosCliente(dados)
-    });
-
-    return formatarCliente(clienteAtualizado);
+    const clienteExiste = await prisma.cliente.findUnique({ where: { id } });
+    if (!clienteExiste) return undefined;
+    try {
+        const atualizado = await prisma.cliente.update({ where: { id }, data: montarDadosCliente(dados) });
+        return formatarCliente(atualizado);
+    } catch (erro) { return tratarConflitoCpf(erro); }
 }
 
 export async function removerClientePorId(id: number) {

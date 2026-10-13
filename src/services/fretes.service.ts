@@ -109,7 +109,17 @@ export async function cotarFrete(cepEntrada: unknown, itensEntrada: unknown, per
             typeof opcao.name !== "string" || !opcao.name.trim() || typeof opcao.company?.name !== "string" || !opcao.company.name.trim()) continue;
         opcoes.push(assinarCotacaoFrete({valor:Number(valor.toFixed(2)),prazoDias,servicoId:String(opcao.id),servico:opcao.name.slice(0,100),transportadora:opcao.company.name.slice(0,100),ambiente:env.MELHOR_ENVIO_AMBIENTE},itens,cepEntrada));
     }
-    if (!opcoes.length) throw new ErroFrete("Nenhuma opcao de entrega disponivel para este CEP e estes produtos", 422);
+    if (!opcoes.length) {
+        const erros = body.filter(opcao => opcao && [1, 2].includes(Number(opcao.id)) && typeof opcao.error === "string")
+            .map(opcao => opcao.error.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+        if (erros.some(erro => /dimens|peso/.test(erro) && /limite|exced|ultrapass/.test(erro))) {
+            throw new ErroFrete("Nenhuma entrega disponivel. Uma das transportadoras recusou o peso ou tamanho da embalagem. Entre em contato com a loja", 422);
+        }
+        if (erros.length && erros.every(erro => erro.includes("nao atende este trecho"))) {
+            throw new ErroFrete("As transportadoras consultadas nao atendem este trecho. Confira o CEP ou entre em contato com a loja", 422);
+        }
+        throw new ErroFrete("Nenhuma opcao de entrega disponivel para este CEP e estes produtos", 422);
+    }
     return {
         subtotalProdutos: Number(itens.reduce((sum,i)=>sum + Number((Number(i.produto.preco)*i.quantidade).toFixed(2)),0).toFixed(2)),
         opcoes: opcoes.sort((a,b)=>a.valor-b.valor)

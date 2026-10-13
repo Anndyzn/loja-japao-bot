@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Loja Japao Admin</title>
+    <title>HK Nippon store Admin</title>
     <link rel="stylesheet" href="/admin/styles.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
             <form id="login-form" class="login-panel">
                 <div>
                     <p class="eyebrow">Admin</p>
-                    <h1 data-app-name>Loja Japao</h1>
+                    <h1 data-app-name>HK Nippon store</h1>
                 </div>
 
                 <label>
@@ -34,16 +34,16 @@
             <aside class="sidebar">
                 <div>
                     <p class="eyebrow">Admin</p>
-                    <h1 data-app-name>Loja Japao</h1>
+                    <h1 data-app-name>HK Nippon store</h1>
                 </div>
 
                 <nav class="nav">
                     <button class="nav-button active" type="button" data-view="dashboard">Dashboard</button>
                     <button class="nav-button" type="button" data-view="produtos">Produtos</button>
-                    <button class="nav-button" type="button" data-view="clientes">Clientes</button>
-                    <button class="nav-button" type="button" data-view="pedidos">Pedidos</button>
-                    <button class="nav-button" type="button" data-view="pagamentos">Pagamentos</button>
-                    <button class="nav-button" type="button" data-view="solicitacoes">Solicitacoes</button>
+                    <button class="nav-button" type="button" data-view="clientes"><span>Clientes</span><span class="nav-novidades" data-novidades="clientes" hidden></span></button>
+                    <button class="nav-button" type="button" data-view="pedidos"><span>Pedidos</span><span class="nav-novidades" data-novidades="pedidos" hidden></span></button>
+                    <button class="nav-button" type="button" data-view="pagamentos"><span>Pagamentos</span><span class="nav-novidades" data-novidades="pagamentos" hidden></span></button>
+                    <button class="nav-button" type="button" data-view="solicitacoes"><span>Solicitacoes</span><span class="nav-novidades" data-novidades="solicitacoes" hidden></span></button>
                     <button class="nav-button" type="button" data-view="seguranca">Seguranca</button>
                 </nav>
 
@@ -59,6 +59,11 @@
                     <button id="refresh-button" type="button">Atualizar</button>
                 </header>
 
+                <aside id="novidades-painel" class="novidades-painel" hidden>
+                    <p id="novidades-texto" role="status"></p>
+                    <button id="novidades-vistas" type="button" class="ghost-button">Marcar novidades desta seção como vistas</button>
+                    <small>Os números indicam registros novos. Marcar como visto não conclui o atendimento. A leitura fica salva neste navegador.</small>
+                </aside>
                 <section id="dashboard-view" class="view-section">
                     <div id="stats-grid" class="stats-grid"></div>
                     <div id="dashboard-alerts" class="dashboard-grid"></div>
@@ -69,6 +74,9 @@
                         <label>
                             Nome
                             <input id="produto-nome" name="nome" type="text" required>
+                        </label>
+                        <label>Categoria
+                            <select id="produto-categoria" name="categoria"><option value="">Sem categoria</option></select>
                         </label>
 
                         <label>
@@ -109,6 +117,9 @@
                     </form>
 
                     <form id="produto-filtros-form" class="filters-bar">
+                        <label>Categoria
+                            <select id="produto-categoria-filtro"><option value="">Todas</option><option value="sem_categoria">Sem categoria</option></select>
+                        </label>
                         <label>
                             Nome
                             <input id="produto-nome-filtro" type="search" placeholder="Buscar produto">
@@ -194,19 +205,18 @@
 
                     <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
                     <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
-                        <table class="solicitacoes-table">
+                        <table class="clientes-table">
                             <colgroup>
-                                <col class="col-id">
-                                <col class="col-solicitacao-cliente">
-                                <col class="col-solicitacao-produto">
-                                <col class="col-status">
-                                <col class="col-data">
-                                <col class="col-solicitacao-acoes">
+                                <col class="cliente-col-id">
+                                <col class="cliente-col-nome">
+                                <col class="cliente-col-telefone">
+                                <col class="cliente-col-endereco">
+                                <col class="cliente-col-acoes">
                             </colgroup>
                             <thead>
                                 <tr>
                                     <th>ID</th>
-                                    <th>Nome</th>
+                                    <th>Nome completo</th>
                                     <th>Telefone</th>
                                     <th>Endereco</th>
                                     <th>Acoes</th>
@@ -328,6 +338,15 @@
                                     </select>
                                 </label>
 
+                                <label>Aguardando Pix há
+                                    <select id="pedido-espera-pix-filtro">
+                                        <option value="">Qualquer tempo</option>
+                                        <option value="12">12 horas ou mais</option>
+                                        <option value="24">24 horas ou mais</option>
+                                        <option value="48">48 horas ou mais</option>
+                                        <option value="72">72 horas ou mais</option>
+                                    </select>
+                                </label>
                                 <button type="submit">Buscar</button>
                                 <button id="pedido-filtros-limpar" class="small-button" type="button">Limpar</button>
                             </form>
@@ -355,6 +374,7 @@
 
                             <p id="pedido-filtro-contexto" class="filtro-contexto hidden"></p>
                             <p id="pedido-lista-resumo" class="lista-resumo"></p>
+                            <p class="pedido-espera-ajuda">Pix: após 24 horas, o pedido recebe um destaque para revisão. Isso não é um vencimento: o cancelamento é manual. Confira o recebimento antes de cancelar e liberar o estoque.</p>
 
                             <p class="table-scroll-hint">Deslize a tabela para os lados para ver todas as colunas.</p>
                             <div class="table-shell" tabindex="0" role="region" aria-label="Tabela com rolagem horizontal">
@@ -587,6 +607,9 @@
                 </div>
 
                 <input id="produto-edit-id" name="id" type="hidden">
+                <label class="field-wide">Categoria
+                    <select id="produto-edit-categoria" name="categoria"><option value="">Sem categoria</option></select>
+                </label>
 
                 <label>
                     Nome
@@ -643,8 +666,14 @@
 
                 <div class="modal-grid">
                     <label>
-                        Nome
+                        Nome completo
                         <input id="cliente-edit-nome" name="nome" type="text" required>
+                    </label>
+
+                    <label>
+                        CPF
+                        <input id="cliente-edit-cpf" name="cpf" type="text" inputmode="numeric" autocomplete="off" maxlength="14" pattern="[0-9]{11}|[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}" placeholder="000.000.000-00" title="Informe o CPF com 11 digitos, com ou sem pontos e traco">
+                        <small>Se ainda nao foi informado, preencha quando o cliente fornecer.</small>
                     </label>
 
                     <label>

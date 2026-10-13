@@ -1,4 +1,4 @@
-# Loja Japao Bot
+# HK Nippon store
 
 API backend para uma loja de produtos do Japao, com cadastro de produtos,
 clientes, pedidos, pagamentos, solicitacoes de produtos e dashboard.
@@ -47,7 +47,7 @@ As variaveis principais sao:
 ```txt
 NODE_ENV=development
 PORT=3000
-APP_NOME="Loja Japao"
+APP_NOME="HK Nippon store"
 LOJA_HERO_ETIQUETA="Importados do Japao"
 LOJA_HERO_TITULO="Doces, presentes e achadinhos japoneses"
 LOJA_HERO_DESCRICAO="Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada."
@@ -382,11 +382,11 @@ npm run db:studio    abre o Prisma Studio
 
 ## Fluxo Principal
 
-1. Criar ou usar um cliente existente.
-2. Listar produtos disponiveis.
-3. Criar um pedido com `clienteId` e itens.
+1. Cliente cria sua conta ou entra com e-mail e senha em `/loja/conta`.
+2. Escolhe produtos e informa o endereco no carrinho.
+3. Checkout cria o pedido na conta autenticada, sem receber `clienteId` do navegador.
 4. Admin confirma o recebimento do Pix para registrar o pagamento e marcar o pedido como pago.
-5. Acompanhar o pedido informando numero do pedido e telefone.
+5. Cliente abre Minha conta > Meus pedidos para acompanhar pagamento e entrega.
 
 ## Roteiro de Teste Manual
 
@@ -409,14 +409,13 @@ alteracao importante ou antes de publicar:
     visibilidade na loja.
 13. Abrir `http://localhost:3000/loja` e confirmar que o produto publicado
     aparece para o cliente.
-14. Fazer um pedido publico pelo carrinho, preenchendo CEP, numero,
+14. Entrar na conta do cliente e fazer um pedido pelo carrinho, preenchendo CEP, numero,
     complemento e telefone.
 15. No admin, conferir detalhes do pedido, endereco do pedido, endereco atual
     do cliente, itens, total e historico.
 16. Confirmar recebimento do Pix no pedido de teste, depois salvar rastreio e marcar
     como enviado.
-17. Abrir o acompanhamento publico e consultar usando numero do pedido e
-    telefone do cliente.
+17. Abrir Minha conta > Meus pedidos e consultar o pedido; outra conta nao deve ter acesso.
 18. Criar uma solicitacao publica de produto e conferir no admin se contato,
     descricao e link aparecem corretamente.
 
@@ -462,10 +461,9 @@ GET /auth/me
 
 Retorna os dados basicos do admin logado quando o token ainda e valido.
 
-Na primeira versao, o login e apenas para admin. O cliente comum ainda pode
-criar cliente, pedido e solicitacao sem login. Por isso o checkout
-publico pede mais dados de entrega, como CEP, numero, complemento, bairro,
-cidade, estado e ponto de referencia.
+O admin e o cliente usam acessos separados. O cliente entra em `/loja/conta`
+para comprar e acompanhar pedidos. O catalogo continua sem login; solicitar produto tambem exige conta.
+O checkout pede os dados de entrega e preenche os dados salvos da conta autenticada.
 
 Alterar senha do admin:
 
@@ -618,6 +616,8 @@ GET /clientes/1
 
 Criar cliente:
 
+Requer token admin. A loja publica usa o fluxo separado descrito abaixo.
+
 ```http
 POST /clientes
 Content-Type: application/json
@@ -639,10 +639,10 @@ Content-Type: application/json
 }
 ```
 
-Se ja existir cliente com o mesmo telefone, ignorando parenteses, espacos e
-tracos, a API reaproveita esse cadastro, atualiza os dados atuais do cliente e
-retorna `200`. Se o telefone ainda nao existir, cria um novo cliente e retorna
-`201`. A resposta de cadastro tambem traz `criadoAgora`, que sera `true` quando
+Se o CPF informado ja existir, esta rota administrativa reaproveita o cadastro,
+atualiza seus dados e retorna `200`. Um CPF novo cria um cliente e retorna `201`.
+Sem CPF, cria um novo registro: telefone compartilhado nao identifica a pessoa.
+Para completar um cliente antigo sem CPF, selecione o cadastro e use PATCH /clientes/:id. A resposta de cadastro tambem traz `criadoAgora`, que sera `true` quando
 criou um cliente novo e `false` quando reaproveitou um cliente existente.
 
 Atualizar cliente:
@@ -719,6 +719,8 @@ GET /pedidos/cliente/1
 
 Criar pedido:
 
+Requer token admin. A loja publica usa o fluxo separado descrito abaixo.
+
 ```http
 POST /pedidos
 Content-Type: application/json
@@ -756,7 +758,7 @@ Content-Type: application/json
 Acompanhar pedido:
 
 ```http
-GET /pedidos/1/acompanhamento?telefone=11999990001
+GET /pedidos/1/acompanhamento
 ```
 
 Tambem existe a tela publica:
@@ -765,8 +767,8 @@ Tambem existe a tela publica:
 http://localhost:3000/loja/acompanhamento?pedido=1
 ```
 
-A tela preenche o numero quando ele vem na URL, mas ainda pede o telefone do
-pedido antes de mostrar os dados.
+A tela preenche o numero quando ele vem na URL. A API exige a sessao do cliente
+e so retorna o pedido se pertencer a essa conta. Telefone nao autoriza acesso.
 
 ### Pagamentos
 
@@ -836,7 +838,7 @@ A chave e o nome sao exibidos aos clientes; nao coloque senhas ou tokens nesses 
 A tela de pedido criado e o acompanhamento mostram chave, recebedor, valor e
 botao Copiar chave Pix apenas enquanto o pedido esta pendente. Sem os dois dados
 configurados, mostram uma orientacao para contatar a loja. O acompanhamento
-continua exigindo o numero e o telefone do pedido.
+exige login e verifica se o pedido pertence a conta.
 
 O cliente usa Pix por chave no aplicativo do banco e informa o valor exibido.
 Nao e um codigo Pix Copia e Cola nem um QR Code. Copiar a chave nao confirma o
@@ -857,6 +859,78 @@ Teste manual desta etapa (use pedidos de teste, sem transferencia real):
 10. Em Pedidos > Ver detalhes, confirme o Pix pela secao Pagamentos e confira que o modal atualiza para pago.
 11. Salve um rastreio duas vezes com os mesmos dados e confira que o historico nao duplica a etapa.
 12. Confira os botoes de WhatsApp do pedido para dados Pix, pagamento aprovado, rastreio e status atual.
+
+### Contas de clientes e checkout
+
+A loja usa e-mail e senha em /loja/conta. O catalogo continua aberto, mas finalizar
+compras, solicitar produtos e consultar pedidos exige login. O endereco e preenchido no checkout.
+Compras repetidas da mesma conta atualizam o mesmo Cliente; cada pedido guarda
+sua propria copia de nome, telefone e endereco, preservando os pedidos anteriores.
+Se frete ou estoque falhar, a transacao tambem desfaz a atualizacao do cadastro.
+
+Novas contas pedem nome completo, CPF, telefone com DDD, e-mail e senha entre 10 e 128 caracteres.
+E-mail e normalizado para minusculas. Telefone ignora formatacao e prefixo +55.
+O CPF e unico no banco; se ja estiver cadastrado, orienta entrar ou falar com o
+atendimento. O e-mail e exclusivo entre contas de login. Telefone pode ser
+compartilhado. E-mail/telefone de contatos antigos sem conta nao bloqueiam o novo
+cadastro, mas tambem nao vinculam ou liberam os pedidos anteriores.
+Nao ha verificacao automatica de e-mail nem envio de mensagens nesta versao.
+
+**Cliente que ja esta no banco ou esqueceu a senha:**
+1. O admin confere a identidade do cliente pelo atendimento e escolhe o cadastro correto.
+2. Em Clientes, preenche um e-mail valido se faltar e clica em Liberar acesso.
+3. Confirma que verificou o cliente, gera e copia o link para enviar manualmente.
+4. O cliente abre o link, define a senha e passa a usar o mesmo cadastro.
+O link e valido por uma hora e so pode ser usado uma vez. Gerar outro invalida o
+anterior. Usar o link troca a senha e encerra todas as sessoes anteriores.
+Nunca envie esse link a alguem apenas porque informou o telefone do cadastro.
+
+Registros duplicados antigos e seus pedidos sao preservados: nao ha mesclagem
+nem exclusao automatica. Uma conta acessa somente pedidos vinculados ao seu
+clienteId. Escolha o cadastro correto antes de liberar acesso. Se o e-mail ja
+estiver associado a outra conta, o admin recebe um aviso, sem vinculo automatico.
+Editar o e-mail de contato do cliente no admin nao altera o e-mail de login de
+uma conta ja criada. Nesta versao nao ha tela para alterar o e-mail de login.
+
+Rotas de conta:
+- POST /conta/registrar: nome (nome completo), cpf, telefone, email, senha.
+- POST /conta/entrar: email, senha.
+- POST /conta/ativar: token do link, senha.
+- POST /conta/sair: encerra a sessao atual.
+- GET /conta/me: dados apenas da conta conectada.
+- GET /conta/pedidos?pagina=1: pedidos da conta, 20 por pagina.
+- POST /clientes/:id/acesso: gera link, exige token de admin.
+
+POST /checkout exige sessao de cliente e recebe cliente (campos de entrega),
+itens, observacao opcional e freteToken da cotacao. Nao aceita clienteId,
+identificador dentro de cliente, frete manual ou privilegios de admin.
+O e-mail usado no cadastro atualizado vem da conta autenticada.
+POST /clientes, /pedidos e /solicitacoes com clienteId sao exclusivos do admin.
+POST /solicitacoes/publica exige sessao de cliente e X-Loja-Cliente: 1; associa
+a solicitacao ao cliente da sessao, sem aceitar nome, telefone ou clienteId no corpo.
+
+A sessao de cliente fica em cookie HttpOnly, SameSite=Lax, com validade de sete
+dias e Secure em producao (requer HTTPS). Somente hashes das sessoes e dos links
+ficam no banco. Senhas usam o mesmo scrypt ja usado no admin.
+POSTs de conta e checkout exigem JSON e o header X-Loja-Cliente: 1, enviado pelos
+scripts da loja, e rejeitam origens externas. Nao habilitar CORS indiscriminadamente.
+Login tem limite de tentativas por IP/e-mail, usando os limites ADMIN_LOGIN_*
+ja existentes; as rotas tambem usam o limite geral de escrita publica por IP.
+
+Para atualizar outra maquina, preserve o .env e execute npm install,
+npm run db:deploy, npm run db:generate e npm run dev.
+A migration 20261010210000_conta_cliente adiciona ContaCliente e SessaoCliente,
+sem alterar clientes, pedidos, estoque ou credenciais do admin.
+
+Teste manual:
+1. Libere acesso para um cliente existente e abra o link em uma janela privativa.
+2. Defina a senha; confira que Meus pedidos mostra somente os pedidos desse cadastro.
+3. Compre duas vezes, mudando o endereco na segunda compra.
+4. No admin, confira que ambas usam o mesmo cliente e que o primeiro pedido manteve o endereco.
+5. Saia e entre novamente; confira que os pedidos continuam disponiveis.
+6. Mesmo CPF ou e-mail de login deve impedir outra conta. CPFs e e-mails diferentes podem compartilhar telefone.
+7. Em outra conta, tente consultar o numero do primeiro pedido: nao deve retornar seus dados.
+8. Confira Pix, frete e estoque como no fluxo anterior.
 
 ### Recebimentos por periodo no admin
 
@@ -915,6 +989,8 @@ GET /solicitacoes/cliente/1
 ```
 
 Criar solicitacao:
+
+Requer token admin. A loja publica usa o fluxo separado descrito abaixo.
 
 ```http
 POST /solicitacoes
@@ -984,9 +1060,10 @@ Exemplo de fluxo futuro:
 1. Cliente manda "ver produtos".
 2. Bot chama `GET /produtos`.
 3. Cliente escolhe itens.
-4. Bot chama `POST /clientes` se o cliente ainda nao existir.
-5. Bot chama `POST /pedidos`.
-6. Bot envia o status usando `GET /pedidos/:id/acompanhamento?telefone=...`.
+4. Bot coleta os dados de entrega e cota o frete em `POST /fretes/cotacao`.
+5. Bot encaminha o cliente ao checkout da loja para entrar e finalizar a compra.
+6. Bot envia o link de acompanhamento; o cliente consulta o pedido na propria conta.
+A autenticacao de um bot que opere em nome do cliente ainda precisa ser projetada.
 
 ## Admin
 
@@ -1009,8 +1086,8 @@ O admin podera:
 - gerenciar solicitacoes;
 - atualizar status de solicitacoes.
 
-O cliente comum podera fazer pedido pelo site ou WhatsApp sem login, pelo menos
-na primeira versao.
+O cliente usa Minha conta para comprar pelo site. Pedidos combinados pelo
+WhatsApp podem ser cadastrados pelo admin no cliente correspondente.
 
 ## Rastreio de envio
 
@@ -1019,7 +1096,7 @@ rastreio. Os campos podem ser cadastrados ou corrigidos em pedidos pagos ou
 enviados. Salvar o rastreio nao muda o status; apos a postagem, use Marcar como
 enviado, que aparece no proprio modal quando o pedido esta pago e ja tem
 rastreio salvo. O cliente vera os dados na pagina de acompanhamento depois de
-informar o telefone do pedido. Para Correios, o sistema mostra um botao para
+entrar na conta vinculada ao pedido. Para Correios, o sistema mostra um botao para
 abrir o rastreamento no site da transportadora. Ainda nao ha sincronizacao de
 eventos de entrega.
 
@@ -1040,11 +1117,12 @@ npm.cmd run dev
 
 ## Solicitacao publica de produtos
 
-A pagina /loja/solicitacao permite pedir uma cotacao informando nome, telefone,
-produto, descricao e link opcional. Nao exige compra anterior nem endereco.
-A solicitacao guarda os dados de contato e nasce com status recebida; nao cria
-pedido, pagamento ou cadastro de cliente. Solicitacoes antigas continuam ligadas
-aos clientes existentes. A vinculacao automatica com o checkout fica para outra etapa.
+A pagina /loja/solicitacao exige login e pede apenas produto, descricao e link
+opcional. Nao exige compra anterior nem endereco. O nome e telefone sao lidos
+no servidor, a partir da conta conectada. A solicitacao nasce com status recebida
+e clienteId preenchido, sem criar outro cadastro, pedido ou pagamento.
+Solicitacoes antigas permanecem inalteradas. Se faltar endereco quando o admin
+preparar o pedido, o fluxo existente pede completar o cadastro.
 
 No admin, a aba Solicitacoes mostra o contato, o ciclo da solicitacao e a
 proxima acao. O ciclo usa OK/Falta para Cotacao, Cliente, Produto e Pedido.
@@ -1052,7 +1130,7 @@ Quando uma solicitacao ja tem cotacao, cliente e produto, o botao Preparar
 pedido aparece diretamente na linha. Use Ver descricao para consultar detalhes,
 link, observacao interna e acoes extras. O contato com o visitante e feito
 manualmente.
-A rota publica e POST /solicitacoes/publica; a listagem continua exclusiva do admin.
+A rota da loja e POST /solicitacoes/publica, agora autenticada; a listagem continua exclusiva do admin.
 
 Ao atualizar outra maquina, aplique as migrations e gere o Prisma Client antes
 de iniciar o servidor, conforme os comandos da secao anterior.
@@ -1207,7 +1285,8 @@ Content-Type: application/json
 
 Resposta: subtotalProdutos e opcoes com valor, servico, transportadora,
 prazoDias, ambiente, expiraEm e token. Envie o token escolhido como freteToken
-em POST /pedidos junto dos mesmos itens e de um cliente com o mesmo CEP.
+em POST /checkout junto dos mesmos itens e dos dados de entrega com o mesmo CEP.
+O admin continua usando POST /pedidos com clienteId e autenticacao.
 Para cotar produtos internos, envie Authorization: Bearer com token admin.
 
 Testes: npm run test:checkout verifica a logica do navegador com DOM e API
@@ -1328,15 +1407,15 @@ Teste automatizado da integridade: node --test tests/backup.test.mjs.
 
 ### Retomar o ultimo pedido na loja
 
-Depois de criar um pedido ou consulta-lo com telefone valido, o carrinho e o
+Depois de criar um pedido ou consulta-lo com a conta autenticada, o carrinho e o
 acompanhamento mostram um atalho para o ultimo pedido da sessao. Atualizar a
 pagina preserva o atalho. O acompanhamento consulta a API novamente para mostrar
 Pix, pagamento e rastreio atuais; nenhum status ou endereco fica salvo nesse atalho.
 
-A referencia (numero e telefone) fica em sessionStorage, restrita a sessao da aba,
+A referencia (somente o numero) fica em sessionStorage, restrita a sessao da aba,
 e nao e sincronizada com outros computadores. Nao substitui guardar o numero do
 pedido. Um link explicito para outro pedido prevalece sobre a referencia salva e
-pede o telefone correspondente. Remover atalho remove o atalho e, no
+exige a conta proprietaria do pedido. Remover atalho remove o atalho e, no
 acompanhamento, limpa o resultado, sem cancelar ou apagar o pedido da loja.
 
 Se o navegador bloquear o armazenamento, a consulta manual continua funcionando.
@@ -1345,6 +1424,157 @@ anotar o numero e nao refazer a compra.
 
 Teste manual: finalize uma compra de teste, atualize o carrinho e abra o atalho.
 Confirme o Pix no admin e consulte novamente para conferir o novo status. Use
-Remover atalho e verifique que numero e telefone precisam ser informados
-novamente. Nenhuma transferencia real e necessaria.
+Remover atalho e verifique que o resultado e limpo. O pedido continua em Minha conta.
+Nenhuma transferencia real e necessaria.
 Testes: npm run test:checkout e node --test tests/acompanhamento-sessao.test.mjs.
+
+### CPF e nome completo
+
+Cadastro da conta e checkout exigem CPF valido, com ou sem pontuacao. O servidor
+valida os digitos verificadores e salva os 11 digitos como texto, preservando zeros
+iniciais. Isso nao consulta a Receita nem comprova identidade; o login continua
+sendo por e-mail e senha. Nome completo usa o campo nome ja existente.
+
+Clientes antigos permanecem com CPF vazio ate preencherem no checkout ou no admin.
+Em Clientes > Editar, o CPF e opcional para permitir completar cadastros antigos
+e de solicitacoes; quando informado, precisa ser valido. Pedidos do admin ainda
+podem usar clientes sem CPF. Cada novo pedido copia o CPF informado no cadastro
+para entregaCpf. Os detalhes no admin mostram CPF no pedido; pedidos antigos
+continuam com Nao informado neste pedido, sem copiar dados atuais retroativamente.
+
+A migration 20261011010000_add_cpf_cliente adiciona campos opcionais em Cliente e
+Pedido. Na outra maquina, rode npm run db:deploy e npm run db:generate.
+Testes: node --import tsx --test tests/cpf.test.mjs, npm run test:checkout e
+npm run test:consistencia. Teste tambem editar CPF no admin e confira que um pedido
+feito antes da edicao manteve o documento original.
+
+### Identificacao por CPF
+
+A migration 20261011020000_cpf_unico_cliente impede CPFs repetidos inclusive em
+requisicoes simultaneas. Clientes antigos sem CPF continuam permitidos; nenhum
+registro e apagado ou mesclado. Para reutilizar um cadastro antigo, o admin deve
+conferir a pessoa, completar o CPF correto e liberar acesso nesse registro.
+
+O checkout preenche o CPF da conta e nao permite troca. A primeira compra de uma
+conta antiga sem CPF pode completa-lo se nao pertencer a outro cadastro. Correcoes
+sao feitas pelo admin; um CPF ja utilizado por outro cliente e recusado. Os CPFs
+salvos em pedidos anteriores permanecem inalterados. CPF nao e senha nem prova
+de identidade: informar o documento nunca concede acesso a dados existentes.
+
+### Navegacao com conta do cliente
+
+Ao entrar ou criar conta sem outra acao pendente, o cliente volta a pagina inicial
+e ve uma saudacao com seu primeiro nome. Minha conta, quando aberta por um
+cliente conectado, mostra seus dados e pedidos.
+
+Solicitar produto e Acompanhar pedido pedem login antes de mostrar o formulario.
+Depois do login, a acao e retomada; produto preselecionado e numero de pedido
+sao preservados. O checkout continua voltando ao carrinho. Os destinos aceitos
+sao fixos e internos, evitando redirecionamento para um site externo.
+
+Teste manual: em janela anonima, abra Solicitar produto, entre e envie apenas
+produto e descricao. No admin, confira que Cliente ja esta vinculado. Saia da
+conta, entre normalmente e confira a saudacao na vitrine. Abra Minha conta para
+ver os pedidos. Repita Acompanhar pedido com um link que contenha o numero.
+Testes de navegacao: node --test tests/conta-navegacao.test.mjs.
+
+### Validacao do formulario da conta
+
+CPF recebe mascara 000.000.000-00 e valida os digitos verificadores. Telefone
+recebe DDD e aceita fixo (10 digitos) ou celular (11), inclusive colagem com +55.
+O cadastro pede nome e sobrenome. Senha e confirmacao sao conferidas antes do envio.
+Os avisos ficam junto dos campos; enviar um formulario invalido nao chama a API.
+O backend tambem devolve erros por campo e valida cadastro/senha de ativacao antes
+de consumir a cota. Cadastro, login e ativacao possuem contadores independentes
+das outras escritas publicas, usando os limites PUBLIC_WRITE existentes.
+Envios validos repetidos e tentativas de login incorretas continuam protegidos.
+Quando houver bloqueio real, a tela informa quantos minutos faltam (Retry-After).
+
+Sem React/Formik: esta tela continua em HTML/CSS/JavaScript, com validacao local
+para orientar e validacao no servidor para proteger os dados.
+Teste: tente CPF incompleto, senha curta e confirmacao diferente; corrija os
+campos e confira que os avisos desaparecem e o envio continua possivel.
+Testes automatizados: node --import tsx --test tests/conta-formulario.test.mjs;
+npm run test:consistencia usa banco temporario separado.
+
+### Endereco principal e outra entrega
+
+Minha conta permite adicionar/editar o endereco principal, com busca por CEP.
+POST /conta/endereco exige a sessao do cliente e X-Loja-Cliente: 1. Aceita somente
+campos de endereco; o clienteId vem da sessao. Campos opcionais vazios limpam
+complemento/referencia. Nao altera pedidos anteriores.
+
+Na entrega do checkout, escolha "Entregar no meu endereco" ou "Entregar em outro
+endereco". O primeiro modo preenche o cadastro e salva eventuais ajustes ao
+concluir a compra. O segundo guarda o destino apenas no pedido, sem substituir
+o endereco principal. A escolha vai em enderecoEntrega (principal/outro);
+ausencia usa principal para compatibilidade. Trocar a escolha invalida o frete,
+preserva os rascunhos na tela e exige nova cotacao para o CEP escolhido.
+
+Teste: salve o principal em Minha conta, compre com outro endereco e confira
+os detalhes do pedido e o cadastro no admin. Edite o principal depois e confira
+que nenhum dos pedidos antigos muda. Os testes de consistencia usam banco separado.
+
+### Novidades do admin e solicitacoes concluidas
+
+Pedidos, Solicitacoes, Pagamentos e Clientes mostram contadores de novos registros.
+GET /dashboard/novidades exige token admin e retorna apenas contagens/ultimo ID.
+A consulta roda a cada 30 segundos enquanto o painel esta visivel, ao trocar de
+secao ou clicar em Atualizar. Nao envia notificacoes externas nem usa servico pago.
+O botao Marcar novidades desta secao como vistas confirma a leitura; nao muda
+status nem conclui atendimento. Confira filtros/paginacao antes de marcar.
+Os marcadores ficam no navegador, separados por admin. Em outro navegador ou
+na primeira utilizacao, os registros existentes aparecem como novos. Alteracoes
+de registros existentes nao contam como novas chegadas. A fila do Dashboard
+continua indicando trabalho pendente, mesmo depois da leitura.
+
+Solicitacoes com pedido mostram Abrir pedido #ID direto na linha. Enviar/copiar
+mensagem passa a incluir o link de acompanhamento com login do cliente. A
+previa permite conferir a mensagem; observacaoAdmin continua exclusiva da loja.
+A cotacao fica recolhida em Editar cotacao; depois de gerar pedido ela deixa de
+ser editavel. O backend recusa recotacao de solicitacao vinculada (409).
+
+### Minhas solicitacoes na conta do cliente
+
+Minha conta agora mostra solicitacoes recebidas, em analise, cotadas, aprovadas,
+recusadas ou canceladas. O cliente pode conferir sua descricao, ver a cotacao
+quando estiver cotada/aprovada e abrir o pedido vinculado da propria conta.
+A tela orienta aguardar o pedido antes de pagar; nao ha aprovacao automatica.
+Depois de enviar uma solicitacao, ha um atalho para acompanha-la em Minha conta.
+
+GET /conta/solicitacoes exige sessao e retorna 10 registros por pagina (pagina=1).
+O clienteId vem somente da sessao. A resposta nao inclui anotacoes internas,
+contatos de terceiros ou dados do produto interno. Solicitacoes antigas sem
+vinculo com cliente nao sao associadas automaticamente por telefone.
+A lista tem atualizar, estados vazio/erro e paginacao; logout descarta respostas
+atrasadas. Teste: node --test tests/conta-solicitacoes.test.mjs e npm run test:consistencia.
+
+
+### Espera pelo Pix e loja no celular
+
+- Admin > Pedidos mostra há quanto tempo cada pedido aguarda Pix. Após 24 horas, recebe o aviso “Revisar pagamento”, sem vencimento ou cancelamento automático.
+- O filtro “Aguardando Pix há” aceita 12, 24, 48 ou 72 horas, aplica a seleção antes da paginação e traz os mais antigos primeiro. O admin confere o recebimento antes de confirmar ou cancelar manualmente.
+- A loja no celular tem navegação inferior (Loja, Pedidos, Solicitar, Conta e Carrinho), banner compacto, catálogo em duas colunas a partir de 360px e resumo do carrinho acima da navegação.
+- Conta, solicitação, acompanhamento e checkout usam botões maiores, campos legíveis e espaço para a navegação inferior. No computador, a navegação existente continua disponível.
+- Teste manual: no celular, adicionar produto, ajustar quantidade, finalizar o fluxo por etapas e acessar os pedidos pela barra inferior; testar cadastro, endereço e solicitação. No admin, selecionar a espera pelo Pix, abrir detalhes e limpar o filtro.
+
+
+### Proteção contra pedidos repetidos no checkout
+
+- Cada tentativa de finalizar a compra envia um identificador aleatório no header `Idempotency-Key`. Ele é associado à conta e salvo na mesma transação do pedido e da baixa de estoque.
+- Repetir a mesma tentativa devolve o pedido existente (HTTP 200); uma compra nova retorna 201. Reutilizar a chave com dados diferentes retorna 409.
+- `GET /checkout/:chave` recupera somente o pedido da conta autenticada e devolve seu status atual, inclusive após pagamento ou cancelamento. Não depende de uma cotação de frete ainda válida.
+- O navegador mantém somente a chave em `sessionStorage` até confirmar a compra. Após falha de conexão ou recarregamento da mesma aba, consulta essa tentativa antes de enviar novamente. Uma nova compra usa outra chave.
+- O recurso não identifica compras independentes em abas distintas ou após apagar os dados do navegador. Nesses casos, confira Meus pedidos antes de refazer uma compra de resultado incerto.
+- Ao atualizar outra máquina: `npm run db:generate` e `npm run db:deploy`. A migration adiciona campos opcionais e um índice único, preservando os pedidos existentes.
+- Validação automática: `npm run test:checkout` e `npm run test:consistencia` (este último usa banco temporário). Teste manual: finalizar uma compra, conferir um único pedido no admin e uma única baixa no estoque; depois fazer uma compra nova normalmente.
+
+
+### Categorias dos produtos e organização do admin
+
+- Produtos possuem uma categoria opcional: Action figures, Eletrônicos, Comidas e doces, Maquiagens e beleza, Casa e papelaria, Moda e acessórios ou Outros.
+- O admin escolhe a categoria no cadastro e na edição, visualiza-a abaixo do nome do produto e pode filtrar a lista. Produtos antigos continuam como Sem categoria; nenhuma classificação é inferida pelo nome.
+- `GET /produtos/categorias` fornece as opções. `POST /produtos` e `PATCH /produtos/:id` aceitam `categoria`; `null` remove a classificação e campo ausente preserva a categoria ao editar. Valores desconhecidos são rejeitados.
+- `GET /produtos?categoria=comidas_doces` filtra antes da paginação; use `sem_categoria` para produtos ainda não classificados.
+- Clientes usa colunas próprias para nome, telefone, endereço e ações. Pedidos mostra os avisos de Pix empilhados e botões com espaço; tabelas mantêm rolagem horizontal quando necessário.
+- Ao atualizar outra máquina, rode `npm run db:generate` e `npm run db:deploy`. Teste criar um produto com categoria, editar, filtrar e remover a classificação; confira Clientes e Pedidos na largura usada para atendimento.

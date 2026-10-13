@@ -1,4 +1,7 @@
+import { iniciarNavegacaoCliente } from "./navegacao.js";
+
 export async function aplicarConfiguracaoPublica(tituloPrefixo = "") {
+    iniciarNavegacaoCliente();
     try {
         const resposta = await fetch("/configuracao-publica");
 
@@ -7,7 +10,7 @@ export async function aplicarConfiguracaoPublica(tituloPrefixo = "") {
         }
 
         const configuracao = await resposta.json();
-        const nome = configuracao.app?.nome || "Loja Japao";
+        const nome = configuracao.app?.nome || "HK Nippon store";
 
         document.querySelectorAll("[data-app-name]").forEach((elemento) => {
             elemento.textContent = nome;
@@ -49,7 +52,7 @@ export async function aplicarConfiguracaoPublica(tituloPrefixo = "") {
     } catch {
         return {
             app: {
-                nome: "Loja Japao"
+                nome: "HK Nippon store"
             }
         };
     }

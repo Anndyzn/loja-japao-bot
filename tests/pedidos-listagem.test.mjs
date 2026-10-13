@@ -65,11 +65,24 @@ test('combinacao sem resultados e pagina alem do fim preservam metadados',async(
 });
 test('parametros invalidos retornam 400 antes da consulta de pedidos',async()=>{
     const antes=consulta.mock.callCount();
-    for(const query of [{acao:'invalida'},{acao:['pix']},{precisaAcao:'sim'},{pagina:'0'},{limite:'51'},{status:'xxx'},{busca:{nome:'a'}}]) {
+    for(const query of [{esperaPixHoras:'0'},{esperaPixHoras:['24']},{esperaPixHoras:'25'},{acao:'invalida'},{acao:['pix']},{precisaAcao:'sim'},{pagina:'0'},{limite:'51'},{status:'xxx'},{busca:{nome:'a'}}]) {
         assert.equal((await listar(query)).code,400);
     }
     assert.equal(consulta.mock.callCount(),antes);
     assert.equal((await listar({},999)).code,404);
+});
+
+test('espera pelo Pix filtra antes de paginar e ordena os mais antigos primeiro', async () => {
+    const { montarListagemPedidos } = await import('../src/utils/listagem-pedidos.ts');
+    const agora = Date.parse('2026-10-11T12:00:00Z');
+    const pedido = (id, horas, status = 'pendente') => ({ ...registros[0], id, status, criadoEm: new Date(agora - horas * 3600000) });
+    const lista = [pedido(1, 23.99), pedido(2, 24), pedido(3, 72), pedido(4, 90, 'pago'), pedido(5, 100, 'cancelado'), pedido(6, 48), pedido(7, -1)];
+    const resultado = montarListagemPedidos(lista, 1, 2, false, undefined, 24, agora);
+    assert.deepEqual(resultado.dados.map(p => p.id), [3, 6]);
+    assert.equal(resultado.total, 3); assert.equal(resultado.resumo.pendentes, 3);
+    assert.deepEqual(montarListagemPedidos(lista, 2, 2, false, undefined, 24, agora).dados.map(p => p.id), [2]);
+    const viaApi = (await listar({ esperaPixHoras: '24', limite: '10' })).body;
+    assert.equal(viaApi.total, 25); assert.ok(viaApi.dados.every(p => p.status === 'pendente'));
 });
 
 const source=await readFile(new URL('../public/admin/app.js',import.meta.url),'utf8');
@@ -78,7 +91,7 @@ function tela(api) {
     const elemento=()=>({value:'',checked:false,disabled:false,textContent:'',setAttribute(){},removeAttribute(){},replaceChildren(...rows){this.rows=rows;}});
     const c={URLSearchParams,apiFetch:api,carregarDadosFormularioPedido:async()=>{},pedidoConsultaAtual:0,pedidoPaginaAtual:1,pedidoTotalPaginas:0,pedidoFiltrosAtuais:'',pedidoClienteFiltro:null,
         criarLinhaPedido:p=>p,criarLinhaVazia:(_,text)=>text,atualizarContextoFiltroPedidos(){},atualizarResumoListaPedidos(r){c.resumo=r;},appFeedback:{},setFeedback(){}};
-    for(const k of ['pedidoLimite','pedidoStatusFiltro','pedidoCicloFiltro','pedidoBuscaFiltro','pedidoPrecisaAcaoFiltro','pedidoAcaoFiltro','pedidoPaginaAnterior','pedidoPaginaProxima','pedidoPaginaInfo','pedidosTbody','pedidoListaResumo']) c[k]=elemento();
+    for(const k of ['pedidoLimite','pedidoStatusFiltro','pedidoCicloFiltro','pedidoBuscaFiltro','pedidoPrecisaAcaoFiltro','pedidoAcaoFiltro','pedidoEsperaPixFiltro','pedidoPaginaAnterior','pedidoPaginaProxima','pedidoPaginaInfo','pedidosTbody','pedidoListaResumo']) c[k]=elemento();
     c.pedidoLimite.value='10';vm.createContext(c);vm.runInContext(loader,c);return c;
 }
 function pagina(numero,total=25) {return {pagina:numero,limite:10,total,totalPaginas:Math.ceil(total/10),dados:total?[{id:numero}]:[],resumo:{}};}

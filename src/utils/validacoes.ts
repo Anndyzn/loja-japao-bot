@@ -1,3 +1,5 @@
+import { validarCpf } from "./cpf.js";
+
 export function idEhInvalido(id: number) {
     return !Number.isInteger(id) || id <= 0;
 }
@@ -102,10 +104,11 @@ export function validarCriacaoCliente(
     estado: unknown,
     email: unknown,
     complemento: unknown,
-    referencia: unknown
+    referencia: unknown,
+    cpf?: unknown
 ) {
     if (campoTextoObrigatorioEhInvalido(nome)) {
-        return "Nome deve ser um texto nao vazio";
+        return "Informe o nome completo";
     }
 
     if (campoTextoObrigatorioEhInvalido(telefone)) {
@@ -148,7 +151,7 @@ export function validarCriacaoCliente(
         return "Referencia deve ser um texto nao vazio";
     }
 
-    return undefined;
+    return validarCpf(cpf);
 }
 
 export function validarAtualizacaoCliente(
@@ -162,7 +165,8 @@ export function validarAtualizacaoCliente(
     estado: unknown,
     email: unknown,
     complemento: unknown,
-    referencia: unknown
+    referencia: unknown,
+    cpf?: unknown
 ) {
     if (
         nome === undefined &&
@@ -175,13 +179,14 @@ export function validarAtualizacaoCliente(
         estado === undefined &&
         email === undefined &&
         complemento === undefined &&
-        referencia === undefined
+        referencia === undefined &&
+        cpf === undefined
     ) {
         return "Informe ao menos um campo para atualizar";
     }
 
     if (campoTextoOpcionalEhInvalido(nome)) {
-        return "Nome deve ser um texto nao vazio";
+        return "Informe o nome completo";
     }
 
     if (campoTextoOpcionalEhInvalido(telefone)) {
@@ -224,7 +229,7 @@ export function validarAtualizacaoCliente(
         return "Referencia deve ser um texto nao vazio";
     }
 
-    return undefined;
+    return validarCpf(cpf);
 }
 
 export function validarCriacaoPedido(clienteId: unknown, itens: unknown, observacao: unknown) {
@@ -232,6 +237,10 @@ export function validarCriacaoPedido(clienteId: unknown, itens: unknown, observa
         return "Cliente ID deve ser um numero inteiro positivo";
     }
 
+    return validarItensPedido(itens, observacao);
+}
+
+export function validarItensPedido(itens: unknown, observacao: unknown) {
     if (!Array.isArray(itens) || itens.length === 0) {
         return "Pedido deve ter ao menos um item";
     }

@@ -3,17 +3,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Loja Japao</title>
+    <title>HK Nippon store</title>
     <link rel="stylesheet" href="/loja/styles.css">
 </head>
 <body>
     <main class="store-page">
         <header class="store-topbar">
             <a class="brand-link" href="/loja">
-                <span data-app-name>Loja Japao</span>
+                <span data-app-name>HK Nippon store</span>
             </a>
 
             <div class="topbar-actions">
+                <a class="cart-link muted-link" href="/loja/conta" id="loja-conta-link">Entrar / Criar conta</a>
                 <a class="cart-link muted-link" href="/loja/solicitacao">Solicitar produto</a>
                 <a class="cart-link muted-link" href="/loja/acompanhamento">Acompanhar pedido</a>
                 <a class="cart-link" href="/loja/carrinho">
@@ -22,6 +23,8 @@
                 </a>
             </div>
         </header>
+
+        <p id="loja-saudacao" class="loja-saudacao hidden" role="status"></p>
 
         <section class="hero">
             <img src="/loja/assets/hero-produtos-japao.png" alt="" class="hero-image" data-hero-imagem>
@@ -57,6 +60,7 @@
         <button id="floating-cart-button" class="floating-cart-button" type="button">
             <span>Carrinho</span>
             <strong id="floating-cart-count">0</strong>
+            <span id="floating-cart-total"></span>
         </button>
 
         <div id="cart-backdrop" class="cart-backdrop hidden"></div>
@@ -66,7 +70,7 @@
                     <p class="eyebrow">Pedido</p>
                     <h2>Carrinho</h2>
                 </div>
-                <button id="close-cart-drawer" class="ghost-button square-button" type="button">x</button>
+                <button id="close-cart-drawer" aria-label="Fechar carrinho" class="ghost-button square-button" type="button">x</button>
             </div>
 
             <div id="drawer-cart-items" class="drawer-cart-items"></div>

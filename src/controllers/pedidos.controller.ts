@@ -41,7 +41,11 @@ function obterPermissaoProdutoInterno(req: Request) {
 }
 
 async function responderListagemPedidos(req: Request, res: Response, clienteId?: number) {
-    const { status, pagina, limite, busca, precisaAcao, acao, ciclo } = req.query;
+    const { status, pagina, limite, busca, precisaAcao, acao, ciclo, esperaPixHoras } = req.query;
+
+    if (esperaPixHoras !== undefined && (typeof esperaPixHoras !== "string" || !["12", "24", "48", "72"].includes(esperaPixHoras))) {
+        return res.status(400).json({ mensagem: "Espera pelo Pix deve ser 12, 24, 48 ou 72 horas" });
+    }
 
     if (precisaAcao !== undefined && precisaAcao !== "true" && precisaAcao !== "false") {
         return res.status(400).json({ mensagem: "precisaAcao deve ser true ou false" });
@@ -101,7 +105,8 @@ async function responderListagemPedidos(req: Request, res: Response, clienteId?:
 
     return res.json(montarListagemPedidos(
         pedidosFiltrados, paginacao.pagina!, paginacao.limite!,
-        precisaAcao === "true", acao as AcaoPedido | undefined
+        precisaAcao === "true", acao as AcaoPedido | undefined,
+        esperaPixHoras === undefined ? undefined : Number(esperaPixHoras)
     ));
 }
 
@@ -134,7 +139,6 @@ export async function buscarPedidoPorId(req: Request, res: Response) {
 
 export async function acompanharPedido(req: Request, res: Response) {
     const id = Number(req.params.id);
-    const telefone = typeof req.query.telefone === "string" ? req.query.telefone.trim() : "";
 
     if (idEhInvalido(id)) {
         return res.status(400).json({
@@ -142,13 +146,7 @@ export async function acompanharPedido(req: Request, res: Response) {
         });
     }
 
-    if (!telefone) {
-        return res.status(400).json({
-            mensagem: "Informe o telefone usado no pedido"
-        });
-    }
-
-    const resultado = await obterAcompanhamentoPedido(id, telefone);
+    const resultado = await obterAcompanhamentoPedido(id, res.locals.clienteId as number);
 
     if (resultado.mensagemErro) {
         return res.status(resultado.statusHttp).json({

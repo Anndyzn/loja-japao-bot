@@ -3,14 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Carrinho | Loja Japao</title>
+    <title>Carrinho | HK Nippon store</title>
     <link rel="stylesheet" href="/loja/styles.css">
 </head>
 <body>
     <main class="checkout-page">
         <header class="store-topbar checkout-topbar">
             <a class="brand-link" href="/loja">
-                <span data-app-name>Loja Japao</span>
+                <span data-app-name>HK Nippon store</span>
             </a>
 
             <a class="cart-link muted-link" href="/loja">
@@ -44,10 +44,14 @@
                 </button>
                 <button class="step-tab" type="button" data-step-target="acompanhamento" disabled>
                     <span class="step-number">4</span>
-                    <span>Acompanhamento</span>
+                    <span>Pedido criado</span>
                 </button>
             </div>
 
+            <aside class="ultimo-pedido">
+                <p id="checkout-conta-aviso">Conferindo sua conta...</p>
+                <a id="checkout-conta-link" class="ghost-link" href="/loja/conta?voltar=carrinho">Minha conta / Entrar</a>
+            </aside>
             <form id="checkout-form" class="checkout-flow">
                 <section class="checkout-step active" data-step="resumo">
                     <div class="step-heading">
@@ -73,9 +77,18 @@
                         <h2>Entrega</h2>
                     </div>
 
+                    <div class="tracking-card escolha-endereco">
+                        <label for="endereco-entrega">Onde você quer receber?</label>
+                        <select id="endereco-entrega" aria-describedby="endereco-entrega-aviso">
+                            <option value="principal">Entregar no meu endereço</option>
+                            <option value="outro">Entregar em outro endereço</option>
+                        </select>
+                        <p id="endereco-entrega-aviso" role="status"></p>
+                        <a href="/loja/conta#endereco" class="ghost-link">Gerenciar meu endereço</a>
+                    </div>
                     <div class="form-grid">
                         <label>
-                            Nome
+                            Nome completo
                             <input name="nome" type="text" autocomplete="name" required>
                         </label>
 
@@ -87,6 +100,11 @@
                         <label>
                             Email
                             <input name="email" type="email" autocomplete="email">
+                        </label>
+
+                        <label>CPF
+                            <input name="cpf" type="text" inputmode="numeric" autocomplete="off" maxlength="14" pattern="[0-9]{11}|[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}" placeholder="000.000.000-00" title="Informe o CPF com 11 digitos, com ou sem pontos e traco" required aria-describedby="cpf-ajuda">
+                            <small id="cpf-ajuda">CPF do titular da conta. Para corrigir um CPF ja cadastrado, fale com o atendimento.</small>
                         </label>
 
                         <div class="address-grid">

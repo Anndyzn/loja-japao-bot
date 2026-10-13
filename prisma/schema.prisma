@@ -39,6 +39,7 @@ enum TipoEnvioPedido {
 }
 
 model Produto {
+  categoria String? @db.VarChar(40)
   id        Int          @id @default(autoincrement())
   nome      String
   preco     Decimal      @db.Decimal(10, 2)
@@ -57,6 +58,8 @@ model Produto {
 }
 
 model Cliente {
+  conta ContaCliente?
+  cpf          String? @unique @db.VarChar(11)
   id           Int                  @id @default(autoincrement())
   nome         String
   telefone     String
@@ -76,6 +79,9 @@ model Cliente {
 }
 
 model Pedido {
+  checkoutChave String? @db.VarChar(36)
+  checkoutHash String? @db.VarChar(64)
+  @@unique([clienteId, checkoutChave])
   id           Int          @id @default(autoincrement())
   clienteId    Int
   cliente      Cliente      @relation(fields: [clienteId], references: [id])
@@ -95,6 +101,7 @@ model Pedido {
   clienteCienteTaxasImportacao Boolean @default(false)
   status       StatusPedido @default(pendente)
   observacao   String?
+  entregaCpf   String? @db.VarChar(11)
   entregaNome  String?
   entregaTelefone String?
   entregaEmail String?
@@ -173,4 +180,24 @@ model Admin {
   senhaHash    String
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt
+}
+
+model ContaCliente {
+  clienteId Int @id
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  email String @unique
+  senhaHash String?
+  conviteHash String? @unique
+  conviteExpiraEm DateTime?
+  sessoes SessaoCliente[]
+  criadoEm DateTime @default(now())
+}
+
+model SessaoCliente {
+  tokenHash String @id
+  clienteId Int
+  conta ContaCliente @relation(fields: [clienteId], references: [clienteId], onDelete: Cascade)
+  expiraEm DateTime
+  @@index([clienteId])
+  @@index([expiraEm])
 }

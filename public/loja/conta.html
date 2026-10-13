@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Minha conta | HK Nippon store</title>
+    <link rel="stylesheet" href="/loja/styles.css">
+</head>
+<body>
+<main class="tracking-page">
+    <header class="store-topbar checkout-topbar">
+        <a class="brand-link" href="/loja"><span data-app-name>HK Nippon store</span></a>
+        <a class="cart-link" href="/loja/carrinho">Voltar ao carrinho</a>
+    </header>
+    <section class="tracking-shell">
+        <div class="tracking-heading"><p class="eyebrow">Cliente</p><h1>Minha conta</h1></div>
+        <p id="conta-feedback" class="feedback" role="status"></p>
+        <section id="conta-acesso" class="hidden">
+            <p>Entre para comprar novamente e acompanhar seus pedidos.</p>
+            <p>Uma conta por CPF. O telefone pode ser compartilhado; cada conta precisa de seu proprio e-mail.</p>
+            <div class="step-actions">
+                <button id="mostrar-entrar" type="button" aria-pressed="true">Ja tenho conta</button>
+                <button id="mostrar-cadastro" type="button" aria-pressed="false" class="ghost-button">Criar minha conta</button>
+            </div>
+            <form id="conta-entrar" class="form-grid conta-form">
+                <label>E-mail<input name="email" type="email" autocomplete="username" maxlength="254" required></label>
+                <label>Senha<input name="senha" type="password" autocomplete="current-password" maxlength="128" required></label>
+                <button type="submit">Entrar</button>
+            </form>
+            <form id="conta-cadastro" class="form-grid conta-form hidden">
+                <label>Nome completo<input name="nome" autocomplete="name" maxlength="120" required></label>
+                <label>CPF<input name="cpf" type="text" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="000.000.000-00" aria-describedby="cadastro-cpf-ajuda" required><small id="cadastro-cpf-ajuda" class="conta-ajuda">11 números. Pontos e traço são preenchidos automaticamente.</small></label>
+                <label>Telefone com DDD<input name="telefone" type="tel" inputmode="numeric" autocomplete="tel" maxlength="15" placeholder="(11) 99999-9999" aria-describedby="cadastro-telefone-ajuda" required><small id="cadastro-telefone-ajuda" class="conta-ajuda">DDD + celular (11 números) ou fixo (10 números).</small></label>
+                <label>E-mail<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+                <label>Crie uma senha<input name="senha" type="password" autocomplete="new-password" minlength="10" maxlength="128" aria-describedby="cadastro-senha-ajuda" required><small id="cadastro-senha-ajuda" class="conta-ajuda">Use uma senha com 10 a 128 caracteres.</small></label>
+                <label>Repita a senha<input name="confirmacao" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+                <p class="conta-ajuda conta-linha-inteira">Você pode adicionar seu endereço em Minha conta ou ao finalizar a compra.</p>
+                <button type="submit">Criar conta</button>
+            </form>
+            <p class="store-support">Ja comprou antes ou esqueceu a senha? Fale com o atendimento para receber um link de acesso ao seu cadastro.</p>
+        </section>
+        <form id="conta-ativar" class="form-grid conta-form hidden">
+            <p>Defina sua senha para acessar o cadastro liberado pela loja. Se ja tinha uma senha, ela sera substituida.</p>
+            <label>Nova senha<input name="senha" type="password" autocomplete="new-password" minlength="10" maxlength="128" aria-describedby="ativar-senha-ajuda" required><small id="ativar-senha-ajuda" class="conta-ajuda">Use entre 10 e 128 caracteres.</small></label>
+            <label>Repita a senha<input name="confirmacao" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
+            <button type="submit">Salvar senha e entrar</button>
+        </form>
+        <section id="conta-logada" class="hidden">
+            <p id="conta-nome"></p>
+            <div class="step-actions"><a class="hero-button" href="/loja/carrinho">Continuar compra</a><button id="conta-sair" type="button" class="ghost-button">Sair da conta</button></div>
+            <nav class="conta-atalhos" aria-label="Áreas da minha conta"><a href="#meu-endereco">Meu endereço</a><a href="#meus-pedidos">Meus pedidos</a><a href="#minhas-solicitacoes">Minhas solicitações</a></nav>
+            <section class="tracking-card" id="meu-endereco">
+                <h2>Meu endereço</h2>
+                <p id="endereco-resumo"></p>
+                <button type="button" id="editar-endereco" class="ghost-button">Adicionar endereço</button>
+                <form id="conta-endereco" class="form-grid conta-form hidden">
+                    <p class="conta-ajuda">Este será seu endereço principal. Na compra você pode escolher outro destino.</p>
+                    <label>CEP<input name="cep" inputmode="numeric" maxlength="9" pattern="[0-9]{5}-?[0-9]{3}" autocomplete="postal-code" required aria-describedby="endereco-cep-feedback"></label>
+                    <label>Número<input name="numero" maxlength="30" autocomplete="address-line2" required></label>
+                    <p id="endereco-cep-feedback" class="feedback" role="status">Digite o CEP para buscar o endereço.</p>
+                    <label>Rua / endereço<input name="endereco" maxlength="200" autocomplete="street-address" required></label>
+                    <label>Complemento (opcional)<input name="complemento" maxlength="150" autocomplete="address-line3"></label>
+                    <label>Bairro<input name="bairro" maxlength="100" required></label>
+                    <label>Cidade<input name="cidade" maxlength="100" autocomplete="address-level2" required></label>
+                    <label>Estado (UF)<input name="estado" minlength="2" maxlength="2" autocomplete="address-level1" required></label>
+                    <label>Referência (opcional)<input name="referencia" maxlength="200"></label>
+                    <p id="endereco-feedback" class="conta-aviso" role="status" hidden></p>
+                    <div class="step-actions conta-linha-inteira"><button type="button" id="cancelar-endereco" class="ghost-button">Cancelar</button><button type="submit">Salvar meu endereço</button></div>
+                </form>
+            </section>
+            <section id="meus-pedidos" class="conta-secao">
+            <h2>Meus pedidos</h2>
+            <div id="conta-pedidos" class="conta-pedidos"></div>
+            <div class="step-actions conta-paginacao"><button id="pedidos-anterior" type="button">Anterior</button><span id="pedidos-pagina"></span><button id="pedidos-proximo" type="button">Proxima</button></div>
+            </section>
+            <section id="minhas-solicitacoes" class="conta-secao">
+                <h2>Minhas solicitações</h2>
+                <p>Acompanhe os produtos que você pediu para a loja encontrar.</p>
+                <div class="step-actions"><a class="ghost-link" href="/loja/solicitacao">Solicitar outro produto</a><button id="solicitacoes-atualizar" type="button" class="ghost-button">Atualizar solicitações</button></div>
+                <p id="solicitacoes-feedback" role="status"></p>
+                <div id="conta-solicitacoes" class="conta-solicitacoes" aria-busy="false"></div>
+                <div id="solicitacoes-paginacao" class="step-actions conta-paginacao" hidden><button id="solicitacoes-anterior" type="button">Anteriores</button><span id="solicitacoes-pagina"></span><button id="solicitacoes-proxima" type="button">Próximas</button></div>
+            </section>
+        </section>
+        <p class="store-support" data-atendimento-texto></p>
+    </section>
+</main>
+<script src="/loja/conta.js" type="module"></script>
+</body>
+</html>

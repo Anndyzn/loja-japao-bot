@@ -535,7 +535,7 @@ p {
 
 .tracking-form {
     display: grid;
-    grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
     gap: 12px;
 }
@@ -1086,3 +1086,118 @@ body:has(.cart-drawer.open) { overflow: hidden; }
     overflow-wrap: anywhere;
 }
 .ultimo-pedido .step-actions { margin-top: 0; flex-wrap: wrap; }
+
+/* Conta e pedidos do cliente */
+.conta-form { margin-top: 18px; }
+.conta-pedidos { display: grid; gap: 12px; margin: 18px 0; }
+#conta-logada { display: grid; gap: 16px; }
+.conta-form > p, .conta-form > button { grid-column: 1 / -1; }
+.conta-pedidos p, #conta-nome { overflow-wrap: anywhere; }
+
+.loja-saudacao { width: min(1180px, calc(100% - 32px)); margin: 0 auto 16px; font-weight: 700; overflow-wrap: anywhere; }
+
+/* Cadastro: orientacao e erros junto ao campo, inclusive em telas pequenas. */
+.conta-form { align-items: start; }
+.conta-form label { min-width: 0; }
+.conta-form .conta-ajuda { display: block; margin-top: 6px; color: #526176; font-size: .85rem; font-weight: 400; line-height: 1.4; }
+.conta-form .conta-erro-campo { display: block; margin-top: 6px; color: #a10e27; font-size: .85rem; line-height: 1.4; }
+.conta-form [aria-invalid="true"] { border-color: #b91632; box-shadow: 0 0 0 1px #b91632; }
+.conta-form .conta-aviso, .conta-form .conta-linha-inteira { grid-column: 1 / -1; }
+.conta-form .conta-aviso { padding: 12px; border-radius: 6px; background: #eef3f8; line-height: 1.4; }
+.conta-form .conta-aviso-erro { color: #8a1126; background: #fff1f3; border: 1px solid #e7b1bc; }
+.conta-form [hidden] { display: none; }
+
+.conta-form.form-grid > label { grid-column: auto; }
+#conta-feedback:empty { display: none; }
+
+.escolha-endereco { margin-bottom: 18px; }
+.escolha-endereco p, #endereco-resumo { overflow-wrap: anywhere; line-height: 1.5; }
+.conta-form > .conta-linha-inteira { grid-column: 1 / -1; }
+#meu-endereco h2 { margin-bottom: 12px; }
+#endereco-resumo { margin-bottom: 12px; }
+
+.conta-atalhos { display: flex; flex-wrap: wrap; gap: 12px; }
+.conta-atalhos a { color: var(--primary, #b71932); text-underline-offset: 3px; }
+.conta-secao { display: grid; gap: 14px; min-width: 0; scroll-margin-top: 16px; }
+.conta-solicitacoes { display: grid; gap: 14px; }
+.conta-solicitacao { display: grid; gap: 10px; overflow-wrap: anywhere; min-width: 0; }
+.conta-solicitacao h3, .conta-solicitacao p { margin: 0; }
+.conta-solicitacao-data { color: #526176; font-size: .875rem; }
+.conta-solicitacao-status { color: #106e56; }
+.conta-solicitacao-cotacao { font-weight: 700; }
+.conta-solicitacao details p { white-space: pre-wrap; margin-top: 8px; }
+#solicitacoes-paginacao[hidden] { display: none; }
+
+/* Experiência da loja no celular: catálogo próximo do topo e atalhos ao alcance. */
+.mobile-nav { display: none; }
+#floating-cart-total { font-weight: 700; }
+:where(a, button, input, select, textarea, summary):focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+.conta-atalhos a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: #f4f7fb; text-decoration: none; }
+@media (max-width: 640px) {
+    body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); line-height: 1.45; }
+    .mobile-nav { position: fixed; z-index: 8; bottom: 0; left: 0; right: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); background: var(--panel); border-top: 1px solid var(--line); padding: 5px 4px calc(5px + env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px #20242a0d; }
+    .mobile-nav a { min-width: 0; min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--muted); text-decoration: none; font-size: .72rem; font-weight: 700; border-radius: 8px; }
+    .mobile-nav a[aria-current="page"] { background: #eef3f7; color: var(--accent-dark); }
+    .mobile-nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .store-topbar { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 64px; padding: 10px 0; }
+    .store-topbar .brand-link { flex: 1; min-width: 0; justify-content: flex-start; line-height: 1.2; }
+    .store-topbar > .cart-link { width: auto; font-size: .8rem; }
+    .store-topbar .topbar-actions { display: flex; width: auto; gap: 6px; }
+    .store-topbar .topbar-actions > a { width: auto; font-size: .8rem; padding-inline: 10px; }
+    .store-page > .store-topbar .muted-link { display: none; }
+    .checkout-topbar { margin-bottom: 8px; }
+    .tracking-page .store-topbar:has(> a:nth-child(3)) > .brand-link { order: -1; flex-basis: 100%; }
+    .tracking-page .store-topbar:has(> a:nth-child(3)) > .cart-link { flex: 1; }
+    .hero { min-height: 260px; align-items: center; padding: 24px 0; }
+    .hero::after { background: linear-gradient(90deg, rgba(244,247,251,.98), rgba(244,247,251,.85) 60%, rgba(244,247,251,.5)); }
+    .hero-content { gap: 10px; }
+    .hero-content h1 { max-width: 22ch; font-size: clamp(1.65rem, 6.7vw, 2.3rem); line-height: 1.12; }
+    .hero-content p:not(.eyebrow) { font-size: .9rem; line-height: 1.45; max-width: 36ch; }
+    .hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .hero-actions a { padding-inline: 8px; font-size: .8rem; }
+    .catalog-section { margin-top: 20px; margin-bottom: 90px; gap: 12px; }
+    .section-heading { gap: 8px; }
+    .section-heading h2 { font-size: 1.45rem; }
+    .catalog-actions { flex-direction: row; align-items: center; justify-content: space-between; font-size: .85rem; }
+    .products-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .product-card { min-height: 0; grid-template-rows: auto 1fr auto; gap: 10px; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px #20242a08; }
+    .product-media { min-height: 0; aspect-ratio: 1; }
+    .product-media img { object-fit: contain; background: #fff; }
+    .product-name { font-size: .95rem; }
+    .product-meta { align-content: start; gap: 6px; }
+    .product-price { font-size: 1.13rem; }
+    .product-stock, .product-note, .cart-badge { font-size: .78rem; }
+    .product-actions { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .product-actions input { text-align: center; }
+    .product-actions button, .product-actions a { padding-inline: 6px; font-size: .85rem; }
+    .floating-cart-button { bottom: calc(78px + env(safe-area-inset-bottom)); right: 16px; left: 16px; width: calc(100% - 32px); justify-content: flex-start; min-height: 48px; }
+    .floating-cart-button:not(.has-items) { display: none; }
+    #floating-cart-total { margin-left: auto; }
+    .checkout-shell, .tracking-shell { gap: 16px; border-radius: 12px; box-shadow: 0 6px 24px #20242a08; margin-bottom: 16px; }
+    .checkout-heading { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .checkout-heading h1 { font-size: 1.8rem; }
+    #checkout-total { font-size: 1rem; }
+    .checkout-tabs { gap: 6px; }
+    .step-tab { flex-direction: row; align-items: center; min-height: 46px; }
+    .conta-atalhos { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .conta-atalhos a { justify-content: flex-start; font-size: .9rem; }
+    .conta-paginacao { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; font-size: .8rem; }
+    .conta-paginacao button { padding-inline: 8px; }
+    .conta-paginacao span { text-align: center; }
+    .conta-secao, #meu-endereco { scroll-margin-top: 12px; }
+    .tracking-heading h1 { line-height: 1.15; }
+    .tracking-item { gap: 8px; }
+    .store-support { font-size: .8rem; line-height: 1.5; }
+    .cart-drawer { padding: 14px; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+    input, select, textarea, button, .hero-button, .ghost-link { min-height: 46px; }
+    #solicitacao-form input[type="url"] { font-size: 1rem; }
+}
+@media (max-width: 359px) {
+    .products-grid { grid-template-columns: minmax(0, 1fr); }
+    .product-media { aspect-ratio: 1.6; }
+    .product-actions:not(.product-actions-single) { grid-template-columns: 70px minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+    #conta-acesso > .step-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: .85rem; }
+}

@@ -8,7 +8,7 @@ const atalho = source.slice(source.indexOf('let consultaAcompanhamento ='),sourc
 const consulta = source.slice(source.indexOf('async function buscarPedido('));
 class Elemento {
     value='';textContent='';children=[];events={};hidden=false;
-    classList={add:()=>{this.hidden=true;},toggle:(_,valor)=>{this.hidden=valor;}};
+    classList={remove:()=>{this.hidden=false;},add:()=>{this.hidden=true;},toggle:(_,valor)=>{this.hidden=valor;}};
     append(...children){this.children.push(...children);}
     replaceChildren(...children){this.children=children;}
     addEventListener(nome,callback){this.events[nome]=callback;}
@@ -18,7 +18,7 @@ class Elemento {
 function tela({salvo,query='',api=async()=>({status:'pago'}),bloqueado=false}={}){
     const storage=new Map(salvo===undefined?[]:[['lojaJapaoUltimoPedido',typeof salvo==='string'?salvo:JSON.stringify(salvo)]]);
     const container=new Elemento(),calls=[];
-    const c={URLSearchParams,window:{location:{search:query}},trackingForm:new Elemento(),pedidoIdInput:new Elemento(),telefoneInput:new Elemento(),trackingResult:new Elemento(),
+    const c={contaAcompanhamento:{},URLSearchParams,window:{location:{search:query}},trackingForm:new Elemento(),pedidoIdInput:new Elemento(),telefoneInput:new Elemento(),trackingResult:new Elemento(),
         normalizarDigitos:v=>String(v??'').replace(/\D/g,''),
         sessionStorage:{getItem:k=>{if(bloqueado)throw Error('bloqueado');return storage.get(k);},setItem:(k,v)=>{if(bloqueado)throw Error('bloqueado');storage.set(k,v);},removeItem:k=>storage.delete(k)},
         document:{querySelector:()=>container,createElement:()=>new Elemento()},
@@ -28,20 +28,20 @@ function tela({salvo,query='',api=async()=>({status:'pago'}),bloqueado=false}={}
 }
 test('abrir acompanhamento sem numero na URL recupera referencia e consulta status atual',async()=>{
     const t=tela({salvo:{id:42,telefone:'11999990000'}});await t.pronto();
-    assert.equal(t.calls[0],'/pedidos/42/acompanhamento?telefone=11999990000');
+    assert.equal(t.calls[0],'/pedidos/42/acompanhamento');
     assert.equal(t.c.pedido.status,'pago');assert.equal(t.c.pedidoIdInput.value,'42');
 });
-test('link de outro pedido prevalece e nao reaproveita telefone do pedido salvo',async()=>{
+test('link de outro pedido prevalece e API verifica a conta autenticada',async()=>{
     const t=tela({salvo:{id:42,telefone:'11999990000'},query:'?pedido=99'});
-    assert.equal(t.c.pedidoIdInput.value,'99');assert.equal(t.c.telefoneInput.value,'');assert.equal(t.calls.length,0);
+    await t.pronto();assert.equal(t.c.pedidoIdInput.value,'99');assert.deepEqual(t.calls,['/pedidos/99/acompanhamento']);
 });
 test('consulta sem autorizacao nao substitui referencia anterior',async()=>{
-    const t=tela({salvo:{id:42,telefone:'11999990000'},query:'?pedido=99',api:async()=>{throw Error('Telefone nao confere');}});
+    const t=tela({salvo:{id:42,telefone:'11999990000'},query:'?pedido=99',api:async()=>{throw Error('Entre na sua conta para continuar');}});
     t.c.telefoneInput.value='11888880000';await t.c.trackingForm.requestSubmit();
-    assert.equal(JSON.parse(t.storage.get('lojaJapaoUltimoPedido')).id,42);assert.match(t.c.feedback,/nao confere/);
+    assert.equal(JSON.parse(t.storage.get('lojaJapaoUltimoPedido')).id,42);assert.match(t.c.feedback,/Entre na sua conta/);
 });
 test('dados invalidos, JSON corrompido e storage bloqueado permitem consulta manual',async()=>{
-    for(const salvo of ['{quebrado',{id:-1,telefone:'11999990000'},{id:42,telefone:'abc'}]){
+    for(const salvo of ['{quebrado',{id:-1,telefone:'11999990000'},{id:'42'}]){
         const t=tela({salvo});assert.equal(t.calls.length,0);assert.equal(t.container.hidden,true);
     }
     const t=tela({bloqueado:true,query:'?pedido=42'});t.c.telefoneInput.value='11999990000';await t.c.trackingForm.requestSubmit();
@@ -60,4 +60,9 @@ test('resposta antiga nao sobrescreve novo pedido e nao recria atalho esquecido'
     assert.equal(t.c.pedido.status,'enviado');assert.equal(JSON.parse(t.storage.get('lojaJapaoUltimoPedido')).id,2);
     const terceira=t.c.buscarPedido(2,'11888880000');t.container.children[1].children[1].events.click();
     pendentes[2]({status:'enviado'});await terceira;assert.equal(t.storage.has('lojaJapaoUltimoPedido'),false);
+});
+
+test('atalho novo guarda apenas numero, sem telefone ou credenciais', async()=>{
+    const t=tela({query:'?pedido=42'});await t.pronto();
+    assert.deepEqual(JSON.parse(t.storage.get('lojaJapaoUltimoPedido')),{id:42});
 });

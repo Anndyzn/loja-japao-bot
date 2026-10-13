@@ -828,8 +828,11 @@ tr:last-child td {
 }
 
 .pedido-proxima-acao {
-    display: flex;
-    align-items: center;
+    display: grid;
+    justify-items: start;
+    align-content: start;
+    gap: 6px;
+    line-height: 1.4;
 }
 
 .cell-title {
@@ -1494,3 +1497,56 @@ th { white-space: nowrap; }
 @media (max-width: 1440px) {
     #produtos-view .table-scroll-hint { display: block; }
 }
+
+.acesso-cliente-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #d5dce3; border-radius: 12px; overflow: auto; }
+.acesso-cliente-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.acesso-cliente-dialog > * { margin-bottom: 16px; }
+.acesso-cliente-dialog p { overflow-wrap: anywhere; }
+.acesso-cliente-dialog input[readonly] { width: 100%; margin-bottom: 12px; }
+.acesso-confirmacao { display: flex; gap: 10px; align-items: flex-start; }
+.acesso-confirmacao input { width: auto; flex: 0 0 auto; }
+
+/* Novidades sao leitura, separadas dos status operacionais. */
+.nav-button { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.nav-novidades { min-width: 24px; padding: 3px 6px; border-radius: 20px; background: #be1731; color: white; text-align: center; font-size: .75rem; line-height: 1.2; }
+.nav-novidades[hidden], .novidades-painel[hidden] { display: none; }
+.novidades-painel { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line, #ddd); border-radius: 8px; margin-bottom: 16px; background: #fff; }
+.novidades-painel p { flex: 1 1 260px; margin: 0; }
+.novidades-painel small { flex-basis: 100%; color: #57534e; }
+.solicitacao-mensagem { width: 100%; min-height: 110px; resize: vertical; }
+.solicitacao-cotacao-editor { margin-top: 12px; }
+
+.pedido-proxima-acao small { display: block; line-height: 1.4; margin-top: 6px; }
+.pedido-pix-revisar { border-left: 3px solid #a66800; padding-left: 8px; }
+.pedido-pix-revisar > strong { display: block; color: #7b4c00; font-size: .8rem; margin-top: 4px; }
+.pedido-espera-ajuda { color: #635b50; font-size: .875rem; line-height: 1.5; margin: 12px 0; }
+
+/* Listas de atendimento: cada tabela tem suas próprias colunas. */
+.clientes-table { table-layout: fixed; min-width: 1000px; }
+.cliente-col-id { width: 50px; }
+.cliente-col-nome { width: 210px; }
+.cliente-col-telefone { width: 155px; }
+.cliente-col-endereco { width: auto; }
+.cliente-col-acoes { width: 240px; }
+.clientes-table td, .pedidos-table td { vertical-align: top; line-height: 1.45; }
+.clientes-table td:nth-child(3) { white-space: nowrap; }
+.clientes-table .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.clientes-table .actions :is(button, a) { min-width: 0; width: 100%; min-height: 36px; padding: 8px; font-size: .85rem; line-height: 1.3; justify-content: center; overflow-wrap: normal; }
+.cliente-endereco { line-height: 1.5; }
+.pedidos-table { min-width: 1180px; }
+.pedidos-table .col-cliente { width: 160px; }
+.pedidos-table .col-total { width: 110px; }
+.pedidos-table .col-status { width: 110px; }
+.pedidos-table .col-proxima-acao { width: 190px; }
+.pedidos-table .col-observacao { width: auto; }
+.pedidos-table .col-data { width: 140px; }
+.pedidos-table .col-acoes { width: 220px; }
+.pedidos-table td:last-child .actions :is(button, a) { white-space: normal; overflow-wrap: normal; line-height: 1.3; font-size: .85rem; }
+.pedido-proxima-acao > * { max-width: 100%; overflow-wrap: normal; }
+.pedido-proxima-acao small { margin: 0; }
+.pedido-proxima-acao > .status-badge { white-space: nowrap; }
+.produto-categoria-legenda { display: block; margin-top: 5px; color: var(--muted); font-size: .82rem; font-weight: 400; }
+#clientes-view .table-scroll-hint, #pedidos-view .table-scroll-hint { display: block; }
+.small-button.danger-button { color: #fff; }
+.pedidos-table .col-id { width: 60px; }
+.clientes-table td:first-child, .pedidos-table td:first-child { white-space: nowrap; }

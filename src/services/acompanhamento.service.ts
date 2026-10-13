@@ -18,36 +18,6 @@ function obterMensagemAcompanhamento(status: StatusPedido) {
     return "Pedido cancelado.";
 }
 
-function normalizarDigitos(valor: string | null | undefined) {
-    return String(valor ?? "").replace(/\D/g, "");
-}
-
-function telefoneConfere(telefoneInformado: string, telefonesDoPedido: Array<string | null>) {
-    const informado = normalizarDigitos(telefoneInformado);
-
-    if (informado.length < 8) {
-        return false;
-    }
-
-    return telefonesDoPedido.some((telefone) => {
-        const telefoneDoPedido = normalizarDigitos(telefone);
-
-        if (telefoneDoPedido.length < 8) {
-            return false;
-        }
-
-        if (telefoneDoPedido === informado) {
-            return true;
-        }
-
-        if (informado.length >= 10 && telefoneDoPedido.endsWith(informado)) {
-            return true;
-        }
-
-        return telefoneDoPedido.length >= 10 && informado.endsWith(telefoneDoPedido);
-    });
-}
-
 function filtrarHistoricoDuplicado<T extends { descricao: string }>(historico: T[]) {
     const descricoes = new Set<string>();
 
@@ -61,7 +31,7 @@ function filtrarHistoricoDuplicado<T extends { descricao: string }>(historico: T
     });
 }
 
-export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInformado: string) {
+export async function obterAcompanhamentoPedido(pedidoId: number, clienteAutenticadoId: number) {
     const pedido = await prisma.pedido.findUnique({
         where: {
             id: pedidoId
@@ -86,19 +56,10 @@ export async function obterAcompanhamentoPedido(pedidoId: number, telefoneInform
         }
     });
 
-    if (!pedido) {
+    if (!pedido || pedido.clienteId !== clienteAutenticadoId) {
         return {
             mensagemErro: "Pedido nao encontrado",
             statusHttp: 404
-        };
-    }
-
-    const telefoneDoPedido = pedido.entregaTelefone ?? pedido.cliente.telefone;
-
-    if (!telefoneConfere(telefoneInformado, [telefoneDoPedido])) {
-        return {
-            mensagemErro: "Telefone nao confere com o pedido",
-            statusHttp: 403
         };
     }
 

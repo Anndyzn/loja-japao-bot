@@ -11,15 +11,20 @@ export function obterAcaoPedido(pedido: PedidoResposta): AcaoPedido | undefined 
 
 export function montarListagemPedidos(
     pedidos: PedidoResposta[], pagina: number, limite: number,
-    precisaAcao: boolean, acao?: AcaoPedido
+    precisaAcao: boolean, acao?: AcaoPedido, esperaPixHoras?: number, agora = Date.now()
 ) {
     let encontrados = pedidos.filter(pedido => {
         const tipo = obterAcaoPedido(pedido);
+        if (esperaPixHoras !== undefined && (pedido.status !== "pendente" ||
+            agora - new Date(pedido.criadoEm).getTime() < esperaPixHoras * 3600000)) return false;
         return (!precisaAcao || tipo !== undefined) && (!acao || tipo === acao);
     });
-    if (precisaAcao || acao) {
+    if (precisaAcao || acao || esperaPixHoras !== undefined) {
         const prioridades = { pix: 1, rastreio: 2, envio: 3 };
         encontrados = encontrados.sort((a, b) => {
+            if (esperaPixHoras !== undefined) {
+                return new Date(a.criadoEm).getTime() - new Date(b.criadoEm).getTime() || a.id - b.id;
+            }
             const prioridade = (prioridades[obterAcaoPedido(a)!] ?? 4) - (prioridades[obterAcaoPedido(b)!] ?? 4);
             return prioridade || new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime() || b.id - a.id;
         });

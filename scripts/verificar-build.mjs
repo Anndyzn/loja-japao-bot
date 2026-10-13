@@ -6,10 +6,20 @@ const arquivosObrigatorios = [
     "dist/generated/prisma/client.js",
     "dist/generated/prisma/internal/class.js",
     "public/admin/index.html",
+    "public/admin/novidades.js",
     "public/loja/index.html",
     "public/loja/carrinho.html",
     "public/loja/acompanhamento.html",
-    "public/loja/solicitacao.html"
+    "public/loja/solicitacao.html",
+    "public/loja/conta.html",
+    "public/loja/conta.js",
+    "public/loja/conta-api.js",
+    "public/loja/conta-formulario.js",
+    "public/loja/endereco.js",
+    "public/loja/conta-endereco.js",
+    "public/loja/conta-solicitacoes.js",
+    "public/loja/navegacao.js",
+    "public/loja/checkout-tentativa.js"
 ];
 
 const erros = [];

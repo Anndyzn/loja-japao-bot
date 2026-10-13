@@ -3,14 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Acompanhamento | Loja Japao</title>
+    <title>Acompanhamento | HK Nippon store</title>
     <link rel="stylesheet" href="/loja/styles.css">
 </head>
 <body>
     <main class="tracking-page">
         <header class="store-topbar checkout-topbar">
             <a class="brand-link" href="/loja">
-                <span data-app-name>Loja Japao</span>
+                <span data-app-name>HK Nippon store</span>
             </a>
 
             <div class="topbar-actions">
@@ -27,15 +27,11 @@
 
             <aside id="ultimo-pedido" class="ultimo-pedido hidden" aria-label="Ultimo pedido nesta sessao"></aside>
 
-            <form id="tracking-form" class="tracking-form">
+            <p>Consulte o numero do pedido ou veja sua lista em <a href="/loja/conta">Minha conta / Entrar</a></p>
+            <form id="tracking-form" class="tracking-form hidden">
                 <label>
                     Numero do pedido
                     <input id="pedido-id" name="pedidoId" type="number" min="1" step="1" required>
-                </label>
-
-                <label>
-                    Telefone do pedido
-                    <input id="pedido-telefone" name="telefone" type="tel" autocomplete="tel" required>
                 </label>
 
                 <button type="submit">Buscar pedido</button>

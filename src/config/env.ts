@@ -132,7 +132,7 @@ export const env = {
     NODE_ENV: nodeEnv,
     IS_PRODUCTION: producao,
     PORT: obterPorta(),
-    APP_NOME: obterTextoOpcional("APP_NOME", "Loja Japao"),
+    APP_NOME: obterTextoOpcional("APP_NOME", "HK Nippon store"),
     LOJA_HERO_ETIQUETA: obterTextoOpcional("LOJA_HERO_ETIQUETA", "Importados do Japao"),
     LOJA_HERO_TITULO: obterTextoOpcional("LOJA_HERO_TITULO", "Doces, presentes e achadinhos japoneses"),
     LOJA_HERO_DESCRICAO: obterTextoOpcional("LOJA_HERO_DESCRICAO", "Produtos selecionados para montar seu pedido com calma e finalizar em uma tela separada."),

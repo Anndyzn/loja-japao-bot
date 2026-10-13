@@ -1,10 +1,12 @@
 import { Router } from "express";
-import { atualizarProduto, buscarProdutoPorId, cadastrarProduto, enviarImagemProduto, listarProdutos, removerImagemProduto, removerProduto } from "../controllers/produtos.controller.js";
+import { listarCategoriasProdutos, atualizarProduto, buscarProdutoPorId, cadastrarProduto, enviarImagemProduto, listarProdutos, removerImagemProduto, removerProduto } from "../controllers/produtos.controller.js";
 import { exigirAdmin } from "../middlewares/auth.middleware.js";
 
 export const produtosRoutes = Router();
 
 produtosRoutes.get("/", listarProdutos);
+
+produtosRoutes.get("/categorias", listarCategoriasProdutos);
 
 produtosRoutes.get("/:id", buscarProdutoPorId);
 

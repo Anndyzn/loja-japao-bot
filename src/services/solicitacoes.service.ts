@@ -300,29 +300,16 @@ export async function atualizarCotacaoSolicitacaoPorId(
     observacaoAdmin: string | undefined,
     freteInternacionalCotado?: number
 ) {
-    const solicitacaoExiste = await prisma.solicitacaoProduto.findUnique({
-        where: {
-            id
-        }
+    return prisma.$transaction(async tx => {
+        const existe = await tx.solicitacaoProduto.findUnique({ where: { id } });
+        if (!existe) return undefined;
+        const alterada = await tx.solicitacaoProduto.updateMany({
+            where: { id, pedidoId: null },
+            data: { valorCotado, freteInternacionalCotado: freteInternacionalCotado ?? null, observacaoAdmin: observacaoAdmin ?? null, status: "cotada" }
+        });
+        if (!alterada.count) throw Object.assign(new Error("Esta solicitação já gerou um pedido. Continue o atendimento nos detalhes do pedido."), { status: 409 });
+        return formatarSolicitacao(await tx.solicitacaoProduto.findUniqueOrThrow({ where: { id } }));
     });
-
-    if (!solicitacaoExiste) {
-        return undefined;
-    }
-
-    const solicitacaoAtualizada = await prisma.solicitacaoProduto.update({
-        where: {
-            id
-        },
-        data: {
-            valorCotado,
-            freteInternacionalCotado: freteInternacionalCotado ?? null,
-            observacaoAdmin: observacaoAdmin ?? null,
-            status: "cotada"
-        }
-    });
-
-    return formatarSolicitacao(solicitacaoAtualizada);
 }
 
 export async function vincularClienteSolicitacaoPorId(id: number, clienteId: number) {
@@ -472,6 +459,7 @@ export async function vincularPedidoSolicitacaoPorId(id: number, pedidoId: numbe
 }
 
 export async function criarSolicitacaoPublica(
+    clienteId: number,
     nome: string,
     telefone: string,
     nomeProduto: string,
@@ -479,7 +467,7 @@ export async function criarSolicitacaoPublica(
     linkReferencia: string | undefined,
     produtoId?: number
 ) {
-    // Visitantes podem pedir uma cotação antes de terem um cadastro de entrega.
+    // O vinculo e o contato vem da conta autenticada pelo servidor.
     if (produtoId !== undefined) {
         const produtoExiste = await prisma.produto.findUnique({
             where: {
@@ -499,6 +487,7 @@ export async function criarSolicitacaoPublica(
 
     const solicitacao = await prisma.solicitacaoProduto.create({
         data: {
+            clienteId,
             contatoNome: nome,
             contatoTelefone: telefone,
             nomeProduto,

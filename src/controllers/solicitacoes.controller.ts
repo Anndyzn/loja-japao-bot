@@ -283,7 +283,15 @@ export async function vincularPedidoSolicitacao(req: Request, res: Response) {
 }
 
 export async function cadastrarSolicitacaoPublica(req: Request, res: Response) {
-    const { nome, telefone, nomeProduto, descricao, linkReferencia, produtoId } = req.body ?? {};
+    const corpo = req.body;
+    const permitidos = ["nomeProduto", "descricao", "linkReferencia", "produtoId"];
+    if (!corpo || typeof corpo !== "object" || Array.isArray(corpo) || Object.keys(corpo).some(campo => !permitidos.includes(campo))) {
+        return res.status(400).json({ mensagem: "Informe somente os dados do produto. O cliente vem da conta conectada." });
+    }
+    const { nomeProduto, descricao, linkReferencia, produtoId } = corpo;
+    const cliente = await obterClientePorId(res.locals.clienteId as number);
+    if (!cliente) return res.status(401).json({ mensagem: "Entre novamente na sua conta" });
+    const { nome, telefone } = cliente;
     const erro = validarSolicitacaoPublica(nome, telefone, nomeProduto, descricao, linkReferencia);
     if (erro) return res.status(400).json({ mensagem: erro });
 
@@ -294,7 +302,7 @@ export async function cadastrarSolicitacaoPublica(req: Request, res: Response) {
     }
 
     const resultado = await criarSolicitacaoPublica(
-        nome.trim(), telefone.trim(), nomeProduto.trim(), descricao.trim(),
+        cliente.id, nome.trim(), telefone.trim(), nomeProduto.trim(), descricao.trim(),
         typeof linkReferencia === "string" ? linkReferencia.trim() : undefined,
         typeof produtoId === "number" ? produtoId : undefined
     );

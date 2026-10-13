@@ -1,3 +1,4 @@
+import { categoriasProduto, validarCategoriaProduto } from "../utils/categorias-produto.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -148,8 +149,16 @@ function decodificarImagemProduto(valor: unknown): ResultadoImagemProduto {
     };
 }
 
+export function listarCategoriasProdutos(_req: Request, res: Response) {
+    return res.json(categoriasProduto);
+}
+
 export async function listarProdutos(req: Request, res: Response) {
-    const { nome, estoqueBaixo, publicadoNaLoja, medidasIncompletas, tipoEnvio, pagina, limite } = req.query;
+    const { categoria, nome, estoqueBaixo, publicadoNaLoja, medidasIncompletas, tipoEnvio, pagina, limite } = req.query;
+
+    if (categoria !== undefined && (typeof categoria !== "string" || (categoria !== "sem_categoria" && validarCategoriaProduto(categoria)))) {
+        return res.status(400).json({ mensagem: "Filtro de categoria inválido" });
+    }
 
     if (nome !== undefined && typeof nome !== "string") {
         return res.status(400).json({
@@ -180,6 +189,7 @@ export async function listarProdutos(req: Request, res: Response) {
     }
 
     const produtosFiltrados = await obterProdutosFiltrados({
+        categoria: categoria === "sem_categoria" ? null : typeof categoria === "string" ? categoria : undefined,
         nome: typeof nome === "string" && nome.trim() !== "" ? nome.trim() : undefined,
         estoqueBaixo: estoqueBaixo === "true",
         medidasIncompletas: medidasIncompletas === "true",
@@ -219,9 +229,9 @@ export async function buscarProdutoPorId(req: Request, res: Response) {
 }
 
 export async function cadastrarProduto(req: Request, res: Response) {
-    const { nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio } = req.body;
+    const { categoria, nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio } = req.body;
 
-    const erroValidacao = validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio) || validarMedidasProduto(req.body);
+    const erroValidacao = validarCategoriaProduto(categoria) || validarCriacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio) || validarMedidasProduto(req.body);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -231,7 +241,7 @@ export async function cadastrarProduto(req: Request, res: Response) {
 
     const produtoPublicado = typeof publicadoNaLoja === "boolean" ? publicadoNaLoja : true;
     const tipoEnvioProduto = tipoEnvio === "internacional_direto" ? "internacional_direto" : "nacional";
-    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado, tipoEnvioProduto, extrairMedidasProduto(req.body));
+    const novoProduto = await criarProduto(nome.trim(), preco, estoque, textoOpcional(imagemUrl), produtoPublicado, tipoEnvioProduto, extrairMedidasProduto(req.body), categoria);
 
     return res.status(201).json(novoProduto);
 }
@@ -245,12 +255,12 @@ export async function atualizarProduto(req: Request, res: Response) {
         });
     }
 
-    const { nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio } = req.body;
+    const { categoria, nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio } = req.body;
 
     const erroCampos = validarAtualizacaoProduto(nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio);
-    const somenteMedidas = camposMedidas.some(campo => req.body[campo] !== undefined) &&
+    const somenteMedidas = (categoria !== undefined || camposMedidas.some(campo => req.body[campo] !== undefined)) &&
         [nome, preco, estoque, imagemUrl, publicadoNaLoja, tipoEnvio].every(valor => valor === undefined);
-    const erroValidacao = (somenteMedidas ? undefined : erroCampos) || validarMedidasProduto(req.body);
+    const erroValidacao = validarCategoriaProduto(categoria) || (somenteMedidas ? undefined : erroCampos) || validarMedidasProduto(req.body);
 
     if (erroValidacao) {
         return res.status(400).json({
@@ -261,7 +271,7 @@ export async function atualizarProduto(req: Request, res: Response) {
     const nomeAtualizado = typeof nome === "string" ? nome.trim() : nome;
     const tipoEnvioAtualizado = tipoEnvio === "nacional" || tipoEnvio === "internacional_direto" ? tipoEnvio : undefined;
 
-    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja, tipoEnvioAtualizado, extrairMedidasProduto(req.body));
+    const produto = await atualizarProdutoPorId(id, nomeAtualizado, preco, estoque, textoOpcional(imagemUrl), publicadoNaLoja, tipoEnvioAtualizado, extrairMedidasProduto(req.body), categoria);
 
     if (!produto) {
         return res.status(404).json({

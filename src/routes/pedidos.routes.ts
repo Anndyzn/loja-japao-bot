@@ -1,3 +1,4 @@
+import { exigirCliente } from "../middlewares/cliente.middleware.js";
 import { Router } from "express";
 import { atualizarRastreioPedido, acompanharPedido, atualizarStatusPedido, buscarPedidoPorId, cadastrarPedido, listarPedidos, listarPedidosPorCliente } from "../controllers/pedidos.controller.js";
 import { exigirAdmin } from "../middlewares/auth.middleware.js";
@@ -9,11 +10,11 @@ pedidosRoutes.get("/", exigirAdmin, listarPedidos);
 
 pedidosRoutes.get("/cliente/:clienteId", exigirAdmin, listarPedidosPorCliente);
 
-pedidosRoutes.get("/:id/acompanhamento", limitarAcompanhamentoPublico, acompanharPedido);
+pedidosRoutes.get("/:id/acompanhamento", exigirCliente, limitarAcompanhamentoPublico, acompanharPedido);
 
 pedidosRoutes.get("/:id", exigirAdmin, buscarPedidoPorId);
 
-pedidosRoutes.post("/", limitarEscritaPublica, cadastrarPedido);
+pedidosRoutes.post("/", exigirAdmin, limitarEscritaPublica, cadastrarPedido);
 
 pedidosRoutes.patch("/:id/status", exigirAdmin, atualizarStatusPedido);
 

@@ -1,8 +1,33 @@
+import { criarTentativaCheckout } from "./checkout-tentativa.js";
+import { instalarBuscaCep, camposEnderecoConta, enderecoCompleto } from "./endereco.js";
+import { obterContaCliente } from "./conta-api.js";
 import { salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
 import { criarQuadroPix } from "./pix.js";
 
 void aplicarConfiguracaoPublica("Carrinho");
+
+let contaClienteAtual = null;
+let tentativaCheckout = null;
+async function carregarContaCheckout() {
+    contaClienteAtual = await obterContaCliente();
+    const aviso = document.querySelector("#checkout-conta-aviso");
+    aviso.textContent = contaClienteAtual ? "Comprando como " + contaClienteAtual.cliente.nome : "Entre ou crie sua conta para finalizar. Seus produtos continuam no carrinho.";
+    const linkConta = document.querySelector("#checkout-conta-link");
+    linkConta.textContent = contaClienteAtual ? "Minha conta" : "Entrar ou criar conta";
+    linkConta.href = contaClienteAtual ? "/loja/conta" : "/loja/conta?voltar=carrinho";
+    if (contaClienteAtual) {
+        tentativaCheckout = criarTentativaCheckout(contaClienteAtual.cliente.id, apiFetch);
+        for (const campo of ["nome","cpf","telefone","email","cep","endereco","numero","complemento","bairro","cidade","estado","referencia"]) {
+            checkoutForm.elements[campo].value = contaClienteAtual.cliente[campo] ?? "";
+        }
+        checkoutForm.elements.email.value = contaClienteAtual.emailLogin;
+        checkoutForm.elements.email.readOnly = true;
+        checkoutForm.elements.cpf.readOnly = !!contaClienteAtual.cliente.cpf;
+        buscaEndereco.sincronizar();
+        configurarDestinoEntrega();
+    }
+}
 
 const checkoutForm = document.querySelector("#checkout-form");
 const cartItems = document.querySelector("#cart-items");
@@ -36,91 +61,32 @@ const stepTabs = Array.from(document.querySelectorAll("[data-step-target]"));
 const stepPanels = Array.from(document.querySelectorAll("[data-step]"));
 
 const cepInput = checkoutForm.elements.cep;
-const cepFeedback = document.querySelector("#cep-feedback");
-const camposEndereco = {
-    endereco: "logradouro",
-    bairro: "bairro",
-    cidade: "localidade",
-    estado: "uf"
-};
-let cepAtual = "";
-let buscaCep = null;
-let buscandoCep = false;
-
-function mostrarFeedbackCep(mensagem, tipo = "") {
-    cepFeedback.textContent = mensagem;
-    cepFeedback.className = ("feedback " + tipo).trim();
-}
-
-function cancelarBuscaCep() {
-    buscaCep?.abort();
-    buscaCep = null;
-    buscandoCep = false;
-}
-
-async function buscarEnderecoPorCep() {
-    const cep = cepInput.value.replace(/\D/g, "");
-    cepInput.value = cep.length > 5 ? cep.slice(0, 5) + "-" + cep.slice(5) : cep;
-    if (cep === cepAtual) return;
-    cepAtual = cep;
-    cancelarBuscaCep();
-
-    // Não reutiliza rua e cidade de um CEP anterior.
-    for (const campo of Object.keys(camposEndereco)) {
-        checkoutForm.elements[campo].value = "";
-    }
-    if (cep.length !== 8) {
-        mostrarFeedbackCep("Digite os 8 dígitos do CEP.");
-        return;
-    }
-
-    const consulta = new AbortController();
-    buscaCep = consulta;
-    buscandoCep = true;
-    mostrarFeedbackCep("Buscando endereço...");
-    const tempoLimite = setTimeout(() => consulta.abort(), 8000);
-    // Preserva correções que o cliente fizer enquanto a busca estiver em andamento.
-    const valoresIniciais = Object.fromEntries(Object.keys(camposEndereco).map(campo => [campo, checkoutForm.elements[campo].value]));
-
-    try {
-        const resposta = await fetch("https://viacep.com.br/ws/" + cep + "/json/", {
-            signal: consulta.signal
-        });
-        if (!resposta.ok) throw new Error("Falha na consulta");
-        const endereco = await resposta.json();
-        if (buscaCep !== consulta) return;
-        if (!endereco || typeof endereco !== "object") throw new Error("Resposta inválida");
-        if (endereco.erro) {
-            mostrarFeedbackCep("CEP não encontrado. Confira o CEP ou preencha o endereço manualmente.", "error");
-            return;
-        }
-        for (const [campo, propriedade] of Object.entries(camposEndereco)) {
-            const input = checkoutForm.elements[campo];
-            if (input.value === valoresIniciais[campo]) {
-                input.value = typeof endereco[propriedade] === "string" ? endereco[propriedade] : "";
-            }
-        }
-        mostrarFeedbackCep("Confira o endereço e informe o número. Complete os campos que estiverem vazios.", "success");
-    } catch {
-        if (buscaCep !== consulta) return;
-        mostrarFeedbackCep("Não foi possível buscar o CEP. Preencha o endereço manualmente.", "error");
-    } finally {
-        clearTimeout(tempoLimite);
-        if (buscaCep === consulta) {
-            buscaCep = null;
-            buscandoCep = false;
-        }
-    }
-}
-
-cepInput.addEventListener("input", buscarEnderecoPorCep);
+const buscaEndereco = instalarBuscaCep(checkoutForm, document.querySelector("#cep-feedback"));
 cepInput.addEventListener("input", invalidarFrete);
 cepInput.addEventListener("change", invalidarFrete);
-cepInput.addEventListener("change", buscarEnderecoPorCep);
-checkoutForm.addEventListener("reset", () => {
-    cancelarBuscaCep();
-    cepAtual = "";
-    mostrarFeedbackCep("Digite o CEP para buscar o endereço.");
+
+let enderecoAlternativo = {};
+let enderecoPrincipal = {};
+const destinoEntrega = document.querySelector("#endereco-entrega");
+const avisoEndereco = document.querySelector("#endereco-entrega-aviso");
+let destinoAnterior = "principal";
+function configurarDestinoEntrega() {
+    destinoEntrega.value = "principal";
+    enderecoPrincipal = { ...contaClienteAtual.cliente };
+    avisoEndereco.textContent = enderecoCompleto(contaClienteAtual?.cliente)
+        ? "Seu endereço principal está preenchido. Se alterar aqui, ele será atualizado ao concluir a compra."
+        : "Preencha seu endereço principal. Ele será salvo ao concluir a compra. Você também pode salvá-lo em Minha conta.";
+}
+destinoEntrega.addEventListener("change", () => {
+    if (!contaClienteAtual) return;
+    if (destinoAnterior === "outro") enderecoAlternativo = Object.fromEntries(camposEnderecoConta.map(campo => [campo, checkoutForm.elements[campo].value]));
+    if (destinoAnterior === "principal") enderecoPrincipal = Object.fromEntries(camposEnderecoConta.map(campo => [campo, checkoutForm.elements[campo].value]));
+    const outro = destinoEntrega.value === "outro";
+    const origem = outro ? enderecoAlternativo : enderecoPrincipal;
+    for (const campo of camposEnderecoConta) checkoutForm.elements[campo].value = origem[campo] ?? "";
+    buscaEndereco.sincronizar(); invalidarFrete();
+    avisoEndereco.textContent = outro ? "Este endereço será usado somente neste pedido. Seu endereço principal será mantido." : "Seu endereço principal será usado nesta entrega. Alterações aqui serão salvas ao concluir a compra.";
+    destinoAnterior = destinoEntrega.value;
 });
 
 const CHAVE_CARRINHO = "lojaJapaoCarrinho";
@@ -189,7 +155,9 @@ async function apiFetch(caminho, opcoes = {}) {
     const conteudo = await resposta.json().catch(() => undefined);
 
     if (!resposta.ok) {
-        throw new Error(conteudo?.mensagem ?? "Nao foi possivel concluir a acao");
+        const erro = new Error(conteudo?.mensagem ?? "Nao foi possivel concluir a acao");
+        erro.status = resposta.status;
+        throw erro;
     }
 
     return conteudo;
@@ -260,7 +228,7 @@ function validarCarrinho() {
 }
 
 function validarEntrega() {
-    if (buscandoCep) {
+    if (buscaEndereco.buscando) {
         definirEtapa("entrega");
         mostrarFeedbackCep("Aguarde a busca do endereço terminar.");
         return false;
@@ -445,75 +413,77 @@ calcularFreteButton.addEventListener("click", async () => {
 });
 freteSelect.addEventListener("change", atualizarTotais);
 
+function concluirPedidoCheckout(pedido) {
+    pedidoCriado = pedido;
+    const atalhoSalvo = salvarUltimoPedido(pedido.id);
+    montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"));
+    carrinho.clear();
+    let carrinhoSalvo = true;
+    try { salvarCarrinho(); } catch { carrinhoSalvo = false; }
+    renderizarCarrinho();
+    checkoutForm.reset();
+    renderizarPedidoCriado(pedido);
+    definirEtapa("acompanhamento");
+    setFeedback(`Pedido ${pedido.id} ${pedido.reutilizado ? "recuperado" : "criado"}. ${pedido.status === "pendente" ? "Aguardando pagamento e confirmacao da loja." : "Confira o status atualizado no acompanhamento."}` +
+        (!atalhoSalvo || !carrinhoSalvo ? " Anote o numero do pedido: o navegador nao conseguiu salvar todos os dados desta sessao. Nao refaca a compra." : ""), "success");
+    if (carrinhoSalvo) tentativaCheckout.concluir();
+}
+
 async function finalizarPedido(evento) {
     evento.preventDefault();
+    if (!contaClienteAtual) { setFeedback("Entre na sua conta para finalizar a compra.", "error"); document.querySelector("#checkout-conta-link").focus(); return; }
 
-    if (!validarCarrinho() || !validarEntrega()) {
-        return;
-    }
-
-    const metodo = checkoutForm.elements.metodo;
-
-    if (!metodo.checkValidity()) {
-        definirEtapa("pagamento");
-        setTimeout(() => metodo.reportValidity());
-        return;
-    }
-
-    if (enviandoPedido) return;
-    const frete = obterFreteSelecionado();
-    if (!frete || frete.expiraEm <= Date.now()) {
-        definirEtapa("pagamento");
-        setFeedback("Calcule e selecione um frete valido antes de finalizar.", "error"); return;
-    }
-    const itensPedido = Array.from(carrinho.values()).map(i=>({produtoId:i.produto.id,quantidade:i.quantidade}));
-    const formData = new FormData(checkoutForm);
-    const telefonePedido = obterTexto(formData, "telefone");
-
+    if (enviandoPedido || pedidoCriado) return;
     enviandoPedido = true;
     checkoutForm.inert = true;
     try {
+        const existente = await tentativaCheckout.recuperar();
+        if (existente) { concluirPedidoCheckout(existente); return; }
+        if (!validarCarrinho() || !validarEntrega()) {
+            return;
+        }
+
+        const metodo = checkoutForm.elements.metodo;
+
+        if (!metodo.checkValidity()) {
+            definirEtapa("pagamento");
+            setTimeout(() => metodo.reportValidity());
+            return;
+        }
+
+        const frete = obterFreteSelecionado();
+        if (!frete || frete.expiraEm <= Date.now()) {
+            definirEtapa("pagamento");
+            setFeedback("Calcule e selecione um frete valido antes de finalizar.", "error"); return;
+        }
+        const itensPedido = Array.from(carrinho.values()).map(i=>({produtoId:i.produto.id,quantidade:i.quantidade}));
+        const formData = new FormData(checkoutForm);
+        const telefonePedido = obterTexto(formData, "telefone");
+
         setFeedback("Enviando pedido...");
 
-        const cliente = await apiFetch("/clientes", {
-            method: "POST",
-            body: JSON.stringify({
-                nome: obterTexto(formData, "nome"),
-                telefone: telefonePedido,
-                email: obterTextoOpcional(formData, "email"),
-                cep: obterTexto(formData, "cep"),
-                endereco: obterTexto(formData, "endereco"),
-                numero: obterTexto(formData, "numero"),
-                complemento: obterTextoOpcional(formData, "complemento"),
-                bairro: obterTexto(formData, "bairro"),
-                cidade: obterTexto(formData, "cidade"),
-                estado: obterTexto(formData, "estado").toUpperCase(),
-                referencia: obterTextoOpcional(formData, "referencia")
-            })
-        });
-
-        const pedido = await apiFetch("/pedidos", {
-            method: "POST",
-            body: JSON.stringify({
-                clienteId: cliente.id,
+        const pedido = await tentativaCheckout.enviar({
+                cliente: {
+                    nome: obterTexto(formData, "nome"),
+                    cpf: obterTexto(formData, "cpf"),
+                    telefone: telefonePedido,
+                    email: obterTextoOpcional(formData, "email"),
+                    cep: obterTexto(formData, "cep"),
+                    endereco: obterTexto(formData, "endereco"),
+                    numero: obterTexto(formData, "numero"),
+                    complemento: obterTextoOpcional(formData, "complemento"),
+                    bairro: obterTexto(formData, "bairro"),
+                    cidade: obterTexto(formData, "cidade"),
+                    estado: obterTexto(formData, "estado").toUpperCase(),
+                    referencia: obterTextoOpcional(formData, "referencia")
+                },
                 observacao: obterTextoOpcional(formData, "observacao"),
                 freteToken: frete.token,
+                enderecoEntrega: destinoEntrega.value,
                 itens: itensPedido
-            })
         });
 
-        pedidoCriado = pedido;
-        const atalhoSalvo = salvarUltimoPedido(pedido.id, telefonePedido);
-        montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"));
-        carrinho.clear();
-        let carrinhoSalvo = true;
-        try { salvarCarrinho(); } catch { carrinhoSalvo = false; }
-        renderizarCarrinho();
-        checkoutForm.reset();
-        renderizarPedidoCriado(pedido);
-        definirEtapa("acompanhamento");
-        setFeedback(`Pedido ${pedido.id} criado. Aguardando pagamento e confirmacao da loja.` +
-            (!atalhoSalvo || !carrinhoSalvo ? " Anote o numero do pedido: o navegador nao conseguiu salvar todos os dados desta sessao. Nao refaca a compra." : ""), "success");
+        concluirPedidoCheckout(pedido);
     } catch (erro) {
         setFeedback(erro.message, "error");
     } finally {
@@ -562,10 +532,13 @@ checkoutForm.addEventListener("submit", finalizarPedido);
 montarAtalhoUltimoPedido(document.querySelector("#ultimo-pedido"));
 
 try {
-    await carregarProdutos();
+    await carregarContaCheckout();
+    const recuperado = tentativaCheckout ? await tentativaCheckout.recuperar() : null;
+    if (recuperado) concluirPedidoCheckout(recuperado);
+    else await carregarProdutos();
 } catch (erro) {
     renderizarCarrinho();
     setFeedback(erro.message, "error");
 }
 
-definirEtapa("resumo");
+if (!pedidoCriado) definirEtapa("resumo");

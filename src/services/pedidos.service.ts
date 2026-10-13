@@ -1,4 +1,6 @@
-import type { StatusPedido, TipoEnvioPedido } from "../../generated/prisma/client.js";
+import { createHash } from "node:crypto";
+import type { DadosCriacaoCliente } from "./clientes.service.js";
+import type { Prisma, StatusPedido, TipoEnvioPedido } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 import { validarCotacaoFrete, ErroFrete } from "./fretes.service.js";
 import { bloquearPedido, bloquearProduto } from "../utils/bloqueios.js";
@@ -25,6 +27,7 @@ type ItemPedidoResposta = {
 };
 
 type EnderecoEntregaResposta = {
+    cpf?: string;
     nome: string;
     telefone: string;
     email?: string;
@@ -92,6 +95,7 @@ type PedidoComItens = {
     total: unknown;
     status: StatusPedido;
     observacao: string | null;
+    entregaCpf: string | null;
     entregaNome: string | null;
     entregaTelefone: string | null;
     entregaEmail: string | null;
@@ -123,6 +127,8 @@ type PedidoComItens = {
 };
 
 type ResultadoCriacaoPedido = {
+    reutilizado?: boolean;
+    statusHttp?: number;
     pedido?: PedidoResposta;
     mensagemErro?: string;
 };
@@ -178,6 +184,7 @@ function formatarEnderecoEntrega(pedido: PedidoComItens) {
         endereco: pedido.entregaEndereco
     };
 
+    adicionarCampoOpcional(endereco, "cpf", pedido.entregaCpf);
     adicionarCampoOpcional(endereco, "email", pedido.entregaEmail);
     adicionarCampoOpcional(endereco, "cep", pedido.entregaCep);
     adicionarCampoOpcional(endereco, "numero", pedido.entregaNumero);
@@ -390,6 +397,7 @@ type DadosCriacaoPedido = {
     clienteId: number;
     total: number;
     observacao?: string;
+    entregaCpf: string | null;
     entregaNome: string;
     entregaTelefone: string;
     entregaEmail: string | null;
@@ -479,17 +487,95 @@ export async function criarPedido(
     observacao: string | undefined,
     opcoes: OpcoesCriacaoPedido = {}
 ): Promise<ResultadoCriacaoPedido> {
-    const cliente = await prisma.cliente.findUnique({
+    return prisma.$transaction(tx => criarPedidoNaTransacao(tx, clienteId, itensEntrada, observacao, opcoes));
+}
+
+class ErroCheckout extends Error {
+    constructor(mensagem: string, readonly statusHttp = 400) { super(mensagem); }
+}
+
+export async function obterPedidoDaTentativa(clienteId: number, checkoutChave: string) {
+    const pedido = await prisma.pedido.findUnique({
+        where: { clienteId_checkoutChave: { clienteId, checkoutChave } }, include: includeItensPedido
+    });
+    return pedido ? formatarPedido(pedido) : null;
+}
+
+export async function criarPedidoDaConta(
+    clienteId: number,
+    dadosCliente: DadosCriacaoCliente,
+    itens: ItemPedidoEntrada[],
+    observacao: string | undefined,
+    freteToken: string,
+    checkoutChave: string,
+    enderecoEntrega: "principal" | "outro" = "principal"
+): Promise<ResultadoCriacaoPedido> {
+    try {
+        return await prisma.$transaction(async tx => {
+            // O identificador vem da sessao validada no servidor, nunca do formulario.
+            await tx.$queryRaw`SELECT id FROM "Cliente" WHERE id = ${clienteId} FOR UPDATE`;
+            const conta = await tx.contaCliente.findUnique({ where: { clienteId } });
+            if (!conta?.senhaHash) throw new ErroCheckout("Entre na sua conta para continuar");
+            const checkoutHash = createHash("sha256").update(JSON.stringify({
+                dadosCliente, itens: agruparItensPorProduto(itens).sort((a, b) => a.produtoId - b.produtoId),
+                observacao: observacao ?? null, freteToken, enderecoEntrega
+            })).digest("hex");
+            // O bloqueio do cliente serializa tentativas simultâneas. A consulta vem antes
+            // das alterações e da validação do frete, que pode ter expirado após a compra.
+            const existente = await tx.pedido.findUnique({
+                where: { clienteId_checkoutChave: { clienteId, checkoutChave } }, include: includeItensPedido
+            });
+            if (existente) {
+                if (existente.checkoutHash !== checkoutHash) throw new ErroCheckout("Esta tentativa já criou um pedido. Consulte Meus pedidos antes de comprar novamente.", 409);
+                return { pedido: formatarPedido(existente), reutilizado: true };
+            }
+            const cadastro = await tx.cliente.findUniqueOrThrow({ where: { id: clienteId } });
+            if (cadastro.cpf && cadastro.cpf !== dadosCliente.cpf) {
+                throw new ErroCheckout("O CPF deve ser o mesmo da sua conta. Para corrigir o cadastro, fale com o atendimento.");
+            }
+            if (enderecoEntrega === "principal") await tx.cliente.update({ where: { id: clienteId }, data: {
+                ...dadosCliente, email: conta.email,
+                complemento: dadosCliente.complemento ?? null, referencia: dadosCliente.referencia ?? null
+            } });
+            // Outro destino pertence apenas ao pedido. Completa CPF legado sem trocar o endereco principal.
+            if (enderecoEntrega === "outro" && !cadastro.cpf && dadosCliente.cpf) await tx.cliente.update({ where: { id: clienteId }, data: { cpf: dadosCliente.cpf } });
+            const resultado = await criarPedidoNaTransacao(tx, clienteId, itens, observacao, {
+                freteToken, tipoEnvio: "nacional", permitirProdutoInterno: false
+            }, enderecoEntrega === "outro" ? { ...dadosCliente, email: conta.email } : undefined);
+            // Uma falha de frete/estoque tambem desfaz a atualizacao do endereco.
+            if (resultado.mensagemErro) throw new ErroCheckout(resultado.mensagemErro);
+            await tx.pedido.update({ where: { id: resultado.pedido!.id }, data: { checkoutChave, checkoutHash } });
+            return { ...resultado, reutilizado: false };
+        });
+    } catch (erro) {
+        if (erro instanceof ErroCheckout) return { mensagemErro: erro.message, statusHttp: erro.statusHttp };
+        if (typeof erro === "object" && erro !== null && "code" in erro && erro.code === "P2002") {
+            return { mensagemErro: "Este CPF ja possui outro cadastro. Fale com o atendimento para conferir sua conta." };
+        }
+        throw erro;
+    }
+}
+
+async function criarPedidoNaTransacao(
+    tx: Prisma.TransactionClient,
+    clienteId: number,
+    itensEntrada: ItemPedidoEntrada[],
+    observacao: string | undefined,
+    opcoes: OpcoesCriacaoPedido,
+    entrega?: DadosCriacaoCliente
+): Promise<ResultadoCriacaoPedido> {
+    const cadastro = await tx.cliente.findUnique({
         where: {
             id: clienteId
         }
     });
 
-    if (!cliente) {
+    if (!cadastro) {
         return {
             mensagemErro: "Cliente nao encontrado"
         };
     }
+    const cliente = entrega ? { ...cadastro, ...entrega, complemento: entrega.complemento ?? null, referencia: entrega.referencia ?? null } : cadastro;
 
     if (!clienteTemEnderecoCompleto(cliente)) {
         return {
@@ -502,203 +588,202 @@ export async function criarPedido(
     // Sempre bloqueia produtos na mesma ordem para evitar esperas circulares.
     const itensAgrupados = agruparItensPorProduto(itensEntrada).sort((a, b) => a.produtoId - b.produtoId);
 
-    return await prisma.$transaction(async (tx) => {
-        const produtosDoPedido = [];
+    const produtosDoPedido = [];
 
-        for (const item of itensAgrupados) {
-            await bloquearProduto(tx, item.produtoId);
-            const produto = await tx.produto.findUnique({
-                where: {
-                    id: item.produtoId
-                }
-            });
-
-            if (!produto) {
-                return {
-                    mensagemErro: `Produto ${item.produtoId} nao encontrado`
-                };
-            }
-
-            if (!produto.publicadoNaLoja && opcoes.permitirProdutoInterno !== true) {
-                return {
-                    mensagemErro: `Produto ${produto.nome} nao esta disponivel na loja`
-                };
-            }
-
-            if (tipoEnvio === "nacional" && produto.estoque < item.quantidade) {
-                return {
-                    mensagemErro: `Estoque insuficiente para o produto ${produto.nome}`
-                };
-            }
-
-            produtosDoPedido.push({
-                produto,
-                quantidade: item.quantidade
-            });
-        }
-
-        const itens = produtosDoPedido.map(({ produto, quantidade }) => {
-            const precoUnitario = Number(produto.preco);
-            const subtotal = Number((precoUnitario * quantidade).toFixed(2));
-
-            return {
-                produtoId: produto.id,
-                nomeProduto: produto.nome,
-                quantidade,
-                precoUnitario,
-                subtotal
-            };
-        });
-
-        const subtotalProdutos = Number(
-            itens.reduce((soma, item) => soma + item.subtotal, 0).toFixed(2)
-        );
-        if (tipoEnvio === "internacional_direto" && opcoes.permitirProdutoInterno !== true) {
-            return {
-                mensagemErro: "Envio internacional direto so pode ser criado pelo admin"
-            };
-        }
-
-        if (tipoEnvio === "internacional_direto" && opcoes.clienteCienteTaxasImportacao !== true) {
-            return {
-                mensagemErro: "Confirme que o cliente esta ciente das taxas de importacao"
-            };
-        }
-
-        let frete = {
-            valor: 0,
-            servicoId: null as string | null,
-            servico: null as string | null,
-            transportadora: null as string | null,
-            prazoDias: null as number | null,
-            ambiente: null as string | null
-        };
-
-        if (tipoEnvio === "nacional" && opcoes.freteToken) {
-            try {
-                const freteValidado = validarCotacaoFrete(opcoes.freteToken, produtosDoPedido, cliente.cep!);
-                frete = {
-                    valor: freteValidado.valor,
-                    servicoId: freteValidado.servicoId,
-                    servico: freteValidado.servico,
-                    transportadora: freteValidado.transportadora,
-                    prazoDias: freteValidado.prazoDias,
-                    ambiente: freteValidado.ambiente
-                };
-            } catch (erro) {
-                if (erro instanceof ErroFrete) return { mensagemErro: erro.message };
-                throw erro;
-            }
-        } else if (tipoEnvio === "nacional" && opcoes.permitirProdutoInterno === true && opcoes.freteManualValor !== undefined) {
-            if (!Number.isFinite(opcoes.freteManualValor) || opcoes.freteManualValor < 0) {
-                return {
-                    mensagemErro: "Frete manual deve ser um numero maior ou igual a zero"
-                };
-            }
-
-            frete = {
-                valor: Number(opcoes.freteManualValor.toFixed(2)),
-                servicoId: null,
-                servico: "Frete combinado",
-                transportadora: "Entrega combinada",
-                prazoDias: null,
-                ambiente: "manual"
-            };
-        } else if (tipoEnvio === "nacional") {
-            return {
-                mensagemErro: "Calcule e selecione o frete ou informe um frete manual combinado"
-            };
-        } else if (opcoes.freteInternacionalValor !== undefined) {
-            if (!Number.isFinite(opcoes.freteInternacionalValor) || opcoes.freteInternacionalValor < 0) {
-                return {
-                    mensagemErro: "Frete internacional deve ser um numero maior ou igual a zero"
-                };
-            }
-
-            frete = {
-                valor: Number(opcoes.freteInternacionalValor.toFixed(2)),
-                servicoId: null,
-                servico: "Frete internacional",
-                transportadora: "Envio direto do Japao",
-                prazoDias: null,
-                ambiente: "manual"
-            };
-        }
-
-        const total = Number((subtotalProdutos + frete.valor).toFixed(2));
-
-        if (tipoEnvio === "nacional") {
-            for (const item of itens) {
-                await tx.produto.update({
-                    where: {
-                        id: item.produtoId
-                    },
-                    data: {
-                        estoque: {
-                            decrement: item.quantidade
-                        }
-                    }
-                });
-            }
-        }
-
-        const dadosPedido: DadosCriacaoPedido = {
-            subtotalProdutos,
-            freteValor: frete.valor,
-            freteServicoId: frete.servicoId,
-            freteServico: frete.servico,
-            freteTransportadora: frete.transportadora,
-            fretePrazoDias: frete.prazoDias,
-            freteAmbiente: frete.ambiente,
-            tipoEnvio,
-            clienteCienteTaxasImportacao: tipoEnvio === "internacional_direto",
-            clienteId,
-            total,
-            entregaNome: cliente.nome,
-            entregaTelefone: cliente.telefone,
-            entregaEmail: cliente.email,
-            entregaCep: cliente.cep,
-            entregaEndereco: cliente.endereco,
-            entregaNumero: cliente.numero,
-            entregaComplemento: cliente.complemento,
-            entregaBairro: cliente.bairro,
-            entregaCidade: cliente.cidade,
-            entregaEstado: cliente.estado,
-            entregaReferencia: cliente.referencia,
-            itens: {
-                create: itens.map((item) => {
-                    return {
-                        produtoId: item.produtoId,
-                        nomeProduto: item.nomeProduto,
-                        quantidade: item.quantidade,
-                        precoUnitario: item.precoUnitario,
-                        subtotal: item.subtotal
-                    };
-                })
-            }
-        };
-
-        if (observacao !== undefined) {
-            dadosPedido.observacao = observacao;
-        }
-
-        const novoPedido = await tx.pedido.create({
-            data: dadosPedido,
-            include: includeItensPedido
-        });
-
-        await tx.historicoPedido.create({
-            data: {
-                pedidoId: novoPedido.id,
-                status: "pendente",
-                descricao: "Pedido criado."
+    for (const item of itensAgrupados) {
+        await bloquearProduto(tx, item.produtoId);
+        const produto = await tx.produto.findUnique({
+            where: {
+                id: item.produtoId
             }
         });
+
+        if (!produto) {
+            return {
+                mensagemErro: `Produto ${item.produtoId} nao encontrado`
+            };
+        }
+
+        if (!produto.publicadoNaLoja && opcoes.permitirProdutoInterno !== true) {
+            return {
+                mensagemErro: `Produto ${produto.nome} nao esta disponivel na loja`
+            };
+        }
+
+        if (tipoEnvio === "nacional" && produto.estoque < item.quantidade) {
+            return {
+                mensagemErro: `Estoque insuficiente para o produto ${produto.nome}`
+            };
+        }
+
+        produtosDoPedido.push({
+            produto,
+            quantidade: item.quantidade
+        });
+    }
+
+    const itens = produtosDoPedido.map(({ produto, quantidade }) => {
+        const precoUnitario = Number(produto.preco);
+        const subtotal = Number((precoUnitario * quantidade).toFixed(2));
 
         return {
-            pedido: formatarPedido(novoPedido)
+            produtoId: produto.id,
+            nomeProduto: produto.nome,
+            quantidade,
+            precoUnitario,
+            subtotal
         };
     });
+
+    const subtotalProdutos = Number(
+        itens.reduce((soma, item) => soma + item.subtotal, 0).toFixed(2)
+    );
+    if (tipoEnvio === "internacional_direto" && opcoes.permitirProdutoInterno !== true) {
+        return {
+            mensagemErro: "Envio internacional direto so pode ser criado pelo admin"
+        };
+    }
+
+    if (tipoEnvio === "internacional_direto" && opcoes.clienteCienteTaxasImportacao !== true) {
+        return {
+            mensagemErro: "Confirme que o cliente esta ciente das taxas de importacao"
+        };
+    }
+
+    let frete = {
+        valor: 0,
+        servicoId: null as string | null,
+        servico: null as string | null,
+        transportadora: null as string | null,
+        prazoDias: null as number | null,
+        ambiente: null as string | null
+    };
+
+    if (tipoEnvio === "nacional" && opcoes.freteToken) {
+        try {
+            const freteValidado = validarCotacaoFrete(opcoes.freteToken, produtosDoPedido, cliente.cep!);
+            frete = {
+                valor: freteValidado.valor,
+                servicoId: freteValidado.servicoId,
+                servico: freteValidado.servico,
+                transportadora: freteValidado.transportadora,
+                prazoDias: freteValidado.prazoDias,
+                ambiente: freteValidado.ambiente
+            };
+        } catch (erro) {
+            if (erro instanceof ErroFrete) return { mensagemErro: erro.message };
+            throw erro;
+        }
+    } else if (tipoEnvio === "nacional" && opcoes.permitirProdutoInterno === true && opcoes.freteManualValor !== undefined) {
+        if (!Number.isFinite(opcoes.freteManualValor) || opcoes.freteManualValor < 0) {
+            return {
+                mensagemErro: "Frete manual deve ser um numero maior ou igual a zero"
+            };
+        }
+
+        frete = {
+            valor: Number(opcoes.freteManualValor.toFixed(2)),
+            servicoId: null,
+            servico: "Frete combinado",
+            transportadora: "Entrega combinada",
+            prazoDias: null,
+            ambiente: "manual"
+        };
+    } else if (tipoEnvio === "nacional") {
+        return {
+            mensagemErro: "Calcule e selecione o frete ou informe um frete manual combinado"
+        };
+    } else if (opcoes.freteInternacionalValor !== undefined) {
+        if (!Number.isFinite(opcoes.freteInternacionalValor) || opcoes.freteInternacionalValor < 0) {
+            return {
+                mensagemErro: "Frete internacional deve ser um numero maior ou igual a zero"
+            };
+        }
+
+        frete = {
+            valor: Number(opcoes.freteInternacionalValor.toFixed(2)),
+            servicoId: null,
+            servico: "Frete internacional",
+            transportadora: "Envio direto do Japao",
+            prazoDias: null,
+            ambiente: "manual"
+        };
+    }
+
+    const total = Number((subtotalProdutos + frete.valor).toFixed(2));
+
+    if (tipoEnvio === "nacional") {
+        for (const item of itens) {
+            await tx.produto.update({
+                where: {
+                    id: item.produtoId
+                },
+                data: {
+                    estoque: {
+                        decrement: item.quantidade
+                    }
+                }
+            });
+        }
+    }
+
+    const dadosPedido: DadosCriacaoPedido = {
+        subtotalProdutos,
+        freteValor: frete.valor,
+        freteServicoId: frete.servicoId,
+        freteServico: frete.servico,
+        freteTransportadora: frete.transportadora,
+        fretePrazoDias: frete.prazoDias,
+        freteAmbiente: frete.ambiente,
+        tipoEnvio,
+        clienteCienteTaxasImportacao: tipoEnvio === "internacional_direto",
+        clienteId,
+        total,
+        entregaCpf: cliente.cpf,
+        entregaNome: cliente.nome,
+        entregaTelefone: cliente.telefone,
+        entregaEmail: cliente.email,
+        entregaCep: cliente.cep,
+        entregaEndereco: cliente.endereco,
+        entregaNumero: cliente.numero,
+        entregaComplemento: cliente.complemento,
+        entregaBairro: cliente.bairro,
+        entregaCidade: cliente.cidade,
+        entregaEstado: cliente.estado,
+        entregaReferencia: cliente.referencia,
+        itens: {
+            create: itens.map((item) => {
+                return {
+                    produtoId: item.produtoId,
+                    nomeProduto: item.nomeProduto,
+                    quantidade: item.quantidade,
+                    precoUnitario: item.precoUnitario,
+                    subtotal: item.subtotal
+                };
+            })
+        }
+    };
+
+    if (observacao !== undefined) {
+        dadosPedido.observacao = observacao;
+    }
+
+    const novoPedido = await tx.pedido.create({
+        data: dadosPedido,
+        include: includeItensPedido
+    });
+
+    await tx.historicoPedido.create({
+        data: {
+            pedidoId: novoPedido.id,
+            status: "pendente",
+            descricao: "Pedido criado."
+        }
+    });
+
+    return {
+        pedido: formatarPedido(novoPedido)
+    };
 }
 
 export async function atualizarStatusPedidoPorId(

@@ -1,0 +1,16 @@
+import { Router } from "express";
+import { registrar, entrar, ativar, sair, salvarEndereco, minhaConta, meusPedidos, minhasSolicitacoes, tratarErroConta } from "../controllers/conta-cliente.controller.js";
+import { exigirCliente, protegerAcaoCliente } from "../middlewares/cliente.middleware.js";
+import { limitarCadastroCliente, limitarLoginCliente, limitarAtivacaoCliente, limitarEscritaPublica } from "../middlewares/rate-limit.middleware.js";
+import { validarCadastroConta, validarSenhaCliente } from "../services/conta-cliente.service.js";
+export const contaClienteRoutes = Router();
+contaClienteRoutes.use((_req, res, next) => { res.setHeader("Cache-Control", "no-store"); next(); });
+contaClienteRoutes.post("/registrar", protegerAcaoCliente, (req, _res, next) => { validarCadastroConta(req.body ?? {}); next(); }, limitarCadastroCliente, registrar);
+contaClienteRoutes.post("/entrar", protegerAcaoCliente, limitarLoginCliente, entrar);
+contaClienteRoutes.post("/ativar", protegerAcaoCliente, (req, _res, next) => { validarSenhaCliente(req.body?.senha); next(); }, limitarAtivacaoCliente, ativar);
+contaClienteRoutes.post("/sair", protegerAcaoCliente, sair);
+contaClienteRoutes.post("/endereco", protegerAcaoCliente, exigirCliente, limitarEscritaPublica, salvarEndereco);
+contaClienteRoutes.get("/me", exigirCliente, minhaConta);
+contaClienteRoutes.get("/pedidos", exigirCliente, meusPedidos);
+contaClienteRoutes.get("/solicitacoes", exigirCliente, minhasSolicitacoes);
+contaClienteRoutes.use(tratarErroConta);

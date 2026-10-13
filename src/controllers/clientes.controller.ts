@@ -1,3 +1,4 @@
+import { normalizarCpf } from "../utils/cpf.js";
 import type { Request, Response } from "express";
 import { atualizarClientePorId, criarCliente, obterClientePorId, obterClientesFiltrados, removerClientePorId } from "../services/clientes.service.js";
 import type { DadosCliente, DadosCriacaoCliente } from "../services/clientes.service.js";
@@ -89,7 +90,8 @@ export async function cadastrarCliente(req: Request, res: Response) {
         bairro,
         cidade,
         estado,
-        referencia
+        referencia,
+        cpf
     } = req.body;
 
     const erroValidacao = validarCriacaoCliente(
@@ -103,7 +105,8 @@ export async function cadastrarCliente(req: Request, res: Response) {
         estado,
         email,
         complemento,
-        referencia
+        referencia,
+        cpf
     );
 
     if (erroValidacao) {
@@ -123,6 +126,7 @@ export async function cadastrarCliente(req: Request, res: Response) {
         estado: textoObrigatorio(estado)
     };
 
+    if (typeof cpf === "string") dadosCliente.cpf = normalizarCpf(cpf);
     adicionarTextoOpcional(dadosCliente, "email", email);
     adicionarTextoOpcional(dadosCliente, "complemento", complemento);
     adicionarTextoOpcional(dadosCliente, "referencia", referencia);
@@ -155,7 +159,8 @@ export async function atualizarCliente(req: Request, res: Response) {
         bairro,
         cidade,
         estado,
-        referencia
+        referencia,
+        cpf
     } = req.body;
 
     const erroValidacao = validarAtualizacaoCliente(
@@ -169,7 +174,8 @@ export async function atualizarCliente(req: Request, res: Response) {
         estado,
         email,
         complemento,
-        referencia
+        referencia,
+        cpf
     );
 
     if (erroValidacao) {
@@ -182,6 +188,7 @@ export async function atualizarCliente(req: Request, res: Response) {
 
     adicionarTextoOpcional(dadosCliente, "nome", nome);
     adicionarTextoOpcional(dadosCliente, "telefone", telefone);
+    if (typeof cpf === "string") dadosCliente.cpf = normalizarCpf(cpf);
     adicionarTextoOpcional(dadosCliente, "email", email);
     adicionarTextoOpcional(dadosCliente, "cep", cep);
     adicionarTextoOpcional(dadosCliente, "endereco", endereco);

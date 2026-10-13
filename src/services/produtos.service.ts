@@ -1,9 +1,11 @@
+import { nomeCategoriaProduto } from "../utils/categorias-produto.js";
 import { prisma } from "../lib/prisma.js";
 import type { TipoEnvioPedido } from "../../generated/prisma/client.js";
 import type { MedidasProduto } from "../utils/medidas-produto.js";
 import { obterMedidasEnvioPendentes } from "../utils/medidas-produto.js";
 
 type FiltrosProdutos = {
+    categoria?: string | null | undefined;
     nome?: string | undefined;
     estoqueBaixo?: boolean | undefined;
     medidasIncompletas?: boolean | undefined;
@@ -12,6 +14,8 @@ type FiltrosProdutos = {
 };
 
 type ProdutoResposta = MedidasProduto & {
+    categoria: string | null;
+    categoriaNome: string;
     medidasEnvioPendentes: string[];
     id: number;
     nome: string;
@@ -23,6 +27,7 @@ type ProdutoResposta = MedidasProduto & {
 };
 
 type ProdutoBanco = {
+    categoria: string | null;
     pesoKg: unknown;
     alturaCm: number | null;
     larguraCm: number | null;
@@ -39,6 +44,8 @@ type ProdutoBanco = {
 function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
     const resposta: ProdutoResposta = {
         id: produto.id,
+        categoria: produto.categoria,
+        categoriaNome: nomeCategoriaProduto(produto.categoria),
         medidasEnvioPendentes: obterMedidasEnvioPendentes(produto),
         pesoKg: produto.pesoKg == null ? null : Number(produto.pesoKg),
         alturaCm: produto.alturaCm,
@@ -60,12 +67,14 @@ function formatarProduto(produto: ProdutoBanco): ProdutoResposta {
 
 export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
     const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
-        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "tipoEnvio", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
+        SELECT "id", "nome", "categoria", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "tipoEnvio", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
         FROM "Produto"
         ORDER BY "id" ASC
     `;
 
     let produtosFiltrados = produtos.map(formatarProduto);
+
+    if (filtros.categoria !== undefined) produtosFiltrados = produtosFiltrados.filter(produto => produto.categoria === filtros.categoria);
 
     if (filtros.nome !== undefined) {
         produtosFiltrados = produtosFiltrados.filter((produto) => {
@@ -96,7 +105,7 @@ export async function obterProdutosFiltrados(filtros: FiltrosProdutos) {
 
 export async function obterProdutoPorId(id: number) {
     const produtos = await prisma.$queryRaw<ProdutoBanco[]>`
-        SELECT "id", "nome", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "tipoEnvio", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
+        SELECT "id", "nome", "categoria", "preco", "estoque", "imagemUrl", "publicadoNaLoja", "tipoEnvio", "pesoKg", "alturaCm", "larguraCm", "comprimentoCm"
         FROM "Produto"
         WHERE "id" = ${id}
         LIMIT 1
@@ -118,11 +127,13 @@ export async function criarProduto(
     imagemUrl: string | undefined,
     publicadoNaLoja: boolean,
     tipoEnvio: TipoEnvioPedido,
-    medidas: MedidasProduto = {}
+    medidas: MedidasProduto = {},
+    categoria: string | null = null
 ) {
     const novoProduto = await prisma.produto.create({
         data: {
             nome,
+            categoria,
             preco,
             estoque,
             publicadoNaLoja,
@@ -150,7 +161,8 @@ export async function atualizarProdutoPorId(
     imagemUrl: string | null | undefined,
     publicadoNaLoja: boolean | undefined,
     tipoEnvio: TipoEnvioPedido | undefined,
-    medidas: MedidasProduto = {}
+    medidas: MedidasProduto = {},
+    categoria?: string | null
 ) {
     const produtoExiste = await prisma.produto.findUnique({
         where: {
@@ -163,6 +175,7 @@ export async function atualizarProdutoPorId(
     }
 
     const dadosAtualizacao: MedidasProduto & {
+        categoria?: string | null;
         nome?: string;
         preco?: number;
         estoque?: number;
@@ -170,6 +183,8 @@ export async function atualizarProdutoPorId(
         publicadoNaLoja?: boolean;
         tipoEnvio?: TipoEnvioPedido;
     } = { ...medidas };
+
+    if (categoria !== undefined) dadosAtualizacao.categoria = categoria;
 
     if (nome !== undefined) {
         dadosAtualizacao.nome = nome;

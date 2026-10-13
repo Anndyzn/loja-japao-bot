@@ -1,24 +1,23 @@
 ﻿const CHAVE_ULTIMO_PEDIDO = "lojaJapaoUltimoPedido";
 
 function pedidoValido(pedido) {
-    return pedido && Number.isSafeInteger(pedido.id) && pedido.id > 0 &&
-        typeof pedido.telefone === "string" && /^\d{8,20}$/.test(pedido.telefone);
+    return pedido && Number.isSafeInteger(pedido.id) && pedido.id > 0;
 }
 
 export function lerUltimoPedido() {
     try {
         const pedido = JSON.parse(sessionStorage.getItem(CHAVE_ULTIMO_PEDIDO) || "null");
-        return pedidoValido(pedido) ? { id: pedido.id, telefone: pedido.telefone } : null;
+        return pedidoValido(pedido) ? { id: pedido.id } : null;
     } catch {
         return null;
     }
 }
 
-export function salvarUltimoPedido(id, telefone) {
-    const pedido = { id, telefone: String(telefone ?? "").replace(/\D/g, "") };
+export function salvarUltimoPedido(id) {
+    const pedido = { id };
     if (!pedidoValido(pedido)) return false;
     try {
-        // Apenas referencia e telefone; status, endereco e Pix sempre vem da API.
+        // Apenas referencia. A sessao em cookie e validada pela API.
         sessionStorage.setItem(CHAVE_ULTIMO_PEDIDO, JSON.stringify(pedido));
         return true;
     } catch {

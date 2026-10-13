@@ -106,3 +106,18 @@ export const limitarAcompanhamentoPublico = criarLimitadorPorIp({
     maximo: env.PUBLIC_TRACKING_MAX_CONSULTAS,
     mensagem: "Muitas consultas de acompanhamento. Aguarde um pouco antes de tentar novamente."
 });
+
+// Contadores independentes: navegar/comprar nao consome as tentativas da conta.
+// Cadastro e ativacao validam os campos antes de consumir esta cota.
+export const limitarCadastroCliente = criarLimitadorPorIp({
+    registros: new Map(), janelaMs: JANELA_ESCRITA_PUBLICA_MS, maximo: env.PUBLIC_WRITE_MAX_REQUISICOES,
+    mensagem: "Muitos envios de cadastro neste periodo. Aguarde para tentar novamente."
+});
+export const limitarLoginCliente = criarLimitadorPorIp({
+    registros: new Map(), janelaMs: JANELA_ESCRITA_PUBLICA_MS, maximo: env.PUBLIC_WRITE_MAX_REQUISICOES,
+    mensagem: "Muitas tentativas de entrar neste periodo. Aguarde para tentar novamente."
+});
+export const limitarAtivacaoCliente = criarLimitadorPorIp({
+    registros: new Map(), janelaMs: JANELA_ESCRITA_PUBLICA_MS, maximo: env.PUBLIC_WRITE_MAX_REQUISICOES,
+    mensagem: "Muitos envios de links de acesso neste periodo. Aguarde para tentar novamente."
+});

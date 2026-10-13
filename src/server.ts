@@ -1,3 +1,5 @@
+import { contaClienteRoutes } from "./routes/conta-cliente.routes.js";
+import { checkoutRoutes } from "./routes/checkout.routes.js";
 import express from "express";
 import { env } from "./config/env.js";
 import { prisma } from "./lib/prisma.js";
@@ -60,6 +62,11 @@ app.get("/loja/solicitacao", (req, res) => {
     res.sendFile("solicitacao.html", { root: "public/loja" });
 });
 
+app.get("/loja/conta", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.sendFile("conta.html", { root: "public/loja" });
+});
+
 const PORT = env.PORT;
 
 app.use("/", homeRoutes);
@@ -67,6 +74,8 @@ app.use("/", homeRoutes);
 app.use("/produtos", produtosRoutes);
 app.use("/auth", authRoutes);
 app.use("/clientes", clientesRoutes);
+app.use("/checkout", checkoutRoutes);
+app.use("/conta", contaClienteRoutes);
 app.use("/pedidos", pedidosRoutes);
 app.use("/solicitacoes", solicitacoesRoutes);
 app.use("/dashboard", dashboardRoutes);

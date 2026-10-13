@@ -1,6 +1,7 @@
+import { criarNovidadesAdmin } from "./novidades.js";
 const loginView = document.querySelector("#login-view");
 const appView = document.querySelector("#app-view");
-let appNome = "Loja Japao";
+let appNome = "HK Nippon store";
 const loginForm = document.querySelector("#login-form");
 const loginEmail = document.querySelector("#login-email");
 const loginSenha = document.querySelector("#login-senha");
@@ -20,6 +21,9 @@ const senhaFeedback = document.querySelector("#senha-feedback");
 const adminLogadoInfo = document.querySelector("#admin-logado-info");
 const sistemaStatus = document.querySelector("#sistema-status");
 const produtoForm = document.querySelector("#produto-form");
+const produtoCategoria = document.querySelector("#produto-categoria");
+const produtoCategoriaFiltro = document.querySelector("#produto-categoria-filtro");
+const produtoEditCategoria = document.querySelector("#produto-edit-categoria");
 const produtoNome = document.querySelector("#produto-nome");
 const produtoPreco = document.querySelector("#produto-preco");
 const produtoEstoque = document.querySelector("#produto-estoque");
@@ -68,6 +72,7 @@ const pedidoBuscaFiltro = document.querySelector("#pedido-busca-filtro");
 const pedidoStatusFiltro = document.querySelector("#pedido-status-filtro");
 const pedidoCicloFiltro = document.querySelector("#pedido-ciclo-filtro");
 const pedidoPrecisaAcaoFiltro = document.querySelector("#pedido-precisa-acao-filtro");
+const pedidoEsperaPixFiltro = document.querySelector("#pedido-espera-pix-filtro");
 const pedidoAcaoFiltro = document.querySelector("#pedido-acao-filtro");
 const pedidoFiltrosLimpar = document.querySelector("#pedido-filtros-limpar");
 const pedidoFiltroContexto = document.querySelector("#pedido-filtro-contexto");
@@ -114,6 +119,7 @@ const clienteModalTitulo = document.querySelector("#cliente-modal-titulo");
 const clienteEditForm = document.querySelector("#cliente-edit-form");
 const clienteEditId = document.querySelector("#cliente-edit-id");
 const clienteEditNome = document.querySelector("#cliente-edit-nome");
+const clienteEditCpf = document.querySelector("#cliente-edit-cpf");
 const clienteEditTelefone = document.querySelector("#cliente-edit-telefone");
 const clienteEditEmail = document.querySelector("#cliente-edit-email");
 const clienteEditCep = document.querySelector("#cliente-edit-cep");
@@ -143,6 +149,8 @@ const pixConfirmacaoDados = document.querySelector("#pix-confirmacao-dados");
 const pixConfirmacaoFeedback = document.querySelector("#pix-confirmacao-feedback");
 const pixConfirmacaoCancelar = document.querySelector("#pix-confirmacao-cancelar");
 const pixConfirmacaoConfirmar = document.querySelector("#pix-confirmacao-confirmar");
+
+const novidadesAdmin = criarNovidadesAdmin({ api: apiFetch, document, window, storage: localStorage });
 
 const viewTitles = {
     dashboard: "Dashboard",
@@ -397,7 +405,7 @@ function montarMensagemWhatsAppPedido(pedido) {
         saudacao + " Seu pedido #" + pedido.id + " na " + appNome + " esta " +
             obterDescricaoStatusPedido(pedido.status) + ".",
         "Acompanhe por aqui: " + linkAcompanhamento,
-        "Por seguranca, informe o telefone usado no pedido ao abrir a pagina."
+        "Entre na sua conta da loja para consultar este pedido."
     ];
 
     if (pedido.status === "enviado" && pedido.transportadora && pedido.codigoRastreio) {
@@ -789,6 +797,10 @@ function criarLinkRastreio(transportadora, codigoRastreio) {
 function montarMensagemWhatsAppSolicitacao(solicitacao) {
     const nome = solicitacao.contato?.nome ?? "";
     const saudacao = nome ? "Ola, " + nome + "." : "Ola.";
+    if (solicitacao.pedidoId) {
+        const link = new URL("/loja/acompanhamento?pedido=" + solicitacao.pedidoId, window.location.origin).href;
+        return saudacao + " O pedido #" + solicitacao.pedidoId + " da sua solicitação de " + solicitacao.nomeProduto + " foi criado. Veja os dados do Pix e acompanhe: " + link + " Entre na sua conta para consultar.";
+    }
     const avisoImportacao = solicitacao.produto?.tipoEnvio === "internacional_direto"
         ? " Como esse item vem direto do Japao, frete internacional e possiveis taxas de importacao ficam por conta do cliente."
         : "";
@@ -1079,6 +1091,7 @@ async function apiFetch(caminho, opcoes = {}) {
 }
 
 function mostrarLogin() {
+    novidadesAdmin.parar();
     token = null;
     adminLogado = null;
     localStorage.removeItem("adminToken");
@@ -1113,6 +1126,7 @@ async function carregarNomeAppPublico() {
 }
 
 async function mostrarApp() {
+    novidadesAdmin.iniciar(adminLogado.id);
     atualizarAdminLogadoInfo();
     loginView.classList.add("hidden");
     appView.classList.remove("hidden");
@@ -1187,6 +1201,7 @@ async function iniciarAdmin() {
 }
 
 function trocarView(view) {
+    novidadesAdmin.selecionar(view);
     activeView = view;
     viewTitle.textContent = viewTitles[view];
 
@@ -1200,6 +1215,7 @@ function trocarView(view) {
 }
 
 async function carregarView() {
+    void novidadesAdmin.atualizar();
     setFeedback(appFeedback, "");
 
     try {
@@ -1690,6 +1706,32 @@ function criarCelulaTipoEnvioProduto(produto) {
     return criarCelulaComConteudo(wrapper);
 }
 
+let categoriasProdutosCarregadas = null;
+async function carregarCategoriasProdutos() {
+    if (!categoriasProdutosCarregadas) {
+        categoriasProdutosCarregadas = apiFetch("/produtos/categorias").then(categorias => {
+            for (const campo of [produtoCategoria, produtoEditCategoria, produtoCategoriaFiltro]) {
+                const valor = campo.value;
+                const iniciais = campo === produtoCategoriaFiltro
+                    ? [new Option("Todas", ""), new Option("Sem categoria", "sem_categoria")]
+                    : [new Option("Sem categoria", "")];
+                campo.replaceChildren(...iniciais, ...categorias.map(c => new Option(c.nome, c.valor)));
+                campo.value = valor;
+            }
+        }).catch(erro => { categoriasProdutosCarregadas = null; throw erro; });
+    }
+    return categoriasProdutosCarregadas;
+}
+
+function criarCelulaNomeCategoriaProduto(produto) {
+    const caixa = document.createElement("div");
+    const nome = document.createElement("strong");nome.textContent = produto.nome;
+    const categoria = document.createElement("span");categoria.className = "produto-categoria-legenda";
+    categoria.textContent = produto.categoriaNome || "Sem categoria";
+    caixa.append(nome, categoria);
+    return criarCelulaComConteudo(caixa);
+}
+
 function criarLinhaProduto(produto) {
     const tr = document.createElement("tr");
     const actions = document.createElement("div");
@@ -1718,7 +1760,7 @@ function criarLinhaProduto(produto) {
     tr.append(
         criarCelula(produto.id),
         criarCelulaFotoProduto(produto),
-        criarCelula(produto.nome),
+        criarCelulaNomeCategoriaProduto(produto),
         criarCelula(formatarMoeda(produto.preco)),
         criarCelula(produto.estoque),
         criarCelulaComConteudo(
@@ -1798,6 +1840,12 @@ async function removerFotoProduto(produto) {
 }
 
 function abrirModalProduto(produto) {
+    // Preserva a classificação mesmo se o modal abrir antes da lista de categorias.
+    if (produto.categoria && !Array.from(produtoEditCategoria.options).some(opcao => opcao.value === produto.categoria)) {
+        produtoEditCategoria.add(new Option(produto.categoriaNome || produto.categoria, produto.categoria));
+    }
+    produtoEditCategoria.value = produto.categoria ?? "";
+    void carregarCategoriasProdutos().catch(erro => setFeedback(appFeedback, erro.message, "error"));
     produtoEditId.value = String(produto.id);
     produtoEditNome.value = produto.nome;
     produtoEditPreco.value = String(produto.preco);
@@ -1819,7 +1867,9 @@ function fecharModalProduto() {
 }
 
 async function carregarProdutos() {
+    await carregarCategoriasProdutos();
     const parametros = new URLSearchParams({ limite: "50" });
+    if (produtoCategoriaFiltro.value) parametros.set("categoria", produtoCategoriaFiltro.value);
     const nome = produtoNomeFiltro.value.trim();
     const publicadoNaLoja = produtoPublicadoFiltro.value;
     const tipoEnvio = produtoTipoEnvioFiltro.value;
@@ -2059,6 +2109,57 @@ function criarCelulaEnderecoCliente(cliente) {
     return criarCelulaComConteudo(wrapper);
 }
 
+function abrirAcessoCliente(cliente) {
+    const dialog = document.createElement("dialog");
+    dialog.className = "acesso-cliente-dialog";
+    dialog.setAttribute("aria-labelledby", "acesso-cliente-titulo");
+    const titulo = document.createElement("h2");
+    titulo.id = "acesso-cliente-titulo";
+    titulo.textContent = "Acesso de " + cliente.nome;
+    const orientacao = document.createElement("p");
+    orientacao.textContent = "Este link permite criar ou trocar a senha e acessar os pedidos deste cadastro. Confira a identidade do cliente pelo atendimento antes de enviar. O link vale por 1 hora e so pode ser usado uma vez.";
+    const aviso = document.createElement("p");
+    aviso.textContent = "E-mail do cadastro: " + (cliente.email || "Nao informado. Edite o cliente primeiro.");
+    const label = document.createElement("label");
+    label.className = "acesso-confirmacao";
+    const confirmar = document.createElement("input");
+    confirmar.type = "checkbox";
+    label.append(confirmar, document.createTextNode("Conferi a identidade e este e o cadastro correto do cliente."));
+    const gerar = criarBotao("Gerar link de acesso");
+    gerar.disabled = true;
+    confirmar.addEventListener("change", () => { gerar.disabled = !confirmar.checked; });
+    const resultado = document.createElement("div");
+    const feedback = document.createElement("p");
+    feedback.setAttribute("role", "status");
+    gerar.addEventListener("click", async () => {
+        if (!confirmar.checked) return;
+        gerar.disabled = true;
+        feedback.textContent = "Gerando link...";
+        try {
+            const acesso = await apiFetch("/clientes/" + cliente.id + "/acesso", { method: "POST", body: "{}" });
+            const input = document.createElement("input");
+            input.readOnly = true;
+            input.value = new URL(acesso.caminho, location.origin).href;
+            input.setAttribute("aria-label", "Link de acesso do cliente");
+            const copiar = criarBotao("Copiar link");
+            copiar.addEventListener("click", async () => {
+                try { await copiarTexto(input.value); feedback.textContent = "Link copiado. Envie somente ao cliente confirmado."; }
+                catch { input.focus(); input.select(); feedback.textContent = "Selecione e copie o link acima."; }
+            });
+            resultado.replaceChildren(input, copiar);
+            aviso.textContent = "E-mail para entrar: " + acesso.email + ". Valido ate " + new Date(acesso.expiraEm).toLocaleString("pt-BR") + ".";
+            feedback.textContent = "Se ja existe senha, ela so sera trocada quando o cliente usar o link. Gerar outro link invalida este.";
+        } catch (erro) { feedback.textContent = erro.message; }
+        finally { gerar.disabled = !confirmar.checked; }
+    });
+    const fechar = criarBotao("Fechar");
+    fechar.addEventListener("click", () => dialog.close());
+    dialog.addEventListener("close", () => dialog.remove(), { once: true });
+    dialog.append(titulo, orientacao, aviso, label, gerar, resultado, feedback, fechar);
+    document.body.append(dialog);
+    dialog.showModal();
+}
+
 function criarLinhaCliente(cliente) {
     const tr = document.createElement("tr");
     const enderecoIncompleto = !clienteTemEnderecoCompleto(cliente);
@@ -2075,7 +2176,9 @@ function criarLinhaCliente(cliente) {
 
     editar.addEventListener("click", () => editarCliente(cliente));
     excluir.addEventListener("click", () => excluirCliente(cliente));
-    actions.append(editar, excluir);
+    const acesso = criarBotao("Liberar acesso");
+    acesso.addEventListener("click", () => abrirAcessoCliente(cliente));
+    actions.append(editar, excluir, acesso);
 
     if (whatsapp) {
         actions.append(whatsapp);
@@ -2408,6 +2511,7 @@ function abrirModalCliente(cliente) {
     clienteModalTitulo.textContent = "Editar cliente";
     clienteEditId.value = String(cliente.id);
     clienteEditNome.value = cliente.nome ?? "";
+    clienteEditCpf.value = cliente.cpf ?? "";
     clienteEditTelefone.value = cliente.telefone ?? "";
     clienteEditEmail.value = cliente.email ?? "";
     clienteEditCep.value = cliente.cep ?? "";
@@ -2432,6 +2536,7 @@ function abrirModalClienteParaCadastro(dados = {}) {
     clienteModalTitulo.textContent = "Cadastrar cliente";
     clienteEditId.value = "";
     clienteEditNome.value = dados.nome ?? "";
+    clienteEditCpf.value = "";
     clienteEditTelefone.value = dados.telefone ?? "";
     clienteEditEmail.value = "";
     clienteEditCep.value = "";
@@ -2849,7 +2954,8 @@ function renderizarDetalhesPedido(pedido, cliente, pagamentos) {
 
     entrega.append(
         criarDetalhePedido('Cliente cadastrado', '#' + cliente.id + ' - ' + cliente.nome),
-        criarDetalhePedido('Nome no pedido', entregaPedido?.nome ?? cliente.nome),
+        criarDetalhePedido('Nome completo no pedido', entregaPedido?.nome ?? cliente.nome),
+        criarDetalhePedido('CPF no pedido', entregaPedido?.cpf ?? 'Nao informado neste pedido'),
         criarDetalhePedido('Telefone no pedido', entregaPedido?.telefone ?? cliente.telefone),
         criarDetalhePedido('Email no pedido', entregaPedido?.email ?? cliente.email),
         criarDetalhePedido(
@@ -3024,11 +3130,20 @@ function criarCelulaClientePedido(pedido) {
     return td;
 }
 
+function tempoEsperaPix(pedido, agora = Date.now()) {
+    const minutos = Math.max(0, Math.floor((agora - new Date(pedido.criadoEm).getTime()) / 60000));
+    if (!Number.isFinite(minutos)) return "Tempo de espera indisponível";
+    if (minutos < 1) return "Aguardando Pix há menos de 1 min";
+    if (minutos < 60) return "Aguardando Pix há " + minutos + " min";
+    const horas = Math.floor(minutos / 60);
+    return "Aguardando Pix há " + (horas < 24 ? horas + " h" : Math.floor(horas / 24) + " d " + (horas % 24) + " h");
+}
+
 function obterProximaAcaoPedido(pedido) {
     if (pedido.status === "pendente") {
         return {
             texto: "Confirmar Pix",
-            detalhe: "Aguardando comprovante ou conferencia na conta.",
+            detalhe: tempoEsperaPix(pedido) + ". Confira o recebimento na conta antes de confirmar.",
             status: "pendente",
             prioridade: "pix"
         };
@@ -3080,6 +3195,17 @@ function criarCelulaProximaAcaoPedido(pedido) {
     const badge = criarStatusBadge(proximaAcao.status, proximaAcao.texto);
 
     wrapper.append(badge);
+    if (pedido.status === "pendente") {
+        const espera = document.createElement("small");
+        espera.textContent = tempoEsperaPix(pedido);
+        wrapper.append(espera);
+        if (Date.now() - new Date(pedido.criadoEm).getTime() >= 86400000) {
+            wrapper.classList.add("pedido-pix-revisar");
+            const aviso = document.createElement("strong");
+            aviso.textContent = "Revisar pagamento";
+            wrapper.append(aviso);
+        }
+    }
     return criarCelulaComConteudo(wrapper);
 }
 
@@ -3161,6 +3287,7 @@ async function carregarPedidos(paginaSolicitada) {
     if (pedidoBuscaFiltro.value.trim()) parametros.set("busca", pedidoBuscaFiltro.value.trim());
     if (pedidoPrecisaAcaoFiltro.checked) parametros.set("precisaAcao", "true");
     if (pedidoAcaoFiltro.value) parametros.set("acao", pedidoAcaoFiltro.value);
+    if (pedidoEsperaPixFiltro.value) parametros.set("esperaPixHoras", pedidoEsperaPixFiltro.value);
     const rota = pedidoClienteFiltro ? "/pedidos/cliente/" + pedidoClienteFiltro.id : "/pedidos";
     const assinatura = rota + "?" + parametros.toString();
     const pagina = assinatura !== pedidoFiltrosAtuais ? 1 : (paginaSolicitada ?? pedidoPaginaAtual);
@@ -3437,7 +3564,7 @@ function criarCelulaContatoSolicitacao(solicitacao) {
         );
 
         if (whatsapp) {
-            whatsapp.textContent = solicitacao.valorCotado ? "Enviar cotacao" : "WhatsApp";
+            whatsapp.textContent = solicitacao.pedidoId ? "Enviar link do pedido" : solicitacao.valorCotado ? "Enviar cotação" : "WhatsApp";
             td.append(whatsapp);
         }
     } else {
@@ -3477,7 +3604,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
     const resumo = document.createElement("summary");
     const detalhesGrid = document.createElement("div");
     detalhesGrid.className = "solicitacao-detalhes-grid";
-    resumo.textContent = "Ver descrição";
+    resumo.textContent = "Detalhes da solicitação";
     const descricao = document.createElement("p");
     descricao.className = "solicitacao-info-box";
     descricao.textContent = solicitacao.descricao;
@@ -3545,7 +3672,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
     const acoesSolicitacao = document.createElement("div");
     acoesSolicitacao.className = "actions";
 
-    const copiarMensagem = criarBotao(solicitacao.valorCotado ? "Copiar cotacao" : "Copiar mensagem");
+    const copiarMensagem = criarBotao(solicitacao.pedidoId ? "Copiar link e mensagem do pedido" : solicitacao.valorCotado ? "Copiar cotação" : "Copiar mensagem");
     copiarMensagem.addEventListener("click", async () => {
         try {
             await copiarTexto(montarMensagemWhatsAppSolicitacao(solicitacao));
@@ -3578,6 +3705,16 @@ function criarCelulaProdutoSolicitado(solicitacao) {
         detalhes.append(acoesSolicitacao);
     }
 
+    const previa = document.createElement("details");
+    const previaTitulo = document.createElement("summary"); previaTitulo.textContent = "Ver mensagem para o cliente";
+    const mensagemCliente = document.createElement("textarea"); mensagemCliente.readOnly = true; mensagemCliente.className = "solicitacao-mensagem";
+    mensagemCliente.setAttribute("aria-label", "Mensagem para o cliente"); mensagemCliente.value = montarMensagemWhatsAppSolicitacao(solicitacao);
+    previa.append(previaTitulo, mensagemCliente); detalhes.append(previa);
+    // O atendimento continua no pedido. Nao oferecemos recotacao de uma venda ja gerada.
+    if (solicitacao.pedidoId) { td.append(detalhes); return td; }
+    const editorCotacao = document.createElement("details"); editorCotacao.className = "solicitacao-cotacao-editor"; editorCotacao.open = !solicitacao.valorCotado;
+    const tituloCotacao = document.createElement("summary"); tituloCotacao.textContent = solicitacao.valorCotado ? "Editar cotação" : "Preparar cotação";
+    editorCotacao.append(tituloCotacao);
     const form = document.createElement("form");
     form.className = "quote-form";
     const cotacaoInternacional = solicitacao.produto?.tipoEnvio === "internacional_direto";
@@ -3634,11 +3771,13 @@ function criarCelulaProdutoSolicitado(solicitacao) {
         : "Use o valor combinado com o cliente para esta solicitacao.";
 
     const observacaoLabel = document.createElement("label");
-    observacaoLabel.textContent = "Observacao interna";
+    observacaoLabel.textContent = "Anotação interna (opcional)";
     const observacaoInput = document.createElement("textarea");
     observacaoInput.rows = 3;
     observacaoInput.value = solicitacao.observacaoAdmin ?? "";
-    observacaoLabel.append(observacaoInput);
+    observacaoInput.placeholder = "Ex.: fornecedor consultado, custo ou pendência para conferir.";
+    const ajudaObservacao = document.createElement("small"); ajudaObservacao.textContent = "Somente para a loja. Não aparece na mensagem ao cliente nem no pedido. Confira o texto em Ver mensagem para o cliente.";
+    observacaoLabel.append(observacaoInput, ajudaObservacao);
 
     const salvarCotacao = criarBotao("Salvar cotacao");
     salvarCotacao.type = "submit";
@@ -3693,7 +3832,7 @@ function criarCelulaProdutoSolicitado(solicitacao) {
             salvarCotacao.disabled = false;
         }
     });
-    detalhes.append(form);
+    editorCotacao.append(form); detalhes.append(editorCotacao);
 
     td.append(detalhes);
     return td;
@@ -3769,6 +3908,10 @@ function solicitacaoPodePrepararPedido(solicitacao) {
 function criarAcoesRapidasSolicitacao(solicitacao) {
     const acoes = document.createElement("div");
     acoes.className = "solicitacao-acoes-rapidas";
+    if (solicitacao.pedidoId) {
+        const abrir = criarBotao("Abrir pedido #" + solicitacao.pedidoId);
+        abrir.addEventListener("click", () => irParaPedido(solicitacao.pedidoId)); acoes.append(abrir);
+    }
 
     if (solicitacaoPodePrepararPedido(solicitacao)) {
         const prepararPedido = criarBotao("Preparar pedido");
@@ -3797,11 +3940,14 @@ function criarLinhaSolicitacao(solicitacao) {
         ...(acoesRapidas.childElementCount > 0 ? [acoesRapidas] : [])
     );
 
-    const statusSelect = criarSelectStatus(statusSolicitacoes, solicitacao.status);
-    const salvar = criarBotao("Salvar");
-
-    salvar.addEventListener("click", () => atualizarStatusSolicitacao(solicitacao.id, statusSelect.value));
-    actions.append(statusSelect, salvar);
+    if (solicitacao.pedidoId) {
+        const concluida = document.createElement("p"); concluida.textContent = "Atendimento continua no pedido."; actions.append(concluida);
+    } else {
+        const statusSelect = criarSelectStatus(statusSolicitacoes, solicitacao.status);
+        const salvar = criarBotao("Salvar");
+        salvar.addEventListener("click", () => atualizarStatusSolicitacao(solicitacao.id, statusSelect.value));
+        actions.append(statusSelect, salvar);
+    }
 
     const tdActions = document.createElement("td");
     tdActions.append(actions);
@@ -3933,6 +4079,7 @@ produtoForm.addEventListener("submit", async (evento) => {
         const produto = await apiFetch("/produtos", {
             method: "POST",
             body: JSON.stringify({
+                categoria: produtoCategoria.value || null,
                 nome: String(formData.get("nome")),
                 preco: Number(formData.get("preco")),
                 estoque: Number(formData.get("estoque")),
@@ -4002,6 +4149,9 @@ produtoFiltrosLimpar.addEventListener("click", async () => {
     }
 });
 
+produtoCategoriaFiltro.addEventListener("change", async () => {
+    if (activeView === "produtos") await carregarProdutos();
+});
 produtoNomeFiltro.addEventListener("input", agendarBuscaProdutos);
 produtoPublicadoFiltro.addEventListener("change", async () => {
     if (activeView === "produtos") {
@@ -4078,6 +4228,7 @@ produtoEditForm.addEventListener("submit", async (evento) => {
                 nome,
                 preco,
                 estoque,
+                categoria: produtoEditCategoria.value || null,
                 publicadoNaLoja: produtoEditPublicadoNaLoja.checked,
                 tipoEnvio: produtoEditTipoEnvio.value,
                 ...lerMedidasProduto(produtoEditForm)
@@ -4420,6 +4571,7 @@ pedidoFiltrosLimpar.addEventListener("click", async () => {
 pedidoBuscaFiltro.addEventListener("input", agendarBuscaPedidos);
 
 pedidoStatusFiltro.addEventListener("change", async () => {
+    if (pedidoStatusFiltro.value !== "pendente") pedidoEsperaPixFiltro.value = "";
     if (pedidoStatusFiltro.value) {
         pedidoCicloFiltro.value = "todos";
         pedidoPrecisaAcaoFiltro.checked = false;
@@ -4432,6 +4584,11 @@ pedidoStatusFiltro.addEventListener("change", async () => {
 });
 
 pedidoCicloFiltro.addEventListener("change", async () => {
+    if (pedidoCicloFiltro.value === "finalizados") {
+        pedidoEsperaPixFiltro.value = "";
+        pedidoAcaoFiltro.value = "";
+        pedidoPrecisaAcaoFiltro.checked = false;
+    }
     if (pedidoCicloFiltro.value !== "todos") {
         pedidoStatusFiltro.value = "";
     }
@@ -4454,6 +4611,7 @@ pedidoPrecisaAcaoFiltro.addEventListener("change", async () => {
 });
 
 pedidoAcaoFiltro.addEventListener("change", async () => {
+    if (pedidoAcaoFiltro.value !== "pix") pedidoEsperaPixFiltro.value = "";
     if (pedidoAcaoFiltro.value) {
         pedidoPrecisaAcaoFiltro.checked = true;
         pedidoStatusFiltro.value = "";
@@ -4462,6 +4620,16 @@ pedidoAcaoFiltro.addEventListener("change", async () => {
     if (activeView === "pedidos") {
         await carregarPedidos();
     }
+});
+
+pedidoEsperaPixFiltro.addEventListener("change", async () => {
+    if (pedidoEsperaPixFiltro.value) {
+        pedidoCicloFiltro.value = "ativos";
+        pedidoStatusFiltro.value = "pendente";
+        pedidoAcaoFiltro.value = "pix";
+        pedidoPrecisaAcaoFiltro.checked = true;
+    }
+    if (activeView === "pedidos") await carregarPedidos();
 });
 
 pedidoCliente.addEventListener("change", limparOrigemPedidoSolicitacao);
@@ -4555,6 +4723,7 @@ clienteEditForm.addEventListener("submit", async (evento) => {
         const dadosCliente = {
             nome,
             telefone,
+            cpf: obterValorOpcionalDoInput(clienteEditCpf),
             email: obterValorOpcionalDoInput(clienteEditEmail),
             cep,
             numero,

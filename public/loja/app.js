@@ -1,3 +1,4 @@
+import { obterContaCliente } from "./conta-api.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
 
 const productsGrid = document.querySelector("#products-grid");
@@ -72,6 +73,7 @@ function atualizarResumoCarrinho() {
 
     cartCount.textContent = String(quantidade);
     floatingCartCount.textContent = String(quantidade);
+    document.querySelector("#floating-cart-total").textContent = formatarMoeda(calcularTotal());
     cartTotalPreview.textContent = `${formatarMoeda(calcularTotal())} no carrinho`;
     floatingCartButton.classList.toggle("has-items", quantidade > 0);
 }
@@ -186,6 +188,8 @@ function criarItemCarrinhoRapido(item) {
         const imagem = document.createElement("img");
         imagem.src = produto.imagemUrl;
         imagem.alt = produto.nome;
+        imagem.loading = "lazy";
+        imagem.decoding = "async";
         imagemBox.append(imagem);
     } else {
         imagemBox.textContent = produto.nome.slice(0, 2).toUpperCase();
@@ -320,6 +324,8 @@ function criarCardProduto(produto) {
 
     const input = document.createElement("input");
     input.type = "number";
+    input.inputMode = "numeric";
+    input.setAttribute("aria-label", "Quantidade de " + produto.nome);
     input.min = "1";
     input.max = String(Math.max(estoqueDisponivel, 1));
     input.step = "1";
@@ -389,3 +395,20 @@ drawerClearCart.addEventListener("click", () => {
 atualizarResumoCarrinho();
 renderizarCarrinhoRapido();
 await carregarProdutos();
+
+async function atualizarContaNaVitrine() {
+    const saudacao = document.querySelector("#loja-saudacao");
+    const link = document.querySelector("#loja-conta-link");
+    try {
+        const conta = await obterContaCliente();
+        saudacao.textContent = conta ? "Bem-vindo, " + conta.cliente.nome.trim().split(/\s+/)[0] + "!" : "";
+        saudacao.classList.toggle("hidden", !conta);
+        link.textContent = conta ? "Minha conta" : "Entrar / Criar conta";
+    } catch {
+        saudacao.textContent = "";
+        saudacao.classList.add("hidden");
+        link.textContent = "Minha conta / Entrar";
+    }
+}
+void atualizarContaNaVitrine();
+window.addEventListener("pageshow", evento => { if (evento.persisted) void atualizarContaNaVitrine(); });
