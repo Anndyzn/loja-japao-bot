@@ -13,7 +13,7 @@ export function telefoneConta(telefone: string) {
 }
 export const hashTokenCliente = (token: string) => createHash("sha256").update(token).digest("hex");
 const hashDummy = gerarHashSenha(randomBytes(32).toString("hex"));
-const conflitoCpf = () => new ErroConta("Este CPF ja possui cadastro. Entre na sua conta ou solicite ao atendimento um link de acesso.", 409, { cpf: "Este CPF ja possui cadastro. Entre ou solicite acesso ao atendimento." });
+const conflitoCpf = () => new ErroConta("Este CPF ja possui cadastro. Entre na sua conta ou use Esqueci minha senha.", 409, { cpf: "Este CPF ja possui cadastro. Entre ou use Esqueci minha senha." });
 const conflitoEmail = () => new ErroConta("Este e-mail ja possui uma conta. Entre com sua senha ou use outro e-mail para uma pessoa diferente.", 409, { email: "Este e-mail ja possui conta. Entre ou informe outro e-mail." });
 function emailValido(email: unknown): email is string {
     return typeof email === "string" && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -84,32 +84,13 @@ export async function criarSessaoCliente(credencial: { clienteId: number; senhaH
     return { token, expiraEm };
 }
 
-export async function gerarConviteCliente(clienteId: number) {
-    const token = randomBytes(32).toString("hex"), expiraEm = new Date(Date.now() + 60 * 60 * 1000);
-    try {
-        const conta = await prisma.$transaction(async tx => {
-            await tx.$queryRaw`SELECT id FROM "Cliente" WHERE id = ${clienteId} FOR UPDATE`;
-            const cliente = await tx.cliente.findUnique({ where: { id: clienteId }, include: { conta: true } });
-            if (!cliente) throw new ErroConta("Cliente nao encontrado", 404);
-            const email = cliente.conta?.email ?? cliente.email;
-            if (!emailValido(email)) throw new ErroConta("Preencha um e-mail valido no cadastro do cliente antes de liberar o acesso");
-            // Renovar convite nao revoga a senha atual; so o uso do link altera a conta.
-            return tx.contaCliente.upsert({ where: { clienteId },
-                create: { clienteId, email: emailNormalizado(email), conviteHash: hashTokenCliente(token), conviteExpiraEm: expiraEm },
-                update: { conviteHash: hashTokenCliente(token), conviteExpiraEm: expiraEm }
-            });
-        });
-        return { caminho: "/loja/conta#convite=" + token, email: conta.email, expiraEm };
-    } catch (erro) { if (duplicado(erro)) throw new ErroConta("Este e-mail ja possui conta em outro cadastro. Confira os clientes antes de liberar o acesso.", 409); throw erro; }
-}
-
-export async function ativarContaCliente(token: unknown, senha: unknown) {
+export async function redefinirSenhaCliente(token: unknown, senha: unknown) {
     if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token)) throw new ErroConta("Link invalido ou expirado");
     validarSenhaCliente(senha);
     const senhaHash = gerarHashSenha(senha);
     return prisma.$transaction(async tx => {
         const conta = await tx.contaCliente.findUnique({ where: { conviteHash: hashTokenCliente(token) } });
-        if (!conta) throw new ErroConta("Link invalido ou expirado");
+        if (!conta?.senhaHash) throw new ErroConta("Link invalido ou expirado");
         const alterada = await tx.contaCliente.updateMany({ where: {
             clienteId: conta.clienteId, conviteHash: hashTokenCliente(token), conviteExpiraEm: { gt: new Date() }
         }, data: { senhaHash, conviteHash: null, conviteExpiraEm: null } });

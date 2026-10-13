@@ -2109,57 +2109,6 @@ function criarCelulaEnderecoCliente(cliente) {
     return criarCelulaComConteudo(wrapper);
 }
 
-function abrirAcessoCliente(cliente) {
-    const dialog = document.createElement("dialog");
-    dialog.className = "acesso-cliente-dialog";
-    dialog.setAttribute("aria-labelledby", "acesso-cliente-titulo");
-    const titulo = document.createElement("h2");
-    titulo.id = "acesso-cliente-titulo";
-    titulo.textContent = "Acesso de " + cliente.nome;
-    const orientacao = document.createElement("p");
-    orientacao.textContent = "Este link permite criar ou trocar a senha e acessar os pedidos deste cadastro. Confira a identidade do cliente pelo atendimento antes de enviar. O link vale por 1 hora e so pode ser usado uma vez.";
-    const aviso = document.createElement("p");
-    aviso.textContent = "E-mail do cadastro: " + (cliente.email || "Nao informado. Edite o cliente primeiro.");
-    const label = document.createElement("label");
-    label.className = "acesso-confirmacao";
-    const confirmar = document.createElement("input");
-    confirmar.type = "checkbox";
-    label.append(confirmar, document.createTextNode("Conferi a identidade e este e o cadastro correto do cliente."));
-    const gerar = criarBotao("Gerar link de acesso");
-    gerar.disabled = true;
-    confirmar.addEventListener("change", () => { gerar.disabled = !confirmar.checked; });
-    const resultado = document.createElement("div");
-    const feedback = document.createElement("p");
-    feedback.setAttribute("role", "status");
-    gerar.addEventListener("click", async () => {
-        if (!confirmar.checked) return;
-        gerar.disabled = true;
-        feedback.textContent = "Gerando link...";
-        try {
-            const acesso = await apiFetch("/clientes/" + cliente.id + "/acesso", { method: "POST", body: "{}" });
-            const input = document.createElement("input");
-            input.readOnly = true;
-            input.value = new URL(acesso.caminho, location.origin).href;
-            input.setAttribute("aria-label", "Link de acesso do cliente");
-            const copiar = criarBotao("Copiar link");
-            copiar.addEventListener("click", async () => {
-                try { await copiarTexto(input.value); feedback.textContent = "Link copiado. Envie somente ao cliente confirmado."; }
-                catch { input.focus(); input.select(); feedback.textContent = "Selecione e copie o link acima."; }
-            });
-            resultado.replaceChildren(input, copiar);
-            aviso.textContent = "E-mail para entrar: " + acesso.email + ". Valido ate " + new Date(acesso.expiraEm).toLocaleString("pt-BR") + ".";
-            feedback.textContent = "Se ja existe senha, ela so sera trocada quando o cliente usar o link. Gerar outro link invalida este.";
-        } catch (erro) { feedback.textContent = erro.message; }
-        finally { gerar.disabled = !confirmar.checked; }
-    });
-    const fechar = criarBotao("Fechar");
-    fechar.addEventListener("click", () => dialog.close());
-    dialog.addEventListener("close", () => dialog.remove(), { once: true });
-    dialog.append(titulo, orientacao, aviso, label, gerar, resultado, feedback, fechar);
-    document.body.append(dialog);
-    dialog.showModal();
-}
-
 function criarLinhaCliente(cliente) {
     const tr = document.createElement("tr");
     const enderecoIncompleto = !clienteTemEnderecoCompleto(cliente);
@@ -2176,9 +2125,7 @@ function criarLinhaCliente(cliente) {
 
     editar.addEventListener("click", () => editarCliente(cliente));
     excluir.addEventListener("click", () => excluirCliente(cliente));
-    const acesso = criarBotao("Liberar acesso");
-    acesso.addEventListener("click", () => abrirAcessoCliente(cliente));
-    actions.append(editar, excluir, acesso);
+    actions.append(editar, excluir);
 
     if (whatsapp) {
         actions.append(whatsapp);

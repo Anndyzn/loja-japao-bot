@@ -2,6 +2,8 @@ import { obterContaCliente } from "./conta-api.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
 
 const productsGrid = document.querySelector("#products-grid");
+const categoryFilter = document.querySelector("#catalog-category");
+const catalogResults = document.querySelector("#catalog-results");
 const reloadProducts = document.querySelector("#reload-products");
 const cartCount = document.querySelector("#cart-count");
 const cartTotalPreview = document.querySelector("#cart-total-preview");
@@ -18,6 +20,7 @@ const drawerClearCart = document.querySelector("#drawer-clear-cart");
 const CHAVE_CARRINHO = "lojaJapaoCarrinho";
 
 let produtos = [];
+let carregandoProdutos = false;
 let carrinho = carregarCarrinho();
 
 void aplicarConfiguracaoPublica();
@@ -298,6 +301,12 @@ function criarCardProduto(produto) {
         ? "Cotacao antes do pedido"
         : (quantidadeNoCarrinho > 0 ? `${quantidadeNoCarrinho} no carrinho` : "Pronto para escolher");
 
+    if (produto.categoria) {
+        const categoria = document.createElement("p");
+        categoria.className = "product-category";
+        categoria.textContent = produto.categoriaNome;
+        info.append(categoria);
+    }
     info.append(nome, preco, estoque, badge);
 
     const actions = document.createElement("div");
@@ -353,26 +362,66 @@ function criarCardProduto(produto) {
     return card;
 }
 
+function atualizarCategorias() {
+    const selecionada = categoryFilter.value;
+    const categorias = new Map();
+    for (const produto of produtos) {
+        if (produto.categoria) categorias.set(produto.categoria, produto.categoriaNome);
+    }
+    const todas = new Option("Todas as categorias", "");
+    const opcoes = [...categorias].sort((a, b) => a[1].localeCompare(b[1], "pt-BR"))
+        .map(([valor, nome]) => new Option(nome, valor));
+    categoryFilter.replaceChildren(todas, ...opcoes);
+    categoryFilter.value = categorias.has(selecionada) ? selecionada : "";
+    categoryFilter.disabled = categorias.size === 0;
+}
+
 function renderizarProdutos() {
-    if (produtos.length === 0) {
-        productsGrid.innerHTML = `<div class="empty-state">Nenhum produto disponivel no momento.</div>`;
+    const visiveis = categoryFilter.value
+        ? produtos.filter(produto => produto.categoria === categoryFilter.value)
+        : produtos;
+    catalogResults.textContent = visiveis.length === 1 ? "1 produto" : visiveis.length + " produtos";
+    if (visiveis.length === 0) {
+        productsGrid.innerHTML = '<div class="empty-state">Nenhum produto disponível no momento.</div>';
         return;
     }
-
-    productsGrid.replaceChildren(...produtos.map(criarCardProduto));
+    productsGrid.replaceChildren(...visiveis.map(criarCardProduto));
 }
 
 async function carregarProdutos() {
+    if (carregandoProdutos) return;
+    carregandoProdutos = true;
+    reloadProducts.disabled = true;
+    productsGrid.setAttribute("aria-busy", "true");
     try {
         setFeedback("");
-        const resposta = await apiFetch("/produtos?limite=50&publicadoNaLoja=true");
-        produtos = resposta.dados ?? resposta;
+        // O carrinho usa o catálogo completo, nunca somente a categoria visível.
+        const catalogo = [];
+        let pagina = 1;
+        let totalPaginas = 1;
+        do {
+            const resposta = await apiFetch("/produtos?limite=50&publicadoNaLoja=true&pagina=" + pagina);
+            catalogo.push(...(resposta.dados ?? resposta));
+            totalPaginas = resposta.totalPaginas ?? 1;
+            pagina += 1;
+        } while (pagina <= totalPaginas);
+        produtos = catalogo;
+        atualizarCategorias();
         sincronizarCarrinhoComProdutos();
         renderizarProdutos();
     } catch (erro) {
         setFeedback(erro.message, "error");
+    } finally {
+        carregandoProdutos = false;
+        reloadProducts.disabled = false;
+        productsGrid.removeAttribute("aria-busy");
     }
 }
+
+categoryFilter.addEventListener("change", () => {
+    setFeedback("");
+    renderizarProdutos();
+});
 
 reloadProducts.addEventListener("click", carregarProdutos);
 window.addEventListener("storage", () => {

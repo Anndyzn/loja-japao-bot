@@ -121,3 +121,8 @@ export const limitarAtivacaoCliente = criarLimitadorPorIp({
     registros: new Map(), janelaMs: JANELA_ESCRITA_PUBLICA_MS, maximo: env.PUBLIC_WRITE_MAX_REQUISICOES,
     mensagem: "Muitos envios de links de acesso neste periodo. Aguarde para tentar novamente."
 });
+
+export const limitarRecuperacaoCliente = criarLimitadorPorIp({
+    registros: new Map(), janelaMs: 15 * 60 * 1000, maximo: 5,
+    mensagem: "Muitos pedidos de recuperacao. Aguarde antes de tentar novamente."
+});

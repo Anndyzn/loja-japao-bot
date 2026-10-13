@@ -34,6 +34,7 @@ export function validarCamposConta(dados, modo) {
         if (!/^\d{10,11}$/.test(telefoneNacional(dados.telefone))) erros.telefone = "Informe o DDD e o telefone: 10 ou 11 números.";
     }
     if (modo !== "ativar" && (typeof dados.email !== "string" || dados.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.email.trim()))) erros.email = "Informe um e-mail válido, como nome@exemplo.com.";
+    if (modo === "recuperar") return erros;
     if (!dados.senha) erros.senha = modo === "entrar" ? "Informe sua senha." : "Crie uma senha de 10 a 128 caracteres.";
     else if (dados.senha.length > 128 || (modo !== "entrar" && dados.senha.length < 10)) erros.senha = "Use entre 10 e 128 caracteres.";
     if (modo !== "entrar") {

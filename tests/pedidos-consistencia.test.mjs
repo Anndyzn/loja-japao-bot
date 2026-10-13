@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { test, after } from 'node:test';
+import { test, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 const nome=process.env.CONSISTENCIA_DATABASE_NAME;
 if(!/^loja_japao_test_[a-f0-9]{32}$/.test(nome??'') || new URL(process.env.DATABASE_URL).pathname!=='/'+nome) {
@@ -208,7 +208,7 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
     const {pedidosRoutes}=await import('../src/routes/pedidos.routes.ts');
     const {solicitacoesRoutes}=await import('../src/routes/solicitacoes.routes.ts');
     const {gerarTokenAdmin}=await import('../src/utils/tokens.ts');
-    const {tratarErros}=await import('../src/middlewares/erros.middleware.ts');
+    const {tratarErros,tratarRotaNaoEncontrada}=await import('../src/middlewares/erros.middleware.ts');
     const {hashTokenCliente,entrarContaCliente,criarSessaoCliente}=await import('../src/services/conta-cliente.service.ts');
     const {limitarEscritaPublica}=await import('../src/middlewares/rate-limit.middleware.ts');
     const app=express();app.use(express.json());
@@ -217,7 +217,7 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
     app.set('trust proxy',true);
     app.use('/produtos',produtosRoutes);
     app.use('/dashboard',dashboardRoutes);app.use('/checkout',checkoutRoutes);app.use('/conta',contaClienteRoutes);app.use('/clientes',clientesRoutes);
-    app.use('/pedidos',pedidosRoutes);app.use('/solicitacoes',solicitacoesRoutes);app.use(tratarErros);
+    app.use('/pedidos',pedidosRoutes);app.use('/solicitacoes',solicitacoesRoutes);app.use(tratarRotaNaoEncontrada);app.use(tratarErros);
     const server=app.listen(0,'127.0.0.1');await once(server,'listening');
     const base='http://127.0.0.1:'+server.address().port;
     const tokenAdmin=gerarTokenAdmin({id:1,email:'admin-teste@example.com'});
@@ -242,6 +242,11 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
         const freteToken=assinarCotacaoFrete(freteTeste,[{produto:p,quantidade:1}],clienteEntrega.cep).token;
         return {cliente:clienteEntrega,itens:[{produtoId:p.id,quantidade:1}],freteToken};
     }
+    const {emailRecuperacao}=await import('../src/services/email-recuperacao.service.ts');
+    const {aguardarEnviosRecuperacao}=await import('../src/services/recuperacao-senha.service.ts');
+    let emailAtivo=false, falharEmail=false;const emails=[];
+    const disponibilidadeMock=mock.method(emailRecuperacao,'disponivel',()=>emailAtivo);
+    const envioMock=mock.method(emailRecuperacao,'enviar',async(email,token)=>{if(falharEmail)throw Error('Falha SMTP de teste');emails.push({email,token});});
     let cookie,clienteId,primeiroPedido;
     try {
 
@@ -270,7 +275,7 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
             assert.equal((await request('/produtos?categoria=comidas_doces')).body.total,1);
         });
         await t.test('rotas administrativas e checkout exigem a autenticacao correta',async()=>{
-            for(const rota of ['/clientes','/pedidos','/solicitacoes','/checkout','/clientes/'+cliente.id+'/acesso']) {
+            for(const rota of ['/clientes','/pedidos','/solicitacoes','/checkout']) {
                 assert.equal((await post(rota,{clienteId:cliente.id})).status,401);
             }
             assert.equal((await request('/conta/me')).status,401);
@@ -301,7 +306,7 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
                 const r=await post('/conta/registrar',{nome:'Teste',cpf:'111',telefone:'11',email:'invalido',senha:'curta'},undefined,{headers});
                 assert.equal(r.status,400);assert.deepEqual(Object.keys(r.body.campos).sort(),['cpf','email','nome','senha','telefone']);
                 assert.equal(r.headers.get('ratelimit-remaining'),null);
-                const a=await post('/conta/ativar',{token:'a'.repeat(64),senha:'curta'},undefined,{headers});
+                const a=await post('/conta/redefinir-senha',{token:'a'.repeat(64),senha:'curta'},undefined,{headers});
                 assert.equal(a.status,400);assert.ok(a.body.campos.senha);
             }
             assert.equal(await prisma.cliente.count(),antes);
@@ -500,35 +505,69 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
             for(let i=0;i<env.ADMIN_LOGIN_MAX_TENTATIVAS;i++)assert.equal((await post('/conta/entrar',{email:'bloqueio@example.com',senha:'incorreta'},undefined,{headers})).status,401);
             const r=await post('/conta/entrar',{email:'bloqueio@example.com',senha:'incorreta'},undefined,{headers});assert.equal(r.status,429);assert.ok(Number(r.headers.get('retry-after'))>0);
         });
-        await t.test('cliente antigo recebe conta no mesmo cadastro so por link do admin',async()=>{
-            const antigo=await prisma.cliente.create({data:{nome:'Antigo',cpf:cpfTeste(6),telefone:'11966667777',email:'antigo@example.com',endereco:'Rua antiga'}}),antes=await prisma.cliente.count();
-            assert.equal((await post('/conta/registrar',{...cadastro,cpf:antigo.cpf,email:antigo.email,telefone:antigo.telefone})).status,409);
-            const convite=await post('/clientes/'+antigo.id+'/acesso',{},undefined,{admin:true});assert.equal(convite.status,200);
-            const token=convite.body.caminho.split('=')[1];const ativada=await post('/conta/ativar',{token,senha:cadastro.senha});assert.equal(ativada.status,200);
-            assert.equal((await request('/conta/me',{cookie:ativada.cookie})).body.cliente.id,antigo.id);assert.equal(await prisma.cliente.count(),antes);
-            assert.equal((await post('/conta/ativar',{token,senha:cadastro.senha})).status,400);
+        await t.test('recuperacao sem remetente configurado fica indisponivel sem prometer envio',async()=>{
+            assert.deepEqual((await request('/conta/recuperacao-disponivel')).body,{disponivel:false});
+            assert.equal((await post('/conta/recuperar-senha',{email:cadastro.email})).status,503);
+            assert.equal(emails.length,0);emailAtivo=true;
+            assert.deepEqual((await request('/conta/recuperacao-disponivel')).body,{disponivel:true});
         });
-        await t.test('novo link invalida anterior e link vencido nao pode ser usado',async()=>{
-            const convite=()=>post('/clientes/'+clienteId+'/acesso',{},undefined,{admin:true});
-            const a=await convite(),b=await convite();
-            assert.equal((await post('/conta/ativar',{token:a.body.caminho.split('=')[1],senha:cadastro.senha})).status,400);
-            await prisma.contaCliente.update({where:{clienteId},data:{conviteExpiraEm:new Date(0)}});
-            assert.equal((await post('/conta/ativar',{token:b.body.caminho.split('=')[1],senha:cadastro.senha})).status,400);
+        await t.test('liberacao manual foi removida e recuperacao nao ativa cadastro sem senha',async()=>{
+            const antigo=await prisma.cliente.create({data:{nome:'Antigo',cpf:cpfTeste(6),telefone:'11966667777',email:'antigo@example.com',endereco:'Rua antiga'}}),antes=await prisma.cliente.count();
+            assert.equal((await post('/conta/registrar',{...cadastro,cpf:antigo.cpf,email:antigo.email})).status,409);
+            assert.equal((await post('/clientes/'+antigo.id+'/acesso',{},undefined,{admin:true})).status,404);
+            assert.equal((await post('/conta/ativar',{token:'a'.repeat(64),senha:cadastro.senha})).status,404);
+            await prisma.contaCliente.create({data:{clienteId:antigo.id,email:antigo.email,conviteHash:hashTokenCliente('a'.repeat(64)),conviteExpiraEm:new Date(Date.now()+60000)}});
+            assert.equal((await post('/conta/redefinir-senha',{token:'a'.repeat(64),senha:cadastro.senha})).status,400);
+            const a=await post('/conta/recuperar-senha',{email:antigo.email});
+            const b=await post('/conta/recuperar-senha',{email:'desconhecido@example.com'});
+            assert.equal(a.status,202);assert.deepEqual(a.body,b.body);await aguardarEnviosRecuperacao();
+            assert.equal(emails.length,0);assert.equal(await prisma.cliente.count(),antes);
+        });
+        await t.test('recuperacao envia apenas ao email de login, sem token na resposta e sem encerrar sessao',async()=>{
+            const r=await post('/conta/recuperar-senha',{email:' CONTA@EXAMPLE.COM ',destinatario:'outro@example.com',url:'https://externo.example'});
+            assert.equal(r.status,202);assert.equal(r.headers.get('cache-control'),'no-store');assert.equal(r.cookie,undefined);
+            await aguardarEnviosRecuperacao();assert.equal(emails.length,1);assert.equal(emails[0].email,cadastro.email);assert.match(emails[0].token,/^[a-f0-9]{64}$/);
+            assert.ok(!JSON.stringify(r.body).includes(emails[0].token));
+            const conta=await prisma.contaCliente.findUniqueOrThrow({where:{clienteId}});
+            assert.equal(conta.conviteHash,hashTokenCliente(emails[0].token));assert.notEqual(conta.conviteHash,emails[0].token);
+            assert.ok(conta.conviteExpiraEm.getTime()>Date.now());assert.ok(conta.conviteExpiraEm.getTime()<=Date.now()+30*60000);
+            assert.equal((await request('/conta/me',{cookie})).status,200);
+            const repetido=await post('/conta/recuperar-senha',{email:cadastro.email});await aguardarEnviosRecuperacao();
+            assert.deepEqual(repetido.body,r.body);assert.equal(emails.length,1);
+        });
+        await t.test('novo link invalida anterior, link vencido falha e erro de envio limpa somente seu token',async()=>{
+            const clock=mock.method(Date,'now',()=>Date.parse('2030-01-01T00:00:00Z'));
+            try{
+                const anterior=emails[0].token;
+                await post('/conta/recuperar-senha',{email:cadastro.email});await aguardarEnviosRecuperacao();assert.equal(emails.length,2);
+                assert.equal((await post('/conta/redefinir-senha',{token:anterior,senha:cadastro.senha})).status,400);
+                await prisma.contaCliente.update({where:{clienteId},data:{conviteExpiraEm:new Date(0)}});
+                assert.equal((await post('/conta/redefinir-senha',{token:emails[1].token,senha:cadastro.senha})).status,400);
+                clock.mock.mockImplementation(()=>Date.parse('2030-01-01T00:02:00Z'));falharEmail=true;
+                const r=await post('/conta/recuperar-senha',{email:cadastro.email});assert.equal(r.status,202);await aguardarEnviosRecuperacao();
+                assert.equal((await prisma.contaCliente.findUniqueOrThrow({where:{clienteId}})).conviteHash,null);
+            }finally{clock.mock.restore();falharEmail=false;}
+        });
+        await t.test('reset tem uso unico, revoga sessoes e exige login com a nova senha',async()=>{
+            const credencialAntiga=await entrarContaCliente(cadastro.email,cadastro.senha);
+            const clock=mock.method(Date,'now',()=>Date.parse('2030-01-01T02:00:00Z'));
+            try {await post('/conta/recuperar-senha',{email:cadastro.email});await aguardarEnviosRecuperacao();}finally{clock.mock.restore();}
+            const token=emails.at(-1).token;
+            const resultados=await Promise.all([1,2].map(()=>post('/conta/redefinir-senha',{token,senha:'Nova-senha-teste-123'})));
+            assert.deepEqual(resultados.map(r=>r.status).sort(),[200,400]);
+            assert.equal((await request('/conta/me',{cookie})).status,401);await assert.rejects(criarSessaoCliente(credencialAntiga),/senha atual/);
+            assert.equal((await post('/conta/entrar',cadastro)).status,401);
+            const entrada=await post('/conta/entrar',{email:cadastro.email,senha:'Nova-senha-teste-123'});assert.equal(entrada.status,200);cookie=entrada.cookie;
             assert.equal((await request('/conta/me',{cookie})).status,200);
         });
-        await t.test('reset troca senha, revoga sessoes e impede login concorrente com senha antiga',async()=>{
-            const credencialAntiga=await entrarContaCliente(cadastro.email,cadastro.senha);
-            const convite=await post('/clientes/'+clienteId+'/acesso',{},undefined,{admin:true});
-            const ativada=await post('/conta/ativar',{token:convite.body.caminho.split('=')[1],senha:'Nova-senha-teste-123'});assert.equal(ativada.status,200);
-            assert.equal((await request('/conta/me',{cookie})).status,401);
-            await assert.rejects(criarSessaoCliente(credencialAntiga),/senha atual/);
-            assert.equal((await post('/conta/entrar',cadastro)).status,401);
-            cookie=ativada.cookie;assert.equal((await request('/conta/me',{cookie})).status,200);
-        });
-        await t.test('email de outra conta nao vincula cliente antigo e senha curta e rejeitada',async()=>{
-            const duplicado=await prisma.cliente.create({data:{nome:'Outro cadastro',telefone:'11977778888',email:cadastro.email,endereco:'Rua'}});
-            assert.equal((await post('/clientes/'+duplicado.id+'/acesso',{},undefined,{admin:true})).status,409);
-            assert.equal((await post('/conta/registrar',{...cadastro,email:'curta@example.com',telefone:'11988889999',senha:'123'})).status,400);
+        await t.test('recuperacao valida antes de limitar, bloqueia abuso por IP e rejeita origem externa',async()=>{
+            const headers={'X-Forwarded-For':'198.51.100.220'};
+            for(let i=0;i<8;i++)assert.equal((await post('/conta/recuperar-senha',{email:'invalido'},undefined,{headers})).status,400);
+            for(let i=0;i<5;i++)assert.equal((await post('/conta/recuperar-senha',{email:'limite'+i+'@example.com'},undefined,{headers})).status,202);
+            const r=await post('/conta/recuperar-senha',{email:'limite@example.com'},undefined,{headers});assert.equal(r.status,429);assert.ok(Number(r.headers.get('retry-after'))>0);
+            assert.equal((await post('/conta/recuperar-senha',{email:cadastro.email},undefined,{headers:{Origin:'https://externo.example'}})).status,403);
+            assert.equal((await post('/conta/registrar',{...cadastro,email:'curta@example.com',senha:'123'})).status,400);
+            await aguardarEnviosRecuperacao();
         });
         await t.test('admin completa CPF antigo sem reescrever pedidos anteriores',async()=>{
             const legado=await fixture();
@@ -595,7 +634,8 @@ test('contas de clientes e checkout autenticado via HTTP', async t => {
             assert.equal(await prisma.cliente.count(),antes);
             const listagem=await request('/solicitacoes/'+salva.id,{admin:true});assert.equal(listagem.status,200);assert.equal(listagem.body.clienteId,clienteId);
         });
-    } finally { await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())); }
+    } finally {
+        await aguardarEnviosRecuperacao();disponibilidadeMock.mock.restore();envioMock.mock.restore(); await new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())); }
 });
 
 test('cotacao explica recusa por medidas ou trecho sem expor retorno bruto do provedor',async()=>{

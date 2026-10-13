@@ -1,3 +1,4 @@
+import { aguardarEnviosRecuperacao } from "./services/recuperacao-senha.service.js";
 import { contaClienteRoutes } from "./routes/conta-cliente.routes.js";
 import { checkoutRoutes } from "./routes/checkout.routes.js";
 import express from "express";
@@ -124,6 +125,7 @@ function encerrarComSeguranca(sinal: NodeJS.Signals) {
                 process.exitCode = 1;
             }
 
+            await aguardarEnviosRecuperacao();
             await desconectarBanco();
             process.exit(process.exitCode ?? 0);
         })();

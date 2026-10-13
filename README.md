@@ -874,32 +874,32 @@ O CPF e unico no banco; se ja estiver cadastrado, orienta entrar ou falar com o
 atendimento. O e-mail e exclusivo entre contas de login. Telefone pode ser
 compartilhado. E-mail/telefone de contatos antigos sem conta nao bloqueiam o novo
 cadastro, mas tambem nao vinculam ou liberam os pedidos anteriores.
-Nao ha verificacao automatica de e-mail nem envio de mensagens nesta versao.
+O cadastro ainda nao verifica o e-mail: o cliente deve informar um endereco que controla.
 
-**Cliente que ja esta no banco ou esqueceu a senha:**
-1. O admin confere a identidade do cliente pelo atendimento e escolhe o cadastro correto.
-2. Em Clientes, preenche um e-mail valido se faltar e clica em Liberar acesso.
-3. Confirma que verificou o cliente, gera e copia o link para enviar manualmente.
-4. O cliente abre o link, define a senha e passa a usar o mesmo cadastro.
-O link e valido por uma hora e so pode ser usado uma vez. Gerar outro invalida o
-anterior. Usar o link troca a senha e encerra todas as sessoes anteriores.
-Nunca envie esse link a alguem apenas porque informou o telefone do cadastro.
+**Esqueceu a senha:**
+1. O cliente clica em Esqueci minha senha e informa o e-mail de login.
+2. A loja envia automaticamente um link por e-mail, quando SMTP estiver configurado.
+3. O link vale por 30 minutos, funciona uma vez e permite escolher outra senha.
+4. A troca encerra as sessoes antigas; o cliente entra com a nova senha.
+O pedido de recuperacao nunca altera a senha sozinho. A resposta e igual para
+enderecos existentes e desconhecidos. CPF/telefone nao autorizam troca de senha.
+O admin nao gera links nem aprova contas. As rotas antigas de ativacao e liberacao
+manual foram removidas. Clientes de teste sem senha nao sao ativados nem excluidos.
 
 Registros duplicados antigos e seus pedidos sao preservados: nao ha mesclagem
-nem exclusao automatica. Uma conta acessa somente pedidos vinculados ao seu
-clienteId. Escolha o cadastro correto antes de liberar acesso. Se o e-mail ja
-estiver associado a outra conta, o admin recebe um aviso, sem vinculo automatico.
+nem exclusao automatica. Uma conta acessa somente os pedidos do seu clienteId.
 Editar o e-mail de contato do cliente no admin nao altera o e-mail de login de
 uma conta ja criada. Nesta versao nao ha tela para alterar o e-mail de login.
 
 Rotas de conta:
 - POST /conta/registrar: nome (nome completo), cpf, telefone, email, senha.
 - POST /conta/entrar: email, senha.
-- POST /conta/ativar: token do link, senha.
+- GET /conta/recuperacao-disponivel: indica apenas se o envio esta configurado.
+- POST /conta/recuperar-senha: email; resposta 202 sem revelar a conta ou o token.
+- POST /conta/redefinir-senha: token, senha; nao faz login automatico.
 - POST /conta/sair: encerra a sessao atual.
 - GET /conta/me: dados apenas da conta conectada.
 - GET /conta/pedidos?pagina=1: pedidos da conta, 20 por pagina.
-- POST /clientes/:id/acesso: gera link, exige token de admin.
 
 POST /checkout exige sessao de cliente e recebe cliente (campos de entrega),
 itens, observacao opcional e freteToken da cotacao. Nao aceita clienteId,
@@ -923,8 +923,8 @@ A migration 20261010210000_conta_cliente adiciona ContaCliente e SessaoCliente,
 sem alterar clientes, pedidos, estoque ou credenciais do admin.
 
 Teste manual:
-1. Libere acesso para um cliente existente e abra o link em uma janela privativa.
-2. Defina a senha; confira que Meus pedidos mostra somente os pedidos desse cadastro.
+1. Crie uma conta pela loja, com CPF e e-mail de teste validos.
+2. Entre e confira que Meus pedidos mostra somente os pedidos dessa conta.
 3. Compre duas vezes, mudando o endereco na segunda compra.
 4. No admin, confira que ambas usam o mesmo cliente e que o primeiro pedido manteve o endereco.
 5. Saia e entre novamente; confira que os pedidos continuam disponiveis.
@@ -1453,7 +1453,7 @@ feito antes da edicao manteve o documento original.
 A migration 20261011020000_cpf_unico_cliente impede CPFs repetidos inclusive em
 requisicoes simultaneas. Clientes antigos sem CPF continuam permitidos; nenhum
 registro e apagado ou mesclado. Para reutilizar um cadastro antigo, o admin deve
-conferir a pessoa, completar o CPF correto e liberar acesso nesse registro.
+conferir o cadastro. Cadastros antigos de teste nao sao ativados pelo admin; nao altere o CPF de outra pessoa para contornar o conflito.
 
 O checkout preenche o CPF da conta e nao permite troca. A primeira compra de uma
 conta antiga sem CPF pode completa-lo se nao pertencer a outro cadastro. Correcoes
@@ -1573,8 +1573,50 @@ atrasadas. Teste: node --test tests/conta-solicitacoes.test.mjs e npm run test:c
 ### Categorias dos produtos e organização do admin
 
 - Produtos possuem uma categoria opcional: Action figures, Eletrônicos, Comidas e doces, Maquiagens e beleza, Casa e papelaria, Moda e acessórios ou Outros.
+- A loja pública oferece filtro de categorias dos produtos publicados, contagem de resultados e categoria em cada card. “Todas as categorias” inclui produtos sem classificação. A troca do filtro preserva o carrinho; o catálogo carrega todas as páginas antes de sincronizá-lo.
 - O admin escolhe a categoria no cadastro e na edição, visualiza-a abaixo do nome do produto e pode filtrar a lista. Produtos antigos continuam como Sem categoria; nenhuma classificação é inferida pelo nome.
 - `GET /produtos/categorias` fornece as opções. `POST /produtos` e `PATCH /produtos/:id` aceitam `categoria`; `null` remove a classificação e campo ausente preserva a categoria ao editar. Valores desconhecidos são rejeitados.
 - `GET /produtos?categoria=comidas_doces` filtra antes da paginação; use `sem_categoria` para produtos ainda não classificados.
 - Clientes usa colunas próprias para nome, telefone, endereço e ações. Pedidos mostra os avisos de Pix empilhados e botões com espaço; tabelas mantêm rolagem horizontal quando necessário.
 - Ao atualizar outra máquina, rode `npm run db:generate` e `npm run db:deploy`. Teste criar um produto com categoria, editar, filtrar e remover a classificação; confira Clientes e Pedidos na largura usada para atendimento.
+
+### Recuperacao de senha por e-mail
+
+Ainda e necessario configurar um remetente real para o envio funcionar. Sem isso,
+Esqueci minha senha informa indisponibilidade e nao promete mandar mensagens.
+Nenhum e-mail ou senha real deve ser colocado no Git ou enviado pelo chat.
+
+Preencha no .env local, quando tiver o servico de e-mail:
+- APP_URL_PUBLICA: origem da loja; por exemplo, https://sua-loja.example. Em testes no mesmo PC, http://localhost:3000.
+- SMTP_HOST e SMTP_PORT: servidor do provedor; porta 465 (TLS) ou 587 (STARTTLS obrigatorio).
+- SMTP_USER e SMTP_PASSWORD: credenciais SMTP fornecidas pelo provedor (pode exigir senha de aplicativo).
+- SMTP_REMETENTE: endereco de e-mail autorizado pelo provedor para enviar.
+
+Todos os campos ficam vazios ate a configuracao, exceto a porta padrao 587.
+Configuracao parcial impede iniciar a API com valores incompletos. Reinicie a API
+apos configurar. A URL nao vem do navegador nem do header Host, e HTTPS e obrigatorio
+em producao. Localhost em um link aberto no celular aponta para o proprio celular;
+para esse teste use uma origem acessivel ao dispositivo.
+
+O Nodemailer envia por SMTP com TLS. A biblioteca nao cobra pelo envio; limites e
+custos dependem do provedor escolhido. Tokens aleatorios ficam no banco somente
+como hash, reaproveitando as colunas conviteHash/conviteExpiraEm. O envio usa somente
+o e-mail da conta de login, sem aceitar outro destinatario no pedido.
+
+Limites locais: 5 pedidos por IP em 15 minutos; no maximo 3 envios por e-mail por hora,
+com intervalo minimo de 1 minuto. Pedidos repetidos por e-mail recebem a mesma resposta
+generica. Os limites sao em memoria, adequados a uma instancia da API; reiniciar os
+zera. Ate 10 envios simultaneos, sem fila persistente: se o processo cair, o cliente
+pode solicitar outro link depois. Falhas de SMTP geram aviso sem dados pessoais no
+log e invalidam somente o token daquela tentativa. Nenhum link e mostrado no admin,
+na resposta HTTP ou nos logs.
+
+Conferencia antes de usar com clientes:
+1. Sem SMTP, confira que a tela explica a indisponibilidade.
+2. Depois de configurar, use uma conta de teste com e-mail que voce controla.
+3. Solicite o link, confira a chegada e redefina a senha; entre novamente.
+4. Confira que a senha antiga e o mesmo link nao funcionam mais.
+5. Teste outro e-mail sem conta: a tela deve mostrar a mesma resposta generica.
+
+Testes automatizados usam remetente simulado e banco temporario; nao enviam e-mails reais.
+Referencias: [SMTP do Nodemailer](https://nodemailer.com/smtp) e [recuperacao de senha da OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html).

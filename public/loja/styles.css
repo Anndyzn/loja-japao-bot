@@ -1201,3 +1201,14 @@ body:has(.cart-drawer.open) { overflow: hidden; }
 @media (max-width: 640px) {
     #conta-acesso > .step-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: .85rem; }
 }
+
+.catalog-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px 20px; }
+.catalog-filters label { display: grid; gap: 6px; width: min(100%, 320px); font-weight: 700; }
+.catalog-filters select { width: 100%; min-height: 46px; }
+.catalog-filters p { margin: 0 0 12px; color: var(--muted); }
+.product-category { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+    .catalog-filters { gap: 8px; }
+    .catalog-filters label { width: 100%; }
+    .catalog-filters p { margin: 0; }
+}

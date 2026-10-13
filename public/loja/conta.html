@@ -37,14 +37,25 @@
                 <p class="conta-ajuda conta-linha-inteira">Você pode adicionar seu endereço em Minha conta ou ao finalizar a compra.</p>
                 <button type="submit">Criar conta</button>
             </form>
-            <p class="store-support">Ja comprou antes ou esqueceu a senha? Fale com o atendimento para receber um link de acesso ao seu cadastro.</p>
+            <button id="esqueci-senha" type="button" class="ghost-button">Esqueci minha senha</button>
+        </section>
+        <section id="conta-recuperacao" class="hidden">
+            <h2>Recuperar senha</h2>
+            <p>Informe o e-mail usado na sua conta. Enviaremos um link para você escolher uma nova senha.</p>
+            <form id="conta-recuperar" class="form-grid conta-form">
+                <label>E-mail da conta<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+                <button type="submit" disabled>Enviar link por e-mail</button>
+            </form>
+            <p id="recuperacao-feedback" class="conta-aviso" role="status">Verificando disponibilidade...</p>
+            <button id="recuperacao-voltar" class="ghost-button" type="button">Voltar para entrar</button>
         </section>
         <form id="conta-ativar" class="form-grid conta-form hidden">
-            <p>Defina sua senha para acessar o cadastro liberado pela loja. Se ja tinha uma senha, ela sera substituida.</p>
+            <p>Escolha sua nova senha. Depois de salvar, entre novamente na sua conta.</p>
             <label>Nova senha<input name="senha" type="password" autocomplete="new-password" minlength="10" maxlength="128" aria-describedby="ativar-senha-ajuda" required><small id="ativar-senha-ajuda" class="conta-ajuda">Use entre 10 e 128 caracteres.</small></label>
             <label>Repita a senha<input name="confirmacao" type="password" autocomplete="new-password" minlength="10" maxlength="128" required></label>
-            <button type="submit">Salvar senha e entrar</button>
+            <button type="submit">Salvar nova senha</button>
         </form>
+        <button id="redefinicao-voltar" class="ghost-button hidden" type="button">Voltar para entrar ou pedir outro link</button>
         <section id="conta-logada" class="hidden">
             <p id="conta-nome"></p>
             <div class="step-actions"><a class="hero-button" href="/loja/carrinho">Continuar compra</a><button id="conta-sair" type="button" class="ghost-button">Sair da conta</button></div>

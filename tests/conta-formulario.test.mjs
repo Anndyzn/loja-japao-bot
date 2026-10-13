@@ -35,3 +35,8 @@ test('API preserva erros por campo e tempo para nova tentativa', async () => {
         await assert.rejects(contaApi('/conta/registrar', {}), e => e.status === 429 && e.tentarEmSegundos === 120);
     } finally { globalThis.fetch = original; }
 });
+
+test('recuperacao pede apenas email valido, sem CPF ou senha',()=>{
+    assert.deepEqual(validarCamposConta({email:'cliente@example.com'},'recuperar'),{});
+    assert.ok(validarCamposConta({email:'invalido'},'recuperar').email);
+});

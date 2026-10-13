@@ -1,9 +1,11 @@
+import { emailRecuperacao } from "../services/email-recuperacao.service.js";
+import { solicitarRecuperacao, MENSAGEM_RECUPERACAO } from "../services/recuperacao-senha.service.js";
 import { salvarEnderecoDaConta } from "../services/endereco-conta.service.js";
 import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma.js";
 import { env } from "../config/env.js";
 import { COOKIE_CLIENTE, tokenCookieCliente } from "../middlewares/cliente.middleware.js";
-import { ErroConta, registrarContaCliente, entrarContaCliente, criarSessaoCliente, gerarConviteCliente, ativarContaCliente, hashTokenCliente } from "../services/conta-cliente.service.js";
+import { ErroConta, registrarContaCliente, entrarContaCliente, criarSessaoCliente, redefinirSenhaCliente, hashTokenCliente } from "../services/conta-cliente.service.js";
 import { verificarBloqueioLogin, registrarFalhaLogin, limparFalhasLogin } from "../services/login-rate-limit.service.js";
 
 export function tratarErroConta(erro: unknown, _req: Request, res: Response, next: NextFunction) {
@@ -30,7 +32,16 @@ export async function entrar(req: Request, res: Response) {
         return responderSessao(res, id);
     } catch (erro) { if (erro instanceof ErroConta) registrarFalhaLogin(chave); throw erro; }
 }
-export async function ativar(req: Request, res: Response) { return responderSessao(res, await ativarContaCliente(req.body?.token, req.body?.senha)); }
+export function disponibilidadeRecuperacao(_req: Request, res: Response) { return res.json({ disponivel: emailRecuperacao.disponivel() }); }
+export function recuperarSenha(req: Request, res: Response) {
+    solicitarRecuperacao(req.body?.email);
+    return res.status(202).json({ mensagem: MENSAGEM_RECUPERACAO });
+}
+export async function redefinirSenha(req: Request, res: Response) {
+    await redefinirSenhaCliente(req.body?.token, req.body?.senha);
+    res.clearCookie(COOKIE_CLIENTE, cookieOpcoes);
+    return res.json({ mensagem: "Senha alterada. Entre com sua nova senha." });
+}
 export async function sair(req: Request, res: Response) {
     const token = tokenCookieCliente(req);
     if (token) await prisma.sessaoCliente.deleteMany({ where: { tokenHash: hashTokenCliente(token) } });
@@ -52,13 +63,6 @@ export async function meusPedidos(req: Request, res: Response) {
     ]);
     return res.json({ dados, pagina, totalPaginas: Math.ceil(total / 20) });
 }
-export async function conviteAdmin(req: Request, res: Response) {
-    const id = Number(req.params.id);
-    if (!Number.isSafeInteger(id) || id <= 0) throw new ErroConta("Cliente invalido");
-    res.setHeader("Cache-Control", "no-store");
-    return res.json(await gerarConviteCliente(id));
-}
-
 export async function salvarEndereco(req: Request, res: Response) {
     const cliente = await salvarEnderecoDaConta(res.locals.clienteId as number, req.body);
     return res.json({ mensagem: "Endereço principal salvo.", cliente });
