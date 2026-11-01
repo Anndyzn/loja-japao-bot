@@ -22,6 +22,7 @@ enum MetodoPagamento {
 
 enum StatusPagamento {
   aprovado
+  em_revisao
 }
 
 enum StatusSolicitacao {
@@ -79,6 +80,7 @@ model Cliente {
 }
 
 model Pedido {
+  cobrancaMercadoPago CobrancaMercadoPago?
   checkoutChave String? @db.VarChar(36)
   checkoutHash String? @db.VarChar(64)
   @@unique([clienteId, checkoutChave])
@@ -143,6 +145,7 @@ model ItemPedido {
 }
 
 model Pagamento {
+  mercadoPagoId String? @unique
   id        Int             @id @default(autoincrement())
   pedidoId  Int
   pedido    Pedido          @relation(fields: [pedidoId], references: [id])
@@ -200,4 +203,19 @@ model SessaoCliente {
   expiraEm DateTime
   @@index([clienteId])
   @@index([expiraEm])
+}
+
+model CobrancaMercadoPago {
+  pedidoId Int @id
+  pedido Pedido @relation(fields: [pedidoId], references: [id], onDelete: Restrict)
+  chave String @unique
+  orderId String? @unique
+  vendedorId String?
+  checkoutUrl String?
+  total Decimal @db.Decimal(10,2)
+  requisicao Json
+  status String @default("created")
+  revisao Boolean @default(false)
+  atualizadaRemotoEm DateTime?
+  criadoEm DateTime @default(now())
 }

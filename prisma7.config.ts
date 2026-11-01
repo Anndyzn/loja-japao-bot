@@ -1,5 +1,10 @@
 if (typeof process.loadEnvFile === "function") {
-  process.loadEnvFile(".env");
+  try {
+    process.loadEnvFile(".env");
+  } catch (erro) {
+    // Na hospedagem, as variaveis podem vir do ambiente, sem arquivo .env.
+    if (!(erro instanceof Error) || !("code" in erro) || erro.code !== "ENOENT") throw erro;
+  }
 }
 
 export default {

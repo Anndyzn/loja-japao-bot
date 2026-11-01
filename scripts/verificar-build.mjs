@@ -19,7 +19,8 @@ const arquivosObrigatorios = [
     "public/loja/conta-endereco.js",
     "public/loja/conta-solicitacoes.js",
     "public/loja/navegacao.js",
-    "public/loja/checkout-tentativa.js"
+    "public/loja/checkout-tentativa.js",
+    "public/loja/pagamento.js"
 ];
 
 const erros = [];

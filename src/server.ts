@@ -1,3 +1,4 @@
+import { mercadoPagoRoutes } from "./routes/mercado-pago.routes.js";
 import { aguardarEnviosRecuperacao } from "./services/recuperacao-senha.service.js";
 import { contaClienteRoutes } from "./routes/conta-cliente.routes.js";
 import { checkoutRoutes } from "./routes/checkout.routes.js";
@@ -81,6 +82,7 @@ app.use("/pedidos", pedidosRoutes);
 app.use("/solicitacoes", solicitacoesRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/pagamentos", pagamentosRoutes);
+app.use("/mercado-pago", mercadoPagoRoutes);
 app.use("/fretes", fretesRoutes);
 app.use("/health", healthRoutes);
 app.use("/info", infoRoutes);

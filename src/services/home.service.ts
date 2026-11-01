@@ -17,6 +17,7 @@ export function obterHomeApi() {
 
 export function obterConfiguracaoPublica() {
     return {
+        pagamento: { mercadoPagoTeste: !!env.MERCADO_PAGO },
         app: {
             nome: env.APP_NOME
         },

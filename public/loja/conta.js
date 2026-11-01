@@ -30,12 +30,26 @@ async function listarPedidos() {
     totalPaginas = resposta.totalPaginas;
     if (!resposta.dados.length) lista.textContent = "Voce ainda nao tem pedidos nesta conta.";
     for (const pedido of resposta.dados) {
-        const card = document.createElement("article");card.className = "tracking-card";
-        const texto = document.createElement("p");
-        texto.textContent = "Pedido #" + pedido.id + " - " + ({pendente:"Aguardando Pix",pago:"Em preparacao",enviado:"Enviado",cancelado:"Cancelado"}[pedido.status] || pedido.status) + " - " + Number(pedido.total).toLocaleString("pt-BR", {style:"currency",currency:"BRL"});
-        const link = document.createElement("a");link.className = "ghost-link";link.href = "/loja/acompanhamento?pedido=" + pedido.id;link.textContent = "Ver pedido";
-        card.append(texto, link);lista.append(card);
+        const card = document.createElement("article"); card.className = "tracking-card account-order";
+        const cabecalho = document.createElement("div"); cabecalho.className = "account-order-heading";
+        const titulo = document.createElement("h3"); titulo.textContent = "Pedido #" + pedido.id;
+        const status = document.createElement("span"); status.className = "order-status";
+        const estados = {pendente:"Aguardando pagamento", pago:"Em preparação", enviado:"Enviado", cancelado:"Cancelado"};
+        status.dataset.status = Object.hasOwn(estados, pedido.status) ? pedido.status : "outro";
+        status.textContent = estados[pedido.status] || "Em acompanhamento";
+        cabecalho.append(titulo, status);
+        const rodape = document.createElement("div"); rodape.className = "account-order-footer";
+        const valor = document.createElement("div");
+        const rotulo = document.createElement("span"); rotulo.textContent = "Total do pedido";
+        const total = document.createElement("strong"); total.textContent = Number(pedido.total).toLocaleString("pt-BR", {style:"currency",currency:"BRL"});
+        valor.append(rotulo, total);
+        const link = document.createElement("a"); link.className = pedido.status === "pendente" ? "hero-button" : "ghost-link";
+        link.href = "/loja/acompanhamento?pedido=" + pedido.id;
+        link.textContent = pedido.status === "pendente" ? "Ver pagamento e pedido" : "Ver pedido";
+        link.setAttribute("aria-label", link.textContent + " #" + pedido.id);
+        rodape.append(valor, link); card.append(cabecalho, rodape); lista.append(card);
     }
+    el("pedidos-paginacao").hidden = totalPaginas <= 1;
     el("pedidos-pagina").textContent = "Pagina " + pagina + " de " + Math.max(1,totalPaginas);
     el("pedidos-anterior").disabled = pagina <= 1; el("pedidos-proximo").disabled = pagina >= totalPaginas;
 }
@@ -47,7 +61,7 @@ async function carregar() {
     if (recuperacao) return;
     mostrar("conta-acesso",!conta);mostrar("conta-logada",!!conta);mostrar("conta-ativar",false);
     if (conta && destinoAposLogin() !== "/loja") { location.replace(destinoAposLogin());return; }
-    if (conta) {enderecoConta.carregar(conta.cliente);el("conta-nome").textContent = "Ola, " + conta.cliente.nome + "! Conta: " + conta.emailLogin;await Promise.all([listarPedidos(), solicitacoesConta.iniciar()]);
+    if (conta) {enderecoConta.carregar(conta.cliente);el("conta-nome").textContent = "Olá, " + conta.cliente.nome + "!";el("conta-email").textContent = conta.emailLogin;el("conta-avatar").textContent = conta.cliente.nome.trim().split(/\s+/).slice(0,2).map(parte=>parte[0]).join("").toLocaleUpperCase("pt-BR");await Promise.all([listarPedidos(), solicitacoesConta.iniciar()]);
         const ancora = location.hash.slice(1);
         if (["minhas-solicitacoes", "meus-pedidos", "meu-endereco"].includes(ancora)) el(ancora).scrollIntoView({ block: "start" });
     }

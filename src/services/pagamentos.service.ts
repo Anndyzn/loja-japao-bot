@@ -107,6 +107,10 @@ export async function criarPagamento(
             };
         }
 
+        if (await tx.cobrancaMercadoPago.findUnique({ where: { pedidoId } })) {
+            return { mensagemErro: "Este pedido usa Mercado Pago. Consulte o pagamento pelo acompanhamento; nao confirme como Pix manual." };
+        }
+
         const pagamentoExistente = await tx.pagamento.findFirst({
             where: { pedidoId, status: "aprovado" }
         });

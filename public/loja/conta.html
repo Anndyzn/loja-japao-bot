@@ -6,7 +6,7 @@
     <title>Minha conta | HK Nippon store</title>
     <link rel="stylesheet" href="/loja/styles.css">
 </head>
-<body>
+<body class="account-page">
 <main class="tracking-page">
     <header class="store-topbar checkout-topbar">
         <a class="brand-link" href="/loja"><span data-app-name>HK Nippon store</span></a>
@@ -57,11 +57,19 @@
         </form>
         <button id="redefinicao-voltar" class="ghost-button hidden" type="button">Voltar para entrar ou pedir outro link</button>
         <section id="conta-logada" class="hidden">
-            <p id="conta-nome"></p>
-            <div class="step-actions"><a class="hero-button" href="/loja/carrinho">Continuar compra</a><button id="conta-sair" type="button" class="ghost-button">Sair da conta</button></div>
-            <nav class="conta-atalhos" aria-label="Áreas da minha conta"><a href="#meu-endereco">Meu endereço</a><a href="#meus-pedidos">Meus pedidos</a><a href="#minhas-solicitacoes">Minhas solicitações</a></nav>
+            <div class="account-welcome">
+                <span id="conta-avatar" class="account-avatar" aria-hidden="true"></span>
+                <div class="account-identity"><p id="conta-nome"></p><p id="conta-email"></p></div>
+                <button id="conta-sair" type="button" class="ghost-button">Sair da conta</button>
+            </div>
+            <nav class="conta-atalhos" aria-label="Áreas da minha conta"><a href="#meus-pedidos"><strong>Meus pedidos</strong><span>Pagamento e entrega</span></a><a href="#meu-endereco"><strong>Meu endereço</strong><span>Seu destino principal</span></a><a href="#minhas-solicitacoes"><strong>Solicitações</strong><span>Produtos sob consulta</span></a></nav>
+            <section id="meus-pedidos" class="conta-secao">
+            <div class="account-section-heading"><div><p class="eyebrow">Suas compras</p><h2>Meus pedidos</h2></div><a class="ghost-link" href="/loja">Continuar comprando</a></div>
+            <div id="conta-pedidos" class="conta-pedidos"></div>
+            <div id="pedidos-paginacao" class="step-actions conta-paginacao" hidden><button id="pedidos-anterior" type="button">Anterior</button><span id="pedidos-pagina"></span><button id="pedidos-proximo" type="button">Proxima</button></div>
+            </section>
             <section class="tracking-card" id="meu-endereco">
-                <h2>Meu endereço</h2>
+                <div><p class="eyebrow">Entrega</p><h2>Meu endereço</h2></div>
                 <p id="endereco-resumo"></p>
                 <button type="button" id="editar-endereco" class="ghost-button">Adicionar endereço</button>
                 <form id="conta-endereco" class="form-grid conta-form hidden">
@@ -79,13 +87,8 @@
                     <div class="step-actions conta-linha-inteira"><button type="button" id="cancelar-endereco" class="ghost-button">Cancelar</button><button type="submit">Salvar meu endereço</button></div>
                 </form>
             </section>
-            <section id="meus-pedidos" class="conta-secao">
-            <h2>Meus pedidos</h2>
-            <div id="conta-pedidos" class="conta-pedidos"></div>
-            <div class="step-actions conta-paginacao"><button id="pedidos-anterior" type="button">Anterior</button><span id="pedidos-pagina"></span><button id="pedidos-proximo" type="button">Proxima</button></div>
-            </section>
             <section id="minhas-solicitacoes" class="conta-secao">
-                <h2>Minhas solicitações</h2>
+                <div><p class="eyebrow">Do Japão para você</p><h2>Minhas solicitações</h2></div>
                 <p>Acompanhe os produtos que você pediu para a loja encontrar.</p>
                 <div class="step-actions"><a class="ghost-link" href="/loja/solicitacao">Solicitar outro produto</a><button id="solicitacoes-atualizar" type="button" class="ghost-button">Atualizar solicitações</button></div>
                 <p id="solicitacoes-feedback" role="status"></p>

@@ -1,7 +1,7 @@
-import { exigirContaNaPagina, urlLoginPara } from "./conta-api.js";
+import { contaApi, exigirContaNaPagina, urlLoginPara } from "./conta-api.js";
 import { lerUltimoPedido, salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
-import { criarQuadroPix } from "./pix.js";
+import { criarQuadroPagamento } from "./pagamento.js";
 
 void aplicarConfiguracaoPublica("Acompanhamento");
 const contaAcompanhamento = await exigirContaNaPagina("acompanhamento").catch(erro => {
@@ -20,8 +20,10 @@ function atualizarAtalhoPedido() {
         pedidoIdInput.value = "";
         trackingResult.replaceChildren();
         trackingResult.classList.add("hidden");
+        document.querySelector("#ultimo-pedido-detalhes").classList.add("hidden");
         setFeedback("Atalho removido. Seu pedido continua registrado na loja.");
     });
+    document.querySelector("#ultimo-pedido-detalhes").classList.toggle("hidden", document.querySelector("#ultimo-pedido").classList.contains("hidden"));
 }
 
 const etapas = [
@@ -211,11 +213,11 @@ function renderizarPedido(pedido) {
     resumo.className = "tracking-summary";
 
     const titulo = document.createElement("div");
-    titulo.innerHTML = `
-        <p class="eyebrow">Pedido #${pedido.pedidoId}</p>
-        <h2>${pedido.mensagem}</h2>
-        <p class="tracking-meta">Cliente: ${pedido.cliente.nome} - Criado em ${formatarData(pedido.criadoEm)}</p>
-    `;
+    const numero = document.createElement("p"); numero.className = "eyebrow"; numero.textContent = "Pedido #" + pedido.pedidoId;
+    const mensagem = document.createElement("h2"); mensagem.textContent = pedido.mensagem;
+    const meta = document.createElement("p"); meta.className = "tracking-meta";
+    meta.textContent = "Criado em " + formatarData(pedido.criadoEm) + " · " + pedido.cliente.nome;
+    titulo.append(numero, mensagem, meta);
 
     const total = document.createElement("strong");
     total.className = "tracking-total";
@@ -241,11 +243,12 @@ function renderizarPedido(pedido) {
 
     const pagamento = document.createElement("article");
     pagamento.className = "tracking-card";
-    pagamento.innerHTML = `
-        <p class="eyebrow">Pagamento</p>
-        <h3>${pedido.pagamento.status}</h3>
-        <p>${pedido.pagamento.metodo ?? "Metodo ainda nao confirmado"}</p>
-    `;
+    const rotuloPagamento = document.createElement("p"); rotuloPagamento.className = "eyebrow"; rotuloPagamento.textContent = "Pagamento";
+    const tituloPagamento = document.createElement("h3");
+    tituloPagamento.textContent = pedido.pagamento.status === "aprovado" ? "Pagamento confirmado" : pedidoCancelado ? "Pedido cancelado" : "Aguardando confirmação";
+    const metodoPagamento = document.createElement("p");
+    metodoPagamento.textContent = pedido.pagamento.metodo ? "Forma de pagamento: " + pedido.pagamento.metodo : pedidoCancelado ? "Consulte a loja se precisar de ajuda com o pagamento." : "A loja confirmará o recebimento do pagamento.";
+    pagamento.append(rotuloPagamento, tituloPagamento, metodoPagamento);
 
     const itens = document.createElement("article");
     itens.className = "tracking-card";
@@ -261,7 +264,10 @@ function renderizarPedido(pedido) {
     itensLista.replaceChildren(...pedido.itens.map(criarItemPedido));
 
     itens.append(itensTitulo, itensLista);
-    detalhes.append(pagamento, criarResumoValoresPedido(pedido), itens);
+    const quadroPix = criarQuadroPagamento(pedido);
+    if (quadroPix) { quadroPix.classList.add("tracking-pix"); detalhes.append(quadroPix); }
+    else detalhes.append(pagamento);
+    detalhes.append(criarResumoValoresPedido(pedido), itens);
     if (pedido.tipoEnvio === "internacional_direto") {
         const importacao = document.createElement("article");
         importacao.className = "tracking-card";
@@ -282,12 +288,11 @@ function renderizarPedido(pedido) {
         descricao.textContent = pedido.freteTransportadora + " / " + pedido.freteServico + " - " + formatarMoeda(pedido.freteValor) + prazo + (pedido.freteAmbiente === "sandbox" ? " (SIMULACAO)" : "");
         frete.append(titulo, descricao); detalhes.append(frete);
     }
-    const quadroPix = criarQuadroPix(pedido);
-    if (quadroPix) detalhes.append(quadroPix);
+
 
     if (pedido.status === "enviado") {
         const envio = document.createElement("article");
-        envio.className = "tracking-card";
+        envio.className = "tracking-card tracking-shipment";
         const tituloEnvio = document.createElement("h3");
         tituloEnvio.textContent = "Rastreio do envio";
         const transportadora = document.createElement("p");
@@ -308,7 +313,7 @@ function renderizarPedido(pedido) {
             orientacao.textContent = "O código de rastreio ainda não foi informado. Consulte novamente mais tarde.";
             envio.append(tituloEnvio, transportadora, codigo, orientacao);
         }
-        detalhes.append(envio);
+        detalhes.prepend(envio);
     }
 
     if (Array.isArray(pedido.historico) && pedido.historico.length > 0) {
@@ -341,7 +346,13 @@ async function buscarPedido(pedidoId) {
     trackingResult.classList.add("hidden");
 
     try {
-        const pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento`);
+        let pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento`);
+        if (pedido.mercadoPago?.disponivel && pedido.mercadoPago.linkCriado) {
+            try {
+                await contaApi("/mercado-pago/pedidos/" + pedidoId + "/consultar", {});
+                pedido = await apiFetch(`/pedidos/${pedidoId}/acompanhamento`);
+            } catch { /* O botao Verificar pagamento permite tentar novamente sem esconder o pedido. */ }
+        }
         if (consulta !== consultaAcompanhamento) return;
         renderizarPedido(pedido);
         salvarUltimoPedido(pedidoId);

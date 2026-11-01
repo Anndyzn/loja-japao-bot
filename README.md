@@ -275,8 +275,18 @@ npm.cmd run verificar:deploy
 ```
 
 Esse comando confere variaveis obrigatorias, segredo do admin, dados Pix,
-configuracao de frete, valores booleanos e se `UPLOADS_DIR` pode ser
-criado/escrito. Ele nao imprime valores sensiveis.
+configuracao de frete, URL publica, e-mail de recuperacao, valores booleanos e
+se `UPLOADS_DIR` pode ser criado/escrito. Ele nao imprime valores sensiveis.
+Em producao, a recuperacao precisa estar configurada com uma origem HTTPS.
+Uma configuracao parcial de e-mail e erro tambem em desenvolvimento, pois
+impediria a API de iniciar. Com todos os campos vazios, o ambiente local
+continua funcionando e a verificacao mostra um aviso.
+
+Essa checagem nao conecta ao SMTP nem comprova entrega de e-mail, conexao ao
+banco ou persistencia das fotos. Teste a recuperacao real, /health e a
+restauracao de um backup em banco separado antes de abrir a loja.
+ADMIN_PASSWORD configura o admin inicial no seed; mudar esse valor nao altera
+a senha de um admin que ja existe. Use a tela Seguranca para trocar essa senha.
 
 Depois de configurar o banco no servidor, aplique as migrations e inicie a API:
 
@@ -331,6 +341,9 @@ versao online:
 - Usar senha admin forte, diferente de `admin123`.
 - Configurar `ADMIN_EMAIL` e `ADMIN_PASSWORD` fortes antes de usar `db:seed`.
 - Configurar `DATABASE_URL` apontando para o PostgreSQL de producao.
+- Configurar `APP_URL_PUBLICA` com HTTPS e o SMTP de recuperacao de senha.
+- Testar receber o e-mail de recuperacao e entrar com a nova senha.
+- Usar o ambiente e token de producao do Melhor Envio.
 - Garantir que `UPLOADS_DIR` seja uma pasta persistente para fotos dos produtos.
 - Configurar `PIX_CHAVE` e `PIX_RECEBEDOR` para o checkout Pix.
 - Rodar `npm run verificar:deploy`.
@@ -342,7 +355,7 @@ versao online:
 - Conferir pedido no admin, pagamento, rastreio e acompanhamento publico.
 - Testar uma solicitacao publica de produto.
 - Publicar com HTTPS.
-- Ter rotina de backup do banco.
+- Ter rotina de backup do banco e testar restauracao em um banco separado.
 
 ### Pode melhorar depois da primeira versao
 
@@ -1620,3 +1633,120 @@ Conferencia antes de usar com clientes:
 
 Testes automatizados usam remetente simulado e banco temporario; nao enviam e-mails reais.
 Referencias: [SMTP do Nodemailer](https://nodemailer.com/smtp) e [recuperacao de senha da OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html).
+
+### Dependencias do Prisma e verificacao de deploy
+
+O Prisma, cliente e adaptador PostgreSQL continuam na versao 7.10.0.
+Os comandos db:* usam o CLI instalado pelo package-lock.json. Overrides
+especificos atualizam deepmerge-ts para 8.0.2 e mysql2 para 3.24.6 na cadeia
+do Prisma, corrigindo alertas do npm audit sem migrar o ORM inteiro.
+Ao atualizar o Prisma, revisar esses overrides e repetir geracao do cliente,
+build e testes de consistencia. Nao usar npm audit fix --force sem revisar
+as mudancas de versao propostas.
+
+Teste isolado da verificacao de deploy (nao le o .env local nem envia e-mails):
+
+```bash
+node --test tests/verificar-deploy.test.mjs
+```
+
+### Mercado Pago: Checkout Pro via API de Orders (teste)
+
+A primeira integracao esta restrita a testes locais. Modo de producao ainda nao
+implementado; o servidor e verificar:deploy recusam ativa-la com NODE_ENV=production.
+Orders aceitas precisam ter identificador ORDTST; nenhuma URL de retorno confirma pagamento.
+
+Configuracao no .env (nao vai para o Git):
+
+- MERCADO_PAGO_ACCESS_TOKEN: copie da aba Teste da aplicacao. Nao usar Public Key.
+- MERCADO_PAGO_MODO: desativado (padrao) ou teste.
+- MERCADO_PAGO_URL_RETORNO: origem HTTPS temporaria, sem caminho. Opcional; vazia
+  permite abrir o checkout, mas o comprador precisa voltar ao acompanhamento manualmente.
+- MERCADO_PAGO_WEBHOOK_SECRET: assinatura secreta da configuracao de Webhooks/Teste.
+  Vazia deixa a rota de notificacoes indisponivel (503); nunca aceita eventos sem assinatura.
+
+Depois de atualizar os arquivos: npm run db:generate, npm run db:deploy, npm run build.
+Reinicie npm run dev depois de editar o .env.
+
+Comandos:
+- npm run verificar:mercadopago: consulta a conta, sem criar cobranca; nao prova sozinho
+  que o token e de teste. Confira a aba no painel, pois ambos podem comecar com APP_USR.
+- node --import tsx --test tests/mercado-pago.test.mjs: regras e assinatura, API simulada.
+- node --test tests/pagamento-loja.test.mjs: botoes e redirecionamento.
+- npm run test:consistencia: banco temporario, incluindo concorrencia e webhook simulado.
+
+Fluxo de teste:
+1. Entre na conta da loja e crie um pedido de teste.
+2. No acompanhamento, clique em Testar pagamento no Mercado Pago.
+3. Use comprador e cartao de teste indicados no painel/documentacao do Mercado Pago.
+   Nao use cartao real nem transfira dinheiro. Pix depende da disponibilidade na conta;
+   a consulta inicial com esta credencial nao listou Pix, entao isso ainda precisa ser validado.
+4. Volte a /loja/acompanhamento e abra o pedido. A tela consulta a API; tambem ha
+   o botao Verificar pagamento. So pagamento integral creditado vira pago.
+5. Confira Pagamentos e historico no admin. Cliques/notificacoes repetidos nao criam
+   segundo pagamento. Pedido pago em teste NAO pode ser marcado enviado.
+
+Rotas:
+- POST /mercado-pago/pedidos/:id/iniciar: cliente autenticado e dono do pedido, JSON vazio,
+  header X-Loja-Cliente: 1. Valores e frete sao obtidos do banco, nunca do navegador.
+- POST /mercado-pago/pedidos/:id/consultar: mesma protecao; consulta a order persistida.
+- POST /mercado-pago/webhook: assinatura HMAC, data.id e x-request-id; consulta a API
+  antes de atualizar. Ignora os valores/status enviados no corpo como prova de pagamento.
+
+Configure o evento Order (Mercado Pago), no ambiente Teste, para
+https://SEU-ENDERECO/mercado-pago/webhook. E necessario acesso HTTPS publico temporario
+ou hospedagem para entrega real das notificacoes. Isso ainda precisa ser configurado
+e validado de ponta a ponta; ter a rota pronta nao significa que eventos ja chegam.
+
+Protecoes e limites desta etapa:
+- Uma tentativa persistida por pedido, com corpo e chave de idempotencia imutaveis.
+  Timeout ou reinicio reaproveita a mesma tentativa.
+- Boleto, debito, pre-pago, saldo, ATM e moeda digital excluidos; cartao em uma parcela.
+  A API rejeitou wallet como tipo de exclusao, apesar de constar na documentacao.
+- Pedido com tentativa Mercado Pago nao aceita confirmacao de Pix manual.
+- Pix manual continua disponivel com MERCADO_PAGO_MODO=desativado em pedidos
+  que nao tenham tentativa Mercado Pago.
+- Cancelar pedido com cobranca exige primeiro cancelar a order no Mercado Pago
+  e atualizar sua situacao na loja. Nao ha botao de cancelamento remoto nesta etapa.
+- Tentativa encerrada/recusada nao gera novo link automaticamente.
+- Reembolso, contestacao, pagamento parcial ou divergencia vao para revisao;
+  pagamentos registrados deixam de contar como aprovados. Nao ha estorno nem
+  devolucao de estoque automatica nesse fluxo. Revisao exige atendimento.
+- Antes de producao: validar pagamento completo e notificacoes reais de teste, Pix,
+  reconciliacao de falhas, cancelamento/reembolso e operacao do admin.
+- Validacao tecnica em 31/10/2026: criacao, consulta e cancelamento de uma order de
+  teste de R$ 1,00 passaram na API. Nenhum pagamento foi efetuado nesse teste.
+
+Referencias: [Orders](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-orders/create-order),
+[notificacoes](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-orders/notifications)
+e [credenciais](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-orders/resources/credentials).
+
+### Receber Webhooks de teste no computador
+
+A rota existente valida HMAC e consulta a API do Mercado Pago antes de mudar o pedido.
+Para testar localmente, com cloudflared instalado no PATH:
+
+1. Deixe Docker e npm run dev rodando.
+2. Em outro terminal, rode npm run tunel:mercadopago.
+3. Copie a URL HTTPS exibida para a aplicacao no painel, Configuracao de Webhooks,
+   ambiente Teste. Marque o evento Order (Mercado Pago) e salve.
+4. Copie a assinatura secreta do painel para MERCADO_PAGO_WEBHOOK_SECRET no .env
+   e reinicie npm run dev. Nao envie a assinatura no chat nem no Git.
+5. Simule notificacao usando o orderId real (ORDTST...), nao o numero do pedido local.
+   O tunel deve registrar HTTP 200. O simulador nao comprova entrega automatica real.
+6. Para validar a entrega real, pague um novo pedido com o comprador e cartao de teste.
+   Confira no admin sem abrir acompanhamento nem clicar em Verificar pagamento.
+   Assim a consulta manual nao mascara uma falha no webhook.
+
+O tunel encaminha somente POST /mercado-pago/webhook, com limite de 64 KiB.
+As demais rotas retornam 404. Nao use esse endereco em MERCADO_PAGO_URL_RETORNO:
+o checkout e o admin continuam em localhost. A URL muda ao reiniciar o tunel;
+atualize o painel quando isso acontecer. Ctrl+C encerra o acesso temporario.
+Sem assinatura configurada, a API responde 503; assinatura invalida resulta em 401.
+Nao confirme Pix manual para pedidos Mercado Pago.
+
+No teste realizado, a compra so funcionou com o comprador de teste do Brasil
+logado no Mercado Pago, distinto do vendedor. Essa foi a verificacao observada
+localmente; o procedimento sem login da documentacao nao funcionou nesta conta.
+
+Validar o encaminhamento local: node --test tests/tunel-mercado-pago.test.mjs

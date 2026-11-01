@@ -652,3 +652,148 @@ test('cotacao explica recusa por medidas ou trecho sem expor retorno bruto do pr
         const cotacao=await requisicao();assert.equal(cotacao.opcoes.length,1);assert.equal(cotacao.opcoes[0].servico,'SEDEX');
     }finally{globalThis.fetch=original;}
 });
+
+
+// Mercado Pago: todas as respostas externas sao simuladas e o banco e descartavel.
+const {iniciarPagamentoMp,consultarPagamentoMp,resumoMercadoPago}=await import('../src/services/mercado-pago.service.ts');
+function configMpTeste(){return {token:'token-ficticio-mp',origem:'https://loja.example',segredoWebhook:'segredo-webhook-teste'};}
+function criarServidorMpSimulado() {
+    const orders=new Map(),chamadas=[];
+    const fetchMock=mock.method(globalThis,'fetch',async(url,options)=>{
+        assert.ok(url.startsWith('https://api.mercadopago.com/v1/orders'));
+        chamadas.push({url,options});
+        if(options.method==='POST'){
+            const chave=options.headers['X-Idempotency-Key'];
+            if(!orders.has(chave)){
+                const corpo=JSON.parse(options.body);
+                const id='ORDTST'+chave.replaceAll('-','').toUpperCase();
+                orders.set(chave,{id,type:'online',processing_mode:'manual',currency:'BRL',user_id:'12345',
+                    external_reference:chave,total_amount:corpo.total_amount,total_paid_amount:'0.00',status:'created',
+                    last_updated_date:'2026-10-31T10:00:00.000Z',checkout_url:'https://www.mercadopago.com.br/checkout/v1/redirect?order_id='+id});
+            }
+            return Response.json(orders.get(chave));
+        }
+        const order=[...orders.values()].find(o=>url.endsWith('/'+o.id));
+        assert.ok(order,'Consulta de order conhecida');
+        return Response.json(order);
+    });
+    return {orders,chamadas,restaurar:()=>fetchMock.mock.restore()};
+}
+function aprovarOrderTeste(order){
+    order.status='processed';order.status_detail='accredited';order.total_paid_amount=order.total_amount;
+    order.last_updated_date='2026-10-31T10:01:00.000Z';
+    order.transactions={payments:[{id:'PAY'+order.id.slice(6),amount:order.total_amount,paid_amount:order.total_amount,
+        status:'processed',status_detail:'accredited',payment_method:{type:'credit_card',id:'visa'}}]};
+}
+test('MP cria uma tentativa por pedido, soma frete e protege dono, Pix manual e envio',async()=>{
+    const anterior=env.MERCADO_PAGO;env.MERCADO_PAGO=configMpTeste();const mp=criarServidorMpSimulado();
+    try {
+        const {id,p}=await fixture();
+        await assert.rejects(iniciarPagamentoMp(id,cliente.id+100000),/nao encontrado/);
+        assert.equal(mp.chamadas.length,0);
+        const respostas=await Promise.all([iniciarPagamentoMp(id,cliente.id),iniciarPagamentoMp(id,cliente.id)]);
+        assert.equal(respostas[0].url,respostas[1].url);
+        assert.equal(mp.orders.size,1);
+        assert.equal((await resumoMercadoPago(id)).linkCriado,true);
+        assert.equal(await prisma.cobrancaMercadoPago.count({where:{pedidoId:id}}),1);
+        const corpo=JSON.parse(mp.chamadas[0].options.body);
+        assert.equal(corpo.total_amount,'28.75');assert.equal(corpo.items[1].title,'Frete');
+        assert.equal(corpo.items[1].unit_price,'18.75');assert.ok(corpo.config.payment_method.not_allowed_types.includes('ticket'));
+        assert.equal(corpo.config.online.success_url,'https://loja.example/loja/acompanhamento?pedido='+id);
+        assert.ok((await pagar(id,'pix')).mensagemErro.includes('Mercado Pago'));
+        assert.ok((await status(id,'cancelado')).mensagemErro.includes('Mercado Pago'));
+        assert.equal((await estado(id)).status,'pendente');assert.equal(await estoque(p),4);
+        await assert.rejects(consultarPagamentoMp(id,cliente.id+100000),/nao encontrado/);
+        const ordem=[...mp.orders.values()][0];aprovarOrderTeste(ordem);
+        await Promise.all([consultarPagamentoMp(id,cliente.id),consultarPagamentoMp(id,cliente.id)]);
+        const pedido=await estado(id);
+        assert.equal(pedido.status,'pago');assert.equal(pedido.pagamentos.length,1);
+        assert.equal(pedido.pagamentos[0].metodo,'cartao');assert.equal(Number(pedido.pagamentos[0].valor),28.75);
+        assert.equal(pedido.historico.filter(h=>h.status==='pago').length,1);
+        assert.ok((await status(id,'enviado')).mensagemErro.includes('TESTE'));
+    } finally {mp.restaurar();env.MERCADO_PAGO=anterior;}
+});
+test('MP timeout preserva chave e corpo para retentar; pago/cancelado nao criam cobranca',async()=>{
+    const anterior=env.MERCADO_PAGO;env.MERCADO_PAGO=configMpTeste();
+    const f=await fixture();let primeiroCorpo,primeiraChave;
+    const falha=mock.method(globalThis,'fetch',async(_url,options)=>{primeiroCorpo=options.body;primeiraChave=options.headers['X-Idempotency-Key'];throw Error('timeout');});
+    try {await assert.rejects(iniciarPagamentoMp(f.id,cliente.id),/nao respondeu/);}
+    finally {falha.mock.restore();}
+    const mp=criarServidorMpSimulado();
+    try {
+        await iniciarPagamentoMp(f.id,cliente.id);
+        assert.equal(mp.chamadas[0].options.body,primeiroCorpo);
+        assert.equal(mp.chamadas[0].options.headers['X-Idempotency-Key'],primeiraChave);
+        for(const encerramento of ['pago','cancelado']){
+            const novo=await fixture();
+            if(encerramento==='pago')await pagar(novo.id,'pix');else await status(novo.id,'cancelado');
+            await assert.rejects(iniciarPagamentoMp(novo.id,cliente.id),/nao esta disponivel/);
+            assert.equal(await prisma.cobrancaMercadoPago.count({where:{pedidoId:novo.id}}),0);
+        }
+    } finally {mp.restaurar();env.MERCADO_PAGO=anterior;}
+});
+test('MP nao aprova pendente, parcial, order divergente, vendedor ou moeda errados',async()=>{
+    const anterior=env.MERCADO_PAGO;env.MERCADO_PAGO=configMpTeste();const mp=criarServidorMpSimulado();
+    try {
+        const {id}=await fixture();await iniciarPagamentoMp(id,cliente.id);const ordem=[...mp.orders.values()][0];
+        await consultarPagamentoMp(id,cliente.id);assert.equal((await estado(id)).status,'pendente');
+        const original=structuredClone(ordem);aprovarOrderTeste(ordem);
+        for(const [campo,valor] of [['currency','USD'],['total_amount','0.01'],['external_reference','outro'],['user_id','987'],['live_mode',true]]){
+            const guardado=ordem[campo];ordem[campo]=valor;
+            await assert.rejects(consultarPagamentoMp(id,cliente.id));assert.equal((await estado(id)).pagamentos.length,0);
+            if(guardado===undefined)delete ordem[campo];else ordem[campo]=guardado;
+        }
+        ordem.total_paid_amount='1.00';await consultarPagamentoMp(id,cliente.id);
+        assert.equal((await estado(id)).status,'pendente');assert.equal((await estado(id)).pagamentos.length,0);
+        assert.equal((await prisma.cobrancaMercadoPago.findUniqueOrThrow({where:{pedidoId:id}})).revisao,true);
+    } finally {mp.restaurar();env.MERCADO_PAGO=anterior;}
+});
+test('MP reembolso/contestacao bloqueia aprovacao anterior sem devolver estoque automaticamente',async()=>{
+    const anterior=env.MERCADO_PAGO;env.MERCADO_PAGO=configMpTeste();const mp=criarServidorMpSimulado();
+    try {
+        const {id,p}=await fixture();await iniciarPagamentoMp(id,cliente.id);const ordem=[...mp.orders.values()][0];
+        aprovarOrderTeste(ordem);await consultarPagamentoMp(id,cliente.id);
+        ordem.status='refunded';ordem.status_detail='refunded';ordem.last_updated_date='2026-10-31T10:02:00Z';
+        await consultarPagamentoMp(id,cliente.id);await consultarPagamentoMp(id,cliente.id);
+        const pedido=await estado(id);assert.equal(pedido.pagamentos[0].status,'em_revisao');
+        assert.equal(pedido.pagamentos.length,1);assert.equal(await estoque(p),4);
+        assert.equal(pedido.historico.filter(h=>h.descricao.includes('precisa de revisao')).length,1);
+        aprovarOrderTeste(ordem);await consultarPagamentoMp(id,cliente.id); // resposta mais antiga nao desfaz revisao
+        assert.equal((await estado(id)).pagamentos[0].status,'em_revisao');
+    } finally {mp.restaurar();env.MERCADO_PAGO=anterior;}
+});
+test('webhook MP exige assinatura e consulta API; corpo forged nao confirma pagamento',async()=>{
+    const {default:express}=await import('express');
+    const {createHmac}=await import('node:crypto');
+    const {mercadoPagoRoutes}=await import('../src/routes/mercado-pago.routes.ts');
+    const anterior=env.MERCADO_PAGO;env.MERCADO_PAGO=configMpTeste();const mp=criarServidorMpSimulado();
+    const {id}=await fixture();await iniciarPagamentoMp(id,cliente.id);const ordem=[...mp.orders.values()][0];
+    // Captura fetch original para chamadas HTTP locais, mantendo a API externa simulada.
+    const apiFetch=globalThis.fetch;mp.restaurar();
+    const realFetch=globalThis.fetch;
+    const interceptar=mock.method(globalThis,'fetch',(url,options)=>String(url).startsWith('http://127.0.0.1:')?realFetch(url,options):apiFetch(url,options));
+    const app=express();app.use(express.json());app.use('/mercado-pago',mercadoPagoRoutes);
+    const servidor=app.listen(0,'127.0.0.1');await new Promise(resolve=>servidor.once('listening',resolve));
+    const base='http://127.0.0.1:'+servidor.address().port+'/mercado-pago';
+    try {
+        const requestId='req-webhook-123',ts='1793455200000';
+        const assinatura='ts='+ts+',v1='+createHmac('sha256',env.MERCADO_PAGO.segredoWebhook)
+            .update('id:'+ordem.id.toLowerCase()+';request-id:'+requestId+';ts:'+ts+';').digest('hex');
+        const enviar=(assinaturaAtual,bodyId=ordem.id)=>realFetch(base+'/webhook?data.id='+ordem.id,{
+            method:'POST',headers:{'Content-Type':'application/json','x-signature':assinaturaAtual,'x-request-id':requestId},
+            body:JSON.stringify({type:'order',live_mode:false,data:{id:bodyId,status:'processed',status_detail:'accredited'}})
+        });
+        assert.equal((await enviar('errada')).status,401);
+        assert.equal((await enviar(assinatura,ordem.id+'A')).status,400);
+        assert.equal((await enviar(assinatura)).status,200);
+        assert.equal((await estado(id)).status,'pendente');
+        aprovarOrderTeste(ordem);
+        assert.equal((await enviar(assinatura)).status,200);
+        assert.equal((await enviar(assinatura)).status,200);
+        assert.equal((await estado(id)).pagamentos.length,1);
+        assert.equal((await realFetch(base+'/pedidos/'+id+'/iniciar',{method:'POST',headers:{'Content-Type':'application/json','X-Loja-Cliente':'1'},body:'{}'})).status,401);
+    } finally {
+        servidor.closeAllConnections();await new Promise(resolve=>servidor.close(resolve));
+        interceptar.mock.restore();env.MERCADO_PAGO=anterior;
+    }
+});

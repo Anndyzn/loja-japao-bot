@@ -3,9 +3,16 @@ import { instalarBuscaCep, camposEnderecoConta, enderecoCompleto } from "./ender
 import { obterContaCliente } from "./conta-api.js";
 import { salvarUltimoPedido, montarAtalhoUltimoPedido } from "./pedido-sessao.js";
 import { aplicarConfiguracaoPublica } from "./configuracao.js";
-import { criarQuadroPix } from "./pix.js";
+import { criarQuadroPagamento } from "./pagamento.js";
 
-void aplicarConfiguracaoPublica("Carrinho");
+void aplicarConfiguracaoPublica("Carrinho").then(config => {
+    if (config.pagamento?.mercadoPagoTeste) {
+        const opcao = document.querySelector('[name="metodo"] option');
+        opcao.textContent = "Mercado Pago (teste): Pix ou cartao";
+        opcao.value = "mercado_pago";
+        document.querySelector("#pagamento-orientacao").textContent = "Ao finalizar, abra o Mercado Pago para testar o pagamento. Nao use dinheiro ou cartao real.";
+    }
+});
 
 let contaClienteAtual = null;
 let tentativaCheckout = null;
@@ -377,7 +384,7 @@ function renderizarPedidoCriado(pedido) {
     orderNumber.textContent = `Pedido #${pedido.id}`;
     const status = pedido.status === "pendente" ? "Aguardando pagamento" : pedido.status;
     orderStatus.textContent = `${status} - produtos ${formatarMoeda(pedido.subtotalProdutos)} + frete ${formatarMoeda(pedido.freteValor)} = ${formatarMoeda(pedido.total)}. ${pedido.freteTransportadora} / ${pedido.freteServico}: ${pedido.fretePrazoDias} dias uteis apos postagem.${pedido.freteAmbiente === "sandbox" ? " SIMULACAO DE FRETE." : ""}`;
-    const quadroPix = criarQuadroPix(pedido);
+    const quadroPix = criarQuadroPagamento(pedido);
     document.querySelector("#order-pix").replaceChildren(...(quadroPix ? [quadroPix] : []));
     trackingLink.href = `/loja/acompanhamento?pedido=${pedido.id}`;
     trackingLink.textContent = `Acompanhar pedido #${pedido.id}`;
@@ -424,7 +431,7 @@ function concluirPedidoCheckout(pedido) {
     checkoutForm.reset();
     renderizarPedidoCriado(pedido);
     definirEtapa("acompanhamento");
-    setFeedback(`Pedido ${pedido.id} ${pedido.reutilizado ? "recuperado" : "criado"}. ${pedido.status === "pendente" ? "Aguardando pagamento e confirmacao da loja." : "Confira o status atualizado no acompanhamento."}` +
+    setFeedback(`Pedido ${pedido.id} ${pedido.reutilizado ? "recuperado" : "criado"}. ${pedido.status === "pendente" ? "Aguardando pagamento. Confira as instrucoes abaixo." : "Confira o status atualizado no acompanhamento."}` +
         (!atalhoSalvo || !carrinhoSalvo ? " Anote o numero do pedido: o navegador nao conseguiu salvar todos os dados desta sessao. Nao refaca a compra." : ""), "success");
     if (carrinhoSalvo) tentativaCheckout.concluir();
 }

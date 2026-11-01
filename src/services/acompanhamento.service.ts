@@ -1,3 +1,4 @@
+import { resumoMercadoPago } from "./mercado-pago.service.js";
 import type { StatusPedido } from "../../generated/prisma/client.js";
 import { prisma } from "../lib/prisma.js";
 import { obterPixManual } from "./pix.service.js";
@@ -65,10 +66,12 @@ export async function obterAcompanhamentoPedido(pedidoId: number, clienteAutenti
 
     const pagamentoAprovado = pedido.pagamentos.find((pagamento) => pagamento.status === "aprovado");
 
+    const mercadoPago = await resumoMercadoPago(pedido.id);
     const acompanhamento = {
+        mercadoPago,
         pedidoId: pedido.id,
         status: pedido.status,
-        mensagem: obterMensagemAcompanhamento(pedido.status),
+        mensagem: mercadoPago.revisao ? "Pagamento em revisao. Fale com a loja antes de continuar." : obterMensagemAcompanhamento(pedido.status),
         pix: obterPixManual(pagamentoAprovado ? undefined : pedido.status),
         rastreio: pedido.status === "enviado" && pedido.transportadora && pedido.codigoRastreio
             ? { transportadora: pedido.transportadora, codigo: pedido.codigoRastreio }
@@ -85,7 +88,7 @@ export async function obterAcompanhamentoPedido(pedidoId: number, clienteAutenti
                 criadoEm: pagamentoAprovado.criadoEm.toISOString()
             }
             : {
-                status: "pendente",
+                status: mercadoPago.revisao ? "em_revisao" : "pendente",
                 metodo: null,
                 valor: Number(pedido.total),
                 criadoEm: null

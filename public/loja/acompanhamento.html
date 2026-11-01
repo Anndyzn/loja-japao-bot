@@ -6,7 +6,7 @@
     <title>Acompanhamento | HK Nippon store</title>
     <link rel="stylesheet" href="/loja/styles.css">
 </head>
-<body>
+<body class="order-page">
     <main class="tracking-page">
         <header class="store-topbar checkout-topbar">
             <a class="brand-link" href="/loja">
@@ -22,12 +22,10 @@
         <section class="tracking-shell">
             <div class="tracking-heading">
                 <p class="eyebrow">Acompanhamento</p>
-                <h1>Consulte seu pedido</h1>
+                <h1>Acompanhe seu pedido</h1>
             </div>
 
-            <aside id="ultimo-pedido" class="ultimo-pedido hidden" aria-label="Ultimo pedido nesta sessao"></aside>
-
-            <p>Consulte o numero do pedido ou veja sua lista em <a href="/loja/conta">Minha conta / Entrar</a></p>
+            <p class="tracking-intro">Confira o pagamento e cada etapa da entrega. <a href="/loja/conta#meus-pedidos">Ver meus pedidos</a></p>
             <form id="tracking-form" class="tracking-form hidden">
                 <label>
                     Numero do pedido
@@ -36,6 +34,11 @@
 
                 <button type="submit">Buscar pedido</button>
             </form>
+
+            <details id="ultimo-pedido-detalhes" class="tracking-shortcut hidden">
+                <summary>Atalho do último pedido neste navegador</summary>
+            <aside id="ultimo-pedido" class="ultimo-pedido hidden" aria-label="Ultimo pedido nesta sessao"></aside>
+            </details>
 
             <section id="tracking-result" class="tracking-result hidden"></section>
             <p id="tracking-feedback" class="feedback" role="status"></p>

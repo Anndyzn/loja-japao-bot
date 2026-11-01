@@ -237,6 +237,47 @@ function validarFrete() {
     else oks.push("Frete configurado para consultar o ambiente de producao");
 }
 
+function validarRecuperacaoSenha() {
+    const producao = obterVariavel("NODE_ENV") === "production";
+    const nomes = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_REMETENTE", "APP_URL_PUBLICA"];
+    const configuracaoIniciada = nomes.some(nome => obterVariavel(nome));
+
+    if (!configuracaoIniciada) {
+        const mensagem = "Recuperacao de senha indisponivel: configure APP_URL_PUBLICA e SMTP antes de publicar";
+        (producao ? erros : avisos).push(mensagem);
+        return;
+    }
+
+    // A API exige todos esses campos quando qualquer um deles foi informado.
+    for (const nome of nomes) {
+        if (!obterVariavel(nome)) erros.push(nome + " deve ser configurada para recuperar senhas por e-mail");
+    }
+
+    const porta = Number(obterVariavel("SMTP_PORT") || "587");
+    if (![465, 587].includes(porta)) erros.push("SMTP_PORT deve ser 465 (TLS) ou 587 (STARTTLS)");
+
+    const remetente = obterVariavel("SMTP_REMETENTE");
+    if (remetente && !/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(remetente)) {
+        erros.push("SMTP_REMETENTE deve conter apenas um e-mail valido");
+    }
+
+    const origem = obterVariavel("APP_URL_PUBLICA");
+    if (origem) {
+        try {
+            const url = new URL(origem);
+            if (url.username || url.password || url.search || url.hash || url.pathname !== "/" ||
+                !["https:", "http:"].includes(url.protocol) || (producao && url.protocol !== "https:")) {
+                erros.push("APP_URL_PUBLICA deve ser a origem da loja, sem caminho, usuario ou parametros; HTTPS e obrigatorio em producao");
+            } else {
+                oks.push("APP_URL_PUBLICA tem formato valido");
+            }
+        } catch {
+            erros.push("APP_URL_PUBLICA deve ser uma URL valida");
+        }
+    }
+    avisos.push("SMTP: esta verificacao confere a configuracao, sem enviar e-mail. Teste a recuperacao na hospedagem antes de abrir a loja.");
+}
+
 function validarCorHex(nome) {
     const valor = obterVariavel(nome);
 
@@ -335,12 +376,16 @@ function imprimirResultado() {
 }
 
 carregarEnv();
+if (obterVariavel("MERCADO_PAGO_MODO") && obterVariavel("MERCADO_PAGO_MODO") !== "desativado" && obterVariavel("NODE_ENV") === "production") {
+    erros.push("Mercado Pago de teste nao pode ser ativado em producao. Validar a integracao antes de publicar.");
+}
 validarAmbiente();
 validarDatabaseUrl();
 validarSegredo();
 validarAdminInicial();
 validarPixManual();
 validarFrete();
+validarRecuperacaoSenha();
 validarConfiguracaoPublicaLoja();
 validarBooleano("TRUST_PROXY");
 validarBooleano("LOG_REQUESTS");

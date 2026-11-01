@@ -1,3 +1,4 @@
+import { resumoMercadoPago } from "../services/mercado-pago.service.js";
 import { normalizarCpf, validarCpf } from "../utils/cpf.js";
 import type { Request, Response } from "express";
 import type { DadosCriacaoCliente } from "../services/clientes.service.js";
@@ -12,7 +13,7 @@ export async function recuperarCheckout(req: Request, res: Response) {
     if (!chaveValida(chave)) return res.status(400).json({ mensagem: "Identificador da compra inválido" });
     const pedido = await obterPedidoDaTentativa(res.locals.clienteId as number, chave);
     if (!pedido) return res.status(404).json({ mensagem: "Esta tentativa ainda não tem pedido registrado" });
-    return res.json({ ...pedido, pix: obterPixManual(pedido.status), reutilizado: true });
+    return res.json({ ...pedido, mercadoPago: await resumoMercadoPago(pedido.id), pix: obterPixManual(pedido.status), reutilizado: true });
 }
 
 export async function finalizarCheckout(req: Request, res: Response) {
@@ -56,5 +57,5 @@ export async function finalizarCheckout(req: Request, res: Response) {
     const resultado = await criarPedidoDaConta(res.locals.clienteId as number, dados, itens,
         typeof observacao === "string" ? observacao.trim() : undefined, freteToken, chave, enderecoEntrega);
     if (resultado.mensagemErro) return res.status(resultado.statusHttp ?? 400).json({ mensagem: resultado.mensagemErro });
-    return res.status(resultado.reutilizado ? 200 : 201).json({ ...resultado.pedido, reutilizado: resultado.reutilizado, pix: obterPixManual(resultado.pedido?.status) });
+    return res.status(resultado.reutilizado ? 200 : 201).json({ ...resultado.pedido, mercadoPago: resultado.pedido ? await resumoMercadoPago(resultado.pedido.id) : null, reutilizado: resultado.reutilizado, pix: obterPixManual(resultado.pedido?.status) });
 }

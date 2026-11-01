@@ -1,3 +1,4 @@
+import { lerConfiguracaoMercadoPago } from "./mercado-pago.js";
 import { lerConfiguracaoEmail } from "./email.js";
 const SEGREDO_LOCAL = "segredo-local-de-desenvolvimento";
 const SEGREDOS_PROIBIDOS_PRODUCAO = new Set([
@@ -130,6 +131,7 @@ const nodeEnv = process.env.NODE_ENV?.trim() || "development";
 const producao = nodeEnv === "production";
 
 export const env = {
+    MERCADO_PAGO: lerConfiguracaoMercadoPago(process.env),
     EMAIL_RECUPERACAO: lerConfiguracaoEmail(process.env, producao),
     NODE_ENV: nodeEnv,
     IS_PRODUCTION: producao,

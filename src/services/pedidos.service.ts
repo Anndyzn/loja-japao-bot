@@ -809,6 +809,11 @@ export async function atualizarStatusPedidoPorId(
             return { mensagemErro: "Use a confirmacao de recebimento do Pix para registrar o pagamento" };
         }
 
+        const cobrancaMp = await tx.cobrancaMercadoPago.findUnique({ where: { pedidoId: id } });
+        if (cobrancaMp && status === "enviado") return { mensagemErro: "Pagamento Mercado Pago de TESTE: nao enviar mercadoria real." };
+        if (cobrancaMp && status === "cancelado" && cobrancaMp.status !== "canceled")
+            return { mensagemErro: "Cancele a cobranca no Mercado Pago e atualize o pagamento no acompanhamento antes de cancelar o pedido." };
+
         // Repetir cancelamento ou envio nao repete estoque nem historico.
         if (pedido.status === status) return { pedido: formatarPedido(pedido) };
 
